@@ -3,196 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creative Rarities | نوادر إبداعية</title>
+    <title>Creative Rarities | Products</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        :root {
-            --bg-color: #f7e3af; /* Light yellow/creamy background */
-            --header-bg: #ffffff;
-            --button-bg: #f5e1b5;
-            --text-main: #333333;
-            --text-sub: #666666;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 480px; /* Standard phone width */
-            text-align: center;
-            padding-bottom: 40px;
-        }
-
-        /* Top white section with curve */
-        .header-section {
-            background-color: var(--header-bg);
-            padding: 40px 20px 30px;
-            border-bottom-left-radius: 50% 10%;
-            border-bottom-right-radius: 50% 10%;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-
-        .profile-img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background-color: #eee;
-            margin-bottom: 15px;
-            border: 2px solid #ddd;
-            object-fit: cover;
-        }
-
-        h1 {
-            font-size: 24px;
-            color: var(--text-main);
-            margin-bottom: 5px;
-        }
-
-        .arabic-title {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 15px;
-        }
-
-        .bio {
-            font-size: 14px;
-            color: var(--text-sub);
-            line-height: 1.4;
-            max-width: 80%;
-            margin: 0 auto 20px;
-        }
-
-        /* Social Icons */
-        .social-icons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-
-        .social-icons a {
-            text-decoration: none;
-            font-size: 20px;
-            color: #4a4a4a;
-            transition: transform 0.2s;
-        }
-
-        .social-icons a:hover {
-            transform: scale(1.1);
-        }
-
-        /* Specific colors for icons to match your image */
-        .fa-facebook { color: #1877F2; }
-        .fa-whatsapp { color: #25D366; }
-        .fa-envelope { color: #EA4335; }
-        .fa-instagram { color: #C13584; }
-
-        /* Links Section */
-        .links-list {
-            padding: 0 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .link-card {
-            background-color: var(--button-bg);
-            text-decoration: none;
-            color: var(--text-main);
-            padding: 15px;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: background 0.2s, transform 0.2s;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .link-card:hover {
-            background-color: #f0d8a0;
-            transform: translateY(-2px);
-        }
-
-        .link-title {
-            font-weight: 500;
-            font-size: 16px;
-        }
-
-        .link-id {
-            font-size: 12px;
-            color: var(--text-sub);
-            margin-top: 4px;
-            text-transform: uppercase;
-        }
+        /* (Same CSS as before) */
+        :root { --bg-color: #f7e3af; --header-bg: #ffffff; --button-bg: #f5e1b5; --text-main: #333333; --text-sub: #666666; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: var(--bg-color); display: flex; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 480px; text-align: center; padding-bottom: 40px; }
+        .header-section { background-color: var(--header-bg); padding: 40px 20px 30px; border-bottom-left-radius: 50% 10%; border-bottom-right-radius: 50% 10%; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .profile-img { width: 100px; height: 100px; border-radius: 50%; background-color: #eee; margin-bottom: 15px; border: 2px solid #ddd; object-fit: cover; }
+        .links-list { padding: 0 20px; display: flex; flex-direction: column; gap: 12px; }
+        .link-card { background-color: var(--button-bg); text-decoration: none; color: var(--text-main); padding: 15px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .link-title { font-weight: 500; font-size: 16px; }
+        .link-id { font-size: 12px; color: var(--text-sub); margin-top: 4px; text-transform: uppercase; }
+        .loading { padding: 20px; color: var(--text-sub); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header-section">
-        <img src="logo.png" alt="Creative Rarities Logo" class="profile-img">
-        
+        <img src="logo.png" alt="Logo" class="profile-img">
         <h1>Creative Rarities</h1>
-        <div class="arabic-title">نوادر إبداعية</div>
-        
-        <p class="bio">
-            We offer creative pieces and smart solutions designed to meet your daily needs.
-        </p>
-
-        <div class="social-icons">
-            <a href="#"><i class="fab fa-facebook"></i></a>
-            <a href="#"><i class="fab fa-whatsapp"></i></a>
-            <a href="mailto:your@email.com"><i class="fas fa-envelope"></i></a>
-            <a href="#"><i class="fab fa-instagram"></i></a>
+        <div class="links-list" id="links-container">
+            <p class="loading">Loading products...</p>
         </div>
     </div>
-
-    <div class="links-list">
-        <a href="#" class="link-card">
-            <span class="link-title">The Rainscape Planter</span>
-            <span class="link-id">TRND-1225-129</span>
-        </a>
-
-        <a href="#" class="link-card">
-            <span class="link-title">Whimsical Cat Self-Draining Soap Dish</span>
-            <span class="link-id">TLS-1226-01-127</span>
-        </a>
-
-        <a href="#" class="link-card">
-            <span class="link-title">Levitating Teapot Backflow Incense Fountain</span>
-            <span class="link-id">TLS-1226-01-126</span>
-        </a>
-
-        <a href="#" class="link-card">
-            <span class="link-title">Minimalist Rotating Loop Perpetual Calendar</span>
-            <span class="link-id">TLS-1226-01-125</span>
-        </a>
-
-        <a href="#" class="link-card">
-            <span class="link-title">Naturalistic Wall-mounted turtle basking platform</span>
-            <span class="link-id">PTSTLS-1225-122</span>
-        </a>
-
-        <a href="#" class="link-card">
-            <span class="link-title">Aquatic Voronoi Shrimp Cave</span>
-            <span class="link-id">PTSTLS-1225-121</span>
-        </a>
-    </div>
 </div>
+
+<script>
+    // PASTE YOUR PUBLISHED CSV URL HERE
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1XN_YEm4GGp0Lq3h1DxNfVaSHd7-F_xja/pub?output=csv';
+
+    async function loadProducts() {
+        try {
+            const response = await fetch(SHEET_URL);
+            const data = await response.text();
+            const rows = data.split('\n').slice(1); // Skip header row
+            const container = document.getElementById('links-container');
+            container.innerHTML = ''; // Clear loading message
+
+            rows.forEach(row => {
+                const columns = row.split(',');
+                // Column B (index 1) is product name, Column C (index 2) is No
+                const name = columns[1]?.replace(/"/g, ''); 
+                const id = columns[2]?.replace(/"/g, '');
+                const link = columns[12]?.replace(/"/g, ''); // Column M (index 12) is the Document Link
+
+                if (name && id) {
+                    const card = `
+                        <a href="${link || '#'}" class="link-card" target="_blank">
+                            <span class="link-title">${name}</span>
+                            <span class="link-id">${id}</span>
+                        </a>`;
+                    container.innerHTML += card;
+                }
+            });
+        } catch (error) {
+            console.error('Error loading sheet:', error);
+            document.getElementById('links-container').innerHTML = '<p>Error loading product list.</p>';
+        }
+    }
+
+    loadProducts();
+</script>
 
 </body>
 </html>
