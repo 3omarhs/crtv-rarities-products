@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PricePulse Store</title>
-    <meta name="description" content="Official PricePulse store. Track and purchase high-value assets and accessories.">
+    <title>Creative Rarities Store</title>
+    <meta name="description" content="Official Creative Rarities store. Discover unique and premium products.">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,6 +18,9 @@
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- Fuse.js for Smart Search -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.1.0/fuse.min.js"></script>
+
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -27,8 +30,8 @@
     <header>
         <div class="container header-content">
             <img src="logo.png" alt="PricePulse Logo" class="brand-logo" onerror="this.style.display='none'">
-            <h1>Price<span class="gradient-text">Pulse</span> Store</h1>
-            <p>Verified market assets and premium accessories.</p>
+            <h1>Creative <span class="gradient-text">Rarities</span> Store</h1>
+            <p>Discover unique and premium products.</p>
         </div>
     </header>
 
@@ -41,7 +44,23 @@
         <div id="controls" class="controls-container hidden">
             <div class="search-wrapper">
                 <i data-lucide="search" class="search-icon"></i>
-                <input type="text" id="search-input" placeholder="Search products by name or number...">
+                <input type="text" id="search-input"
+                    placeholder="Smart search: name, category, price, item number (Arabic & English)...">
+            </div>
+            <div class="sort-wrapper">
+                <label for="sort-select"
+                    style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Sort by:</label>
+                <select id="sort-select" class="sort-select">
+                    <option value="default">Default</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                    <option value="price-asc">Price (Low-High)</option>
+                    <option value="price-desc">Price (High-Low)</option>
+                    <option value="category-asc">Category (A-Z)</option>
+                    <option value="category-desc">Category (Z-A)</option>
+                    <option value="arabic-asc">Arabic Name (أ-ي)</option>
+                    <option value="arabic-desc">Arabic Name (ي-أ)</option>
+                </select>
             </div>
             <div class="stats" id="product-count"></div>
         </div>
@@ -57,7 +76,7 @@
     </main>
 
     <footer>
-        <p>&copy; 2026 Product Promo. Powered by live data.</p>
+        <p>&copy; 2026 Creative Rarities. Powered by 3omar.hs</p>
     </footer>
 
     <script src="drive-images.js"></script>
