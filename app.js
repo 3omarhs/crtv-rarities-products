@@ -11,6 +11,7 @@ const controlsEl = document.getElementById('controls');
 const searchInput = document.getElementById('search-input');
 const sortSelect = document.getElementById('sort-select');
 const productCountEl = document.getElementById('product-count');
+const backToTopBtn = document.getElementById('back-to-top');
 
 let allProducts = [];
 let fuse = null;
@@ -32,6 +33,7 @@ async function init() {
         processData(data);
         setupSearch();
         setupSort();
+        setupBackToTop();
     } catch (err) {
         showError(err.message);
     }
@@ -68,17 +70,12 @@ function extractDriveId(url) {
     let match = url.match(/\/(?:file\/)?d\/([a-zA-Z0-9_-]+)/);
     if (match) return match[1];
 
-    // Pattern 2: id=ID or ?id=ID
+    // Pattern 2: id=ID or ?id=ID or uc?id=ID or open?id=ID
     match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (match) return match[1];
 
-    // Pattern 3: /open?id=ID
-    match = url.match(/\/open\?id=([a-zA-Z0-9_-]+)/);
-    if (match) return match[1];
-
-    // Pattern 4: uc?id=ID (direct download links)
-    match = url.match(/uc\?id=([a-zA-Z0-9_-]+)/);
-    if (match) return match[1];
+    // Pattern 3: direct ID (if the whole string looks like an ID)
+    if (url.length > 20 && /^[a-zA-Z0-9_-]+$/.test(url)) return url;
 
     return null;
 }
@@ -147,7 +144,7 @@ function processData(data) {
         };
 
         return product;
-    }).filter(p => p.name); // Filter empty names
+    }).filter(p => p.name).reverse(); // Filter empty names and REVERSE to show latest first
 
     // Initialize Fuse.js
     const fuseOptions = {
@@ -175,7 +172,7 @@ function processData(data) {
 }
 
 let currentlyRendered = 0;
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 10;
 let currentProducts = [];
 
 function renderProducts(products) {
@@ -200,25 +197,41 @@ function renderProducts(products) {
 
 function renderBatch() {
     const end = Math.min(currentlyRendered + BATCH_SIZE, currentProducts.length);
+    const batch = currentProducts.slice(currentlyRendered, end);
 
-    for (let i = currentlyRendered; i < end; i++) {
-        const card = createCard(currentProducts[i], i);
-        productGrid.appendChild(card);
-    }
+    // Staggered loading: Add cards one by one with a tiny delay to avoid hitting Google's rate limit
+    batch.forEach((product, index) => {
+        setTimeout(() => {
+            const card = createCard(product, currentlyRendered + index);
+            productGrid.appendChild(card);
 
-    currentlyRendered = end;
+            // Re-observe if this is the last item in the batch
+            if (index === batch.length - 1) {
+                currentlyRendered = end;
+                if (window.lucide) lucide.createIcons();
+                setupSentinel();
+            }
+        }, index * 150); // 150ms gap between each card
+    });
+}
 
-    if (window.lucide) {
-        lucide.createIcons();
-    }
+function setupSentinel() {
+    // Remove old sentinel
+    const oldSentinel = document.getElementById('lazy-load-sentinel');
+    if (oldSentinel) oldSentinel.remove();
 
-    // Add sentinel if there are more items to load
+    // Add new sentinel if needed
     if (currentlyRendered < currentProducts.length) {
         const sentinel = document.createElement('div');
         sentinel.id = 'lazy-load-sentinel';
         sentinel.style.gridColumn = '1/-1';
-        sentinel.style.height = '1px';
+        sentinel.style.height = '60px';
+        sentinel.style.margin = '2rem 0';
         productGrid.appendChild(sentinel);
+
+        if (lazyLoadObserver) {
+            lazyLoadObserver.observe(sentinel);
+        }
     }
 }
 
@@ -241,7 +254,7 @@ function setupLazyLoading() {
             }
         });
     }, {
-        rootMargin: '200px' // Start loading 200px before reaching the sentinel
+        rootMargin: '400px' // Increased margin to start loading earlier
     });
 
     const sentinel = document.getElementById('lazy-load-sentinel');
@@ -260,42 +273,58 @@ function createCard(product, uiIndex) {
         article.style.cursor = 'pointer';
         article.title = "View Document";
         article.addEventListener('click', (e) => {
-            // Prevent navigation if clicking the copy button or its children
             if (e.target.closest('.copy-btn')) return;
             window.open(product.link, '_blank');
         });
     }
 
-    // Image Handling: Use the PDF's first page thumbnail from the Document Link
-    const imgId = `img-${product.index}`;
-    let imageSrc = 'baseImage.png';
+    // Advanced Image Strategy
     let driveId = null;
+    let directImageSrc = null;
 
-    if (product.link) {
-        driveId = extractDriveId(product.link);
-        if (driveId) {
-            // Use Google Drive thumbnail endpoint which generates a preview of the first page of the PDF
-            imageSrc = `https://drive.google.com/thumbnail?id=${driveId}&sz=w800`;
-        } else {
-            console.warn(`Could not extract Drive ID from link for product: ${product.name}`, product.link);
+    // 1. Try Image column (could be a Drive Link or a Direct URL)
+    if (product.image) {
+        driveId = extractDriveId(product.image);
+        if (!driveId && (product.image.startsWith('http') || product.image.startsWith('data:'))) {
+            directImageSrc = product.image;
         }
-    } else {
-        console.warn(`No document link found for product: ${product.name}`);
     }
 
-    // Special handling for placeholder to style it differently if needed
-    const isPlaceholder = !driveId;
+    // 2. Try Document Link column if no ID found yet
+    if (!driveId && !directImageSrc && product.link) {
+        driveId = extractDriveId(product.link);
+    }
+
+    // 3. Try Global Drive Mapping as final fallback for ID
+    if (!driveId && !directImageSrc && window.DRIVE_MAPPING) {
+        driveId = window.DRIVE_MAPPING[product.no] || null;
+    }
+
+    const imgId = `img-${product.index}`;
+
+    // Default placeholder for missing document/image
+    const noLinkPlaceholder = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Preview%20Available%3C%2Ftext%3E%3C%2Fsvg%3E';
+
+    // Cleaner Drive URL for better compatibility
+    let imageSrc = directImageSrc || (driveId
+        ? `https://lh3.googleusercontent.com/d/${driveId}=w800`
+        : noLinkPlaceholder);
+
+    // Reliable fallback endpoint
+    const secondaryFallback = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : imageSrc;
+
+    const isPlaceholder = !driveId && !directImageSrc;
 
     article.innerHTML = `
-        <div class="card-image-container" style="${isPlaceholder ? 'padding: 1rem; background: #f8fafc;' : ''}">
+        <div class="card-image-container" style="${isPlaceholder ? 'padding: 2rem; background: #f8fafc;' : ''}">
             <img 
                 src="${imageSrc}" 
                 alt="${product.name}" 
                 class="product-image"
                 id="${imgId}"
                 loading="lazy"
-                style="${isPlaceholder ? 'object-fit: contain;' : 'object-fit: cover;'}"
-                onerror="this.onerror=null; this.src='baseImage.png'; this.style.objectFit='contain'; this.parentElement.style.padding='1rem'; console.error('Failed to load image for ${product.name}', '${imageSrc}');"
+                style="${isPlaceholder ? 'object-fit: contain; opacity: 0.5;' : 'object-fit: cover;'}"
+                onerror="handleImageError(this, '${secondaryFallback}', '${product.name}')"
             >
         </div>
         <div class="card-content">
@@ -327,23 +356,43 @@ function createCard(product, uiIndex) {
     return article;
 }
 
-// Global handler for image errors (cascading fallback)
-window.handleImageError = function (img, productNo) {
-    const currentSrc = img.src;
+// Global handler for image errors with Retry Logic
+window.handleImageError = function (img, fallback, productName) {
+    if (!img.dataset.retries) img.dataset.retries = 0;
+    let retryCount = parseInt(img.dataset.retries);
 
-    // If we failed on PNG, try JPG
-    if (currentSrc.endsWith('.png') && !currentSrc.includes('baseImage')) {
-        img.src = `images/${productNo}.jpg`;
+    // Attempt 1: Try the secondary fallback endpoint immediately
+    if (retryCount === 0) {
+        img.dataset.retries = 1;
+        img.src = fallback;
         return;
     }
 
-    // If we failed on JPG (or CSV URL), fall back to base image
-    if (!currentSrc.includes('baseImage.png')) {
-        img.src = 'baseImage.png';
-        img.style.objectFit = 'contain';
-        img.style.padding = '1rem';
-        img.style.background = '#f1f5f9';
+    // Attempt 2: If fallback fails, wait 1s and try again (handles temporary Google API spikes)
+    if (retryCount === 1) {
+        img.dataset.retries = 2;
+        setTimeout(() => {
+            img.src = fallback + '&retry=' + Date.now();
+        }, 1000);
+        return;
     }
+
+    // Attempt 3: Switch to the third-party "open" proxy for Drive images
+    if (retryCount === 2) {
+        img.dataset.retries = 3;
+        const driveId = extractDriveId(img.src);
+        if (driveId) {
+            img.src = `https://drive.google.com/uc?export=view&id=${driveId}`;
+            return;
+        }
+    }
+
+    // Final failure: Show the Access Denied placeholder
+    img.onerror = null;
+    img.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ef4444%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EAccess%20Denied%20/%20Private%3C%2Ftext%3E%3C%2Fsvg%3E';
+    img.style.objectFit = 'contain';
+    img.parentElement.style.padding = '1.5rem';
+    console.warn(`Persistent preview error for: ${productName}. File is likely private or Google's thumbnailer is temporarily down.`);
 };
 
 // Smart search is now handled by Fuse.js in updateDisplay()
@@ -461,5 +510,22 @@ function sortProducts(products, sortBy) {
 function setupSort() {
     sortSelect.addEventListener('change', () => {
         updateDisplay();
+    });
+}
+
+function setupBackToTop() {
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 500) {
+            backToTopBtn.classList.remove('hidden');
+        } else {
+            backToTopBtn.classList.add('hidden');
+        }
+    });
+
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
     });
 }
