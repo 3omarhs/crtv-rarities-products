@@ -1,39 +1,70 @@
-<script>
-    // 1. PASTE YOUR PUBLISHED CSV URL HERE
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+<!DOCTYPE html>
+<html lang="en">
 
-    async function loadProducts() {
-        try {
-            const response = await fetch(SHEET_URL);
-            if (!response.ok) throw new Error('Could not fetch data');
-            
-            const csvText = await response.text();
-            const rows = csvText.split(/\r?\n/).slice(1); // Skip headers
-            const container = document.getElementById('links-container');
-            container.innerHTML = ''; // Clear loading message
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PricePulse Store</title>
+    <meta name="description" content="Official PricePulse store. Track and purchase high-value assets and accessories.">
 
-            rows.forEach(row => {
-                // Splits by comma but handles names with commas inside quotes
-                const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                
-                const name = columns[1]?.replace(/^"|"$/g, '').trim();  // Product Name (Col B)
-                const id = columns[2]?.replace(/^"|"$/g, '').trim();    // No attribute (Col C)
-                const link = columns[12]?.replace(/^"|"$/g, '').trim(); // Document Link (Col M)
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-                if (name && id) {
-                    container.innerHTML += `
-                        <a href="${link || '#'}" class="link-card" target="_blank">
-                            <span class="link-title">${name}</span>
-                            <span class="link-id">${id}</span>
-                        </a>`;
-                }
-            });
-        } catch (error) {
-            console.error('Error:', error);
-            document.getElementById('links-container').innerHTML = 
-                `<p style="color:red; padding:20px;">Error loading products. Make sure your Sheet is "Published to Web" as a CSV.</p>`;
-        }
-    }
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-    loadProducts();
-</script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-glob"></div>
+
+    <header>
+        <div class="container header-content">
+            <img src="logo.png" alt="PricePulse Logo" class="brand-logo" onerror="this.style.display='none'">
+            <h1>Price<span class="gradient-text">Pulse</span> Store</h1>
+            <p>Verified market assets and premium accessories.</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading Catalog...</p>
+        </div>
+
+        <div id="controls" class="controls-container hidden">
+            <div class="search-wrapper">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="search-input" placeholder="Search products by name or number...">
+            </div>
+            <div class="stats" id="product-count"></div>
+        </div>
+
+        <div id="error-message" class="error-message hidden">
+            <i data-lucide="alert-circle"></i>
+            <p id="error-text">Failed to load data.</p>
+        </div>
+
+        <div id="product-grid" class="product-grid hidden">
+            <!-- Products will be injected here -->
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Product Promo. Powered by live data.</p>
+    </footer>
+
+    <script src="drive-images.js"></script>
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
