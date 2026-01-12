@@ -1,73 +1,39 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Creative Rarities | Products</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        /* (Same CSS as before) */
-        :root { --bg-color: #f7e3af; --header-bg: #ffffff; --button-bg: #f5e1b5; --text-main: #333333; --text-sub: #666666; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: var(--bg-color); display: flex; justify-content: center; min-height: 100vh; }
-        .container { width: 100%; max-width: 480px; text-align: center; padding-bottom: 40px; }
-        .header-section { background-color: var(--header-bg); padding: 40px 20px 30px; border-bottom-left-radius: 50% 10%; border-bottom-right-radius: 50% 10%; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .profile-img { width: 100px; height: 100px; border-radius: 50%; background-color: #eee; margin-bottom: 15px; border: 2px solid #ddd; object-fit: cover; }
-        .links-list { padding: 0 20px; display: flex; flex-direction: column; gap: 12px; }
-        .link-card { background-color: var(--button-bg); text-decoration: none; color: var(--text-main); padding: 15px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .link-title { font-weight: 500; font-size: 16px; }
-        .link-id { font-size: 12px; color: var(--text-sub); margin-top: 4px; text-transform: uppercase; }
-        .loading { padding: 20px; color: var(--text-sub); }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="header-section">
-        <img src="logo.png" alt="Logo" class="profile-img">
-        <h1>Creative Rarities</h1>
-        <div class="links-list" id="links-container">
-            <p class="loading">Loading products...</p>
-        </div>
-    </div>
-</div>
-
 <script>
-    // PASTE YOUR PUBLISHED CSV URL HERE
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1XN_YEm4GGp0Lq3h1DxNfVaSHd7-F_xja/pub?output=csv';
+    // 1. PASTE YOUR PUBLISHED CSV URL HERE
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
 
     async function loadProducts() {
         try {
             const response = await fetch(SHEET_URL);
-            const data = await response.text();
-            const rows = data.split('\n').slice(1); // Skip header row
+            if (!response.ok) throw new Error('Could not fetch data');
+            
+            const csvText = await response.text();
+            const rows = csvText.split(/\r?\n/).slice(1); // Skip headers
             const container = document.getElementById('links-container');
             container.innerHTML = ''; // Clear loading message
 
             rows.forEach(row => {
-                const columns = row.split(',');
-                // Column B (index 1) is product name, Column C (index 2) is No
-                const name = columns[1]?.replace(/"/g, ''); 
-                const id = columns[2]?.replace(/"/g, '');
-                const link = columns[12]?.replace(/"/g, ''); // Column M (index 12) is the Document Link
+                // Splits by comma but handles names with commas inside quotes
+                const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                const name = columns[1]?.replace(/^"|"$/g, '').trim();  // Product Name (Col B)
+                const id = columns[2]?.replace(/^"|"$/g, '').trim();    // No attribute (Col C)
+                const link = columns[12]?.replace(/^"|"$/g, '').trim(); // Document Link (Col M)
 
                 if (name && id) {
-                    const card = `
+                    container.innerHTML += `
                         <a href="${link || '#'}" class="link-card" target="_blank">
                             <span class="link-title">${name}</span>
                             <span class="link-id">${id}</span>
                         </a>`;
-                    container.innerHTML += card;
                 }
             });
         } catch (error) {
-            console.error('Error loading sheet:', error);
-            document.getElementById('links-container').innerHTML = '<p>Error loading product list.</p>';
+            console.error('Error:', error);
+            document.getElementById('links-container').innerHTML = 
+                `<p style="color:red; padding:20px;">Error loading products. Make sure your Sheet is "Published to Web" as a CSV.</p>`;
         }
     }
 
     loadProducts();
 </script>
-
-</body>
-</html>
