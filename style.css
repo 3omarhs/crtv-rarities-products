@@ -77,6 +77,85 @@ header {
     flex-direction: column;
     align-items: center;
     text-align: center;
+    position: relative;
+}
+
+.header-content {
+    position: relative;
+    width: 100%;
+}
+
+.header-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    z-index: 100;
+}
+
+.whatsapp-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #25d366;
+    /* WhatsApp Green */
+    color: white;
+    padding: 0.8rem 1.2rem;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+    transition: all 0.3s ease;
+}
+
+.whatsapp-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
+    background: #20ba5a;
+}
+
+.header-socials {
+    display: flex;
+    gap: 1.2rem;
+}
+
+.social-icon {
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
+}
+
+.social-icon:hover {
+    color: var(--accent);
+    transform: translateY(-2px);
+}
+
+.social-icon i {
+    width: 22px;
+    height: 22px;
+}
+
+.whatsapp-btn i {
+    width: 20px;
+    height: 20px;
+}
+
+@media (max-width: 768px) {
+    .whatsapp-btn span {
+        display: none;
+    }
+
+    .header-actions {
+        top: -1rem;
+        right: 1rem;
+    }
+
+    .whatsapp-btn {
+        padding: 0.8rem;
+    }
 }
 
 .brand-logo {
@@ -312,9 +391,11 @@ header p {
 .search-wrapper {
     position: relative;
     flex: 1;
+    min-width: 300px;
     max-width: 500px;
 }
 
+.filter-wrapper,
 .sort-wrapper {
     display: flex;
     align-items: center;
@@ -436,6 +517,159 @@ footer {
 @media (max-width: 600px) {
     h1 {
         font-size: 2.5rem;
+    }
+}
+
+/* Expanded Card Styling */
+.card.expanded {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    cursor: default !important;
+    border-color: var(--accent);
+    box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.1);
+}
+
+.expanded-content {
+    display: none;
+    padding: 2rem;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 3rem;
+    background: #ffffff;
+    border-top: 1px solid var(--card-border);
+    animation: slideDown 0.4s ease-out;
+}
+
+.card.expanded .expanded-content {
+    display: grid;
+}
+
+.card.expanded .card-content,
+.card.expanded .card-footer {
+    display: none;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.expanded-image-container {
+    width: 100%;
+    height: 400px;
+    background: #f8fafc;
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.expanded-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.expanded-info {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.expanded-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: none;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.expanded-close:hover {
+    background: #e2e8f0;
+    transform: rotate(90deg);
+}
+
+.expanded-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    padding-right: 40px;
+}
+
+.expanded-arabic-name {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    direction: rtl;
+    text-align: right;
+    font-weight: 500;
+}
+
+.expanded-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 1.5rem 0;
+    font-size: 1rem;
+    white-space: pre-wrap;
+    /* Preserves line spaces from the original field */
+}
+
+.expanded-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--card-border);
+}
+
+.expanded-price {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+.view-doc-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.2rem;
+    background: var(--accent);
+    color: white;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.view-doc-btn:hover {
+    background: #b45309;
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .expanded-content {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    .expanded-image-container {
+        height: 300px;
     }
 }
 

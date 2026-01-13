@@ -29,6 +29,23 @@
 
     <header>
         <div class="container header-content">
+            <div class="header-actions">
+                <a href="https://wa.me/962795965910?text=Hi,%20I%20would%20Like%20to%20order.%20May%20I%20get%20your%20assestant."
+                    target="_blank" class="whatsapp-btn" title="Order via WhatsApp">
+                    <i data-lucide="message-circle"></i>
+                    <span>Order via WhatsApp</span>
+                </a>
+                <div class="header-socials">
+                    <a href="https://www.instagram.com/creativerarities/" target="_blank" class="social-icon"
+                        title="Instagram">
+                        <i data-lucide="instagram"></i>
+                    </a>
+                    <a href="https://web.facebook.com/profile.php?id=61584951805852" target="_blank" class="social-icon"
+                        title="Facebook">
+                        <i data-lucide="facebook"></i>
+                    </a>
+                </div>
+            </div>
             <img src="logo.png" alt="PricePulse Logo" class="brand-logo" onerror="this.style.display='none'">
             <h1>Creative <span class="gradient-text">Rarities</span> Store</h1>
             <p>Discover unique and premium products.</p>
@@ -44,8 +61,14 @@
         <div id="controls" class="controls-container hidden">
             <div class="search-wrapper">
                 <i data-lucide="search" class="search-icon"></i>
-                <input type="text" id="search-input"
-                    placeholder="Smart search: name, category, price, item number (Arabic & English)...">
+                <input type="text" id="search-input" placeholder="Smart search: name, category, price, item number... ">
+            </div>
+            <div class="filter-wrapper">
+                <label for="category-select"
+                    style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Category:</label>
+                <select id="category-select" class="sort-select">
+                    <option value="all">All Categories</option>
+                </select>
             </div>
             <div class="sort-wrapper">
                 <label for="sort-select"

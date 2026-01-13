@@ -10,6 +10,7 @@ const errorText = document.getElementById('error-text');
 const controlsEl = document.getElementById('controls');
 const searchInput = document.getElementById('search-input');
 const sortSelect = document.getElementById('sort-select');
+const categorySelect = document.getElementById('category-select');
 const productCountEl = document.getElementById('product-count');
 const backToTopBtn = document.getElementById('back-to-top');
 
@@ -66,15 +67,12 @@ function extractDriveId(url) {
     if (!url) return null;
 
     // Try multiple patterns to extract Drive ID
-    // Pattern 1: /file/d/ID/ or /d/ID/
     let match = url.match(/\/(?:file\/)?d\/([a-zA-Z0-9_-]+)/);
     if (match) return match[1];
 
-    // Pattern 2: id=ID or ?id=ID or uc?id=ID or open?id=ID
     match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (match) return match[1];
 
-    // Pattern 3: direct ID (if the whole string looks like an ID)
     if (url.length > 20 && /^[a-zA-Z0-9_-]+$/.test(url)) return url;
 
     return null;
@@ -86,11 +84,9 @@ function processData(data) {
         return;
     }
 
-    // Identify keys
     const firstItem = data[0];
     const keys = Object.keys(firstItem);
 
-    // Fuzzy matching for columns
     const productKey = keys.find(k => normalizeKey(k).includes('product') && normalizeKey(k).includes('name')) ||
         keys.find(k => normalizeKey(k) === 'name') ||
         keys.find(k => normalizeKey(k) === 'title');
@@ -116,12 +112,15 @@ function processData(data) {
     const arabicNameKey = keys.find(k => normalizeKey(k).includes('arabic') && normalizeKey(k).includes('name')) ||
         keys.find(k => normalizeKey(k) === 'arabic name');
 
+    const descriptionKey = keys.find(k => normalizeKey(k).includes('description')) ||
+        keys.find(k => normalizeKey(k).includes('details')) ||
+        keys.find(k => normalizeKey(k).includes('about'));
+
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
         return;
     }
 
-    // Map data to clean structure
     allProducts = data.map((item, index) => {
         const product = {
             name: item[productKey],
@@ -131,10 +130,10 @@ function processData(data) {
             price: priceKey ? item[priceKey] : null,
             category: categoryKey ? item[categoryKey] : null,
             arabicName: arabicNameKey ? item[arabicNameKey] : null,
+            description: descriptionKey ? item[descriptionKey] : null,
             index: index
         };
 
-        // Pre-normalize fields for better searching
         product._searchData = {
             name: (product.name || '').toLowerCase(),
             arabicName: normalizeArabic(product.arabicName),
@@ -144,9 +143,8 @@ function processData(data) {
         };
 
         return product;
-    }).filter(p => p.name).reverse(); // Filter empty names and REVERSE to show latest first
+    }).filter(p => p.name).reverse();
 
-    // Initialize Fuse.js
     const fuseOptions = {
         keys: [
             { name: 'name', weight: 1.0 },
@@ -157,18 +155,23 @@ function processData(data) {
             { name: '_searchData.name', weight: 0.9 },
             { name: '_searchData.arabicName', weight: 0.9 }
         ],
-        threshold: 0.4, // Adjust for fuzziness (0.0 exact, 1.0 matches anything)
+        threshold: 0.4,
         ignoreLocation: true,
         useExtendedSearch: true,
         distance: 100
     };
     fuse = new Fuse(allProducts, fuseOptions);
 
+    const categories = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort();
+    categorySelect.innerHTML = '<option value="all">All Categories</option>' +
+        categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
     renderProducts(allProducts);
 
     loadingEl.classList.add('hidden');
     controlsEl.classList.remove('hidden');
     productGrid.classList.remove('hidden');
+    setupFilter();
 }
 
 let currentlyRendered = 0;
@@ -187,11 +190,7 @@ function renderProducts(products) {
     }
 
     productCountEl.textContent = `${products.length} item${products.length !== 1 ? 's' : ''}`;
-
-    // Render first batch immediately
     renderBatch();
-
-    // Setup intersection observer for lazy loading
     setupLazyLoading();
 }
 
@@ -199,28 +198,24 @@ function renderBatch() {
     const end = Math.min(currentlyRendered + BATCH_SIZE, currentProducts.length);
     const batch = currentProducts.slice(currentlyRendered, end);
 
-    // Staggered loading: Add cards one by one with a tiny delay to avoid hitting Google's rate limit
     batch.forEach((product, index) => {
         setTimeout(() => {
             const card = createCard(product, currentlyRendered + index);
             productGrid.appendChild(card);
 
-            // Re-observe if this is the last item in the batch
             if (index === batch.length - 1) {
                 currentlyRendered = end;
                 if (window.lucide) lucide.createIcons();
                 setupSentinel();
             }
-        }, index * 150); // 150ms gap between each card
+        }, index * 150);
     });
 }
 
 function setupSentinel() {
-    // Remove old sentinel
     const oldSentinel = document.getElementById('lazy-load-sentinel');
     if (oldSentinel) oldSentinel.remove();
 
-    // Add new sentinel if needed
     if (currentlyRendered < currentProducts.length) {
         const sentinel = document.createElement('div');
         sentinel.id = 'lazy-load-sentinel';
@@ -238,7 +233,6 @@ function setupSentinel() {
 let lazyLoadObserver = null;
 
 function setupLazyLoading() {
-    // Disconnect previous observer if exists
     if (lazyLoadObserver) {
         lazyLoadObserver.disconnect();
     }
@@ -254,7 +248,7 @@ function setupLazyLoading() {
             }
         });
     }, {
-        rootMargin: '400px' // Increased margin to start loading earlier
+        rootMargin: '400px'
     });
 
     const sentinel = document.getElementById('lazy-load-sentinel');
@@ -268,21 +262,9 @@ function createCard(product, uiIndex) {
     article.className = 'card fade-in-up';
     article.style.animationDelay = `${Math.min(uiIndex * 0.05, 1)}s`;
 
-    // Add click handler for Document Link
-    if (product.link) {
-        article.style.cursor = 'pointer';
-        article.title = "View Document";
-        article.addEventListener('click', (e) => {
-            if (e.target.closest('.copy-btn')) return;
-            window.open(product.link, '_blank');
-        });
-    }
-
-    // Advanced Image Strategy
     let driveId = null;
     let directImageSrc = null;
 
-    // 1. Try Image column (could be a Drive Link or a Direct URL)
     if (product.image) {
         driveId = extractDriveId(product.image);
         if (!driveId && (product.image.startsWith('http') || product.image.startsWith('data:'))) {
@@ -290,30 +272,24 @@ function createCard(product, uiIndex) {
         }
     }
 
-    // 2. Try Document Link column if no ID found yet
     if (!driveId && !directImageSrc && product.link) {
         driveId = extractDriveId(product.link);
     }
 
-    // 3. Try Global Drive Mapping as final fallback for ID
     if (!driveId && !directImageSrc && window.DRIVE_MAPPING) {
         driveId = window.DRIVE_MAPPING[product.no] || null;
     }
 
     const imgId = `img-${product.index}`;
-
-    // Default placeholder for missing document/image
     const noLinkPlaceholder = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Preview%20Available%3C%2Ftext%3E%3C%2Fsvg%3E';
 
-    // Cleaner Drive URL for better compatibility
     let imageSrc = directImageSrc || (driveId
         ? `https://lh3.googleusercontent.com/d/${driveId}=w800`
         : noLinkPlaceholder);
 
-    // Reliable fallback endpoint
     const secondaryFallback = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : imageSrc;
-
     const isPlaceholder = !driveId && !directImageSrc;
+    const largeImageSrc = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` : imageSrc;
 
     article.innerHTML = `
         <div class="card-image-container" style="${isPlaceholder ? 'padding: 2rem; background: #f8fafc;' : ''}">
@@ -339,36 +315,68 @@ function createCard(product, uiIndex) {
             ${product.category ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${product.category}</div>` : ''}
         </div>
         <div class="card-footer">
-            ${product.price ? `
-                <span class="card-price">
-                    ${product.price} JOD
-                </span>
-            ` : `
-                <span style="display: flex; align-items: center; gap: 0.5rem;">
-                    <i data-lucide="package" style="width: 16px;"></i>
-                    In Stock
-                </span>
-            `}
+            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : `<span style="display: flex; align-items: center; gap: 0.5rem;"><i data-lucide="package" style="width: 16px;"></i> In Stock</span>`}
             <i data-lucide="shield-check" style="margin-left: auto; width: 16px; color: var(--accent);"></i>
         </div>
+
+        <div class="expanded-content">
+            <div class="expanded-image-container">
+                <img src="${largeImageSrc}" alt="${product.name}" class="expanded-image">
+            </div>
+            <div class="expanded-info">
+                <button class="expanded-close" title="Close Details"><i data-lucide="x"></i></button>
+                <h2 class="expanded-title">${product.name}</h2>
+                ${product.arabicName ? `<p class="expanded-arabic-name">${product.arabicName}</p>` : ''}
+                <div class="expanded-description">${product.description || 'No additional description available.'}</div>
+                <div class="expanded-footer">
+                    <div class="expanded-price">${product.price ? `${product.price} JOD` : 'Price on request'}</div>
+                    ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> View Document</a>` : ''}
+                </div>
+            </div>
+        </div>
     `;
+
+    article.addEventListener('click', (e) => {
+        if (e.target.closest('.copy-btn') || e.target.closest('.view-doc-btn')) return;
+
+        const isCloseBtn = e.target.closest('.expanded-close');
+        const isExpanded = article.classList.contains('expanded');
+
+        if (isCloseBtn || (isExpanded && !e.target.closest('.expanded-content'))) {
+            article.classList.remove('expanded');
+            article.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            return;
+        }
+
+        if (!isExpanded) {
+            document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
+            article.classList.add('expanded');
+            if (window.lucide) lucide.createIcons();
+            setTimeout(() => {
+                const headerOffset = 100;
+                const elementPosition = article.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: "smooth"
+                });
+            }, 100);
+        }
+    });
 
     return article;
 }
 
-// Global handler for image errors with Retry Logic
 window.handleImageError = function (img, fallback, productName) {
     if (!img.dataset.retries) img.dataset.retries = 0;
     let retryCount = parseInt(img.dataset.retries);
 
-    // Attempt 1: Try the secondary fallback endpoint immediately
     if (retryCount === 0) {
         img.dataset.retries = 1;
         img.src = fallback;
         return;
     }
 
-    // Attempt 2: If fallback fails, wait 1s and try again (handles temporary Google API spikes)
     if (retryCount === 1) {
         img.dataset.retries = 2;
         setTimeout(() => {
@@ -377,7 +385,6 @@ window.handleImageError = function (img, fallback, productName) {
         return;
     }
 
-    // Attempt 3: Switch to the third-party "open" proxy for Drive images
     if (retryCount === 2) {
         img.dataset.retries = 3;
         const driveId = extractDriveId(img.src);
@@ -387,33 +394,34 @@ window.handleImageError = function (img, fallback, productName) {
         }
     }
 
-    // Final failure: Show the Access Denied placeholder
     img.onerror = null;
     img.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ef4444%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EAccess%20Denied%20/%20Private%3C%2Ftext%3E%3C%2Fsvg%3E';
     img.style.objectFit = 'contain';
     img.parentElement.style.padding = '1.5rem';
-    console.warn(`Persistent preview error for: ${productName}. File is likely private or Google's thumbnailer is temporarily down.`);
+    console.warn(`Persistent preview error for: ${productName}.`);
 };
-
-// Smart search is now handled by Fuse.js in updateDisplay()
 
 function updateDisplay() {
     const term = searchInput.value;
     const sortBy = sortSelect.value;
+    const categoryFilter = categorySelect.value;
 
-    let filtered = [];
-    if (term.trim() === '') {
-        filtered = [...allProducts];
-    } else {
-        // Search using Fuse.js
-        const searchResults = fuse.search(term);
+    let filtered = [...allProducts];
+
+    if (categoryFilter !== 'all') {
+        filtered = filtered.filter(p => p.category === categoryFilter);
+    }
+
+    if (term.trim() !== '') {
+        const fuseInstance = new Fuse(filtered, fuse.options);
+        const searchResults = fuseInstance.search(term);
         filtered = searchResults.map(result => result.item);
 
-        // If no fuzzy matches, try a simple manual include for reliability
         if (filtered.length === 0) {
             const lowerTerm = term.toLowerCase().trim();
             const normalizedTerm = normalizeArabic(term);
-            filtered = allProducts.filter(p =>
+            const subFilter = (categoryFilter === 'all' ? allProducts : allProducts.filter(p => p.category === categoryFilter));
+            filtered = subFilter.filter(p =>
                 p.name.toLowerCase().includes(lowerTerm) ||
                 String(p.no).toLowerCase().includes(lowerTerm) ||
                 (p.arabicName && normalizeArabic(p.arabicName).includes(normalizedTerm)) ||
@@ -422,9 +430,14 @@ function updateDisplay() {
         }
     }
 
-    // Apply sorting
     const sorted = sortProducts(filtered, sortBy);
     renderProducts(sorted);
+}
+
+function setupFilter() {
+    categorySelect.addEventListener('change', () => {
+        updateDisplay();
+    });
 }
 
 function setupSearch() {
@@ -433,15 +446,12 @@ function setupSearch() {
     });
 }
 
-// Global scope for onclick
 window.copyToClipboard = function (text, btn) {
     navigator.clipboard.writeText(text).then(() => {
         const originalHtml = btn.innerHTML;
         btn.classList.add('copied');
         btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> Copied`;
-
         if (window.lucide) lucide.createIcons();
-
         setTimeout(() => {
             btn.classList.remove('copied');
             btn.innerHTML = originalHtml;
@@ -460,12 +470,10 @@ function showError(msg) {
     console.error(msg);
 }
 
-// Start
 init();
 
 function sortProducts(products, sortBy) {
     const sorted = [...products];
-
     switch (sortBy) {
         case 'name-asc':
             sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -474,18 +482,10 @@ function sortProducts(products, sortBy) {
             sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
             break;
         case 'price-asc':
-            sorted.sort((a, b) => {
-                const priceA = parseFloat(a.price) || 0;
-                const priceB = parseFloat(b.price) || 0;
-                return priceA - priceB;
-            });
+            sorted.sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
             break;
         case 'price-desc':
-            sorted.sort((a, b) => {
-                const priceA = parseFloat(a.price) || 0;
-                const priceB = parseFloat(b.price) || 0;
-                return priceB - priceA;
-            });
+            sorted.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
             break;
         case 'category-asc':
             sorted.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
@@ -499,11 +499,7 @@ function sortProducts(products, sortBy) {
         case 'arabic-desc':
             sorted.sort((a, b) => (b.arabicName || '').localeCompare(a.arabicName || '', 'ar'));
             break;
-        default:
-            // Keep original order
-            break;
     }
-
     return sorted;
 }
 
