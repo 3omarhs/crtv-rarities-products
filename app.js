@@ -128,6 +128,8 @@ function processData(data) {
     const targetMarketKey = keys.find(k => normalizeKey(k).includes('target') && normalizeKey(k).includes('market')) || keys.find(k => normalizeKey(k).includes('target'));
     const bulkDiscountKey = keys.find(k => normalizeKey(k).includes('discount') && (normalizeKey(k).includes('25') || normalizeKey(k).includes('>')));
     const availableKey = keys.find(k => normalizeKey(k).includes('availab'));
+    const hiddenKey = keys.find(k => normalizeKey(k) === 'hidden');
+    const colorsKey = keys.find(k => normalizeKey(k).includes('color'));
 
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
@@ -150,6 +152,8 @@ function processData(data) {
             bulkPrice: bulkPriceKey ? item[bulkPriceKey] : null,
             bulkDiscount: bulkDiscountKey ? item[bulkDiscountKey] : null,
             available: (availableKey && item[availableKey] && String(item[availableKey]).trim() !== '') ? item[availableKey] : 'Yes',
+            hidden: hiddenKey ? String(item[hiddenKey]).toLowerCase() === 'yes' : false,
+            colors: (colorsKey && item[colorsKey]) ? String(item[colorsKey]).split(',').map(c => c.trim()).filter(c => c) : [],
             index: index
         };
 
@@ -171,7 +175,7 @@ function processData(data) {
         };
 
         return product;
-    }).filter(p => p.name).reverse();
+    }).filter(p => !p.hidden).filter(p => p.name).reverse();
 
     const fuseOptions = {
         keys: [
@@ -343,7 +347,7 @@ function createCard(product, uiIndex) {
             ${product.category ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${product.category}</div>` : ''}
         </div>
         <div class="card-footer">
-            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : ''}
+            ${product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : (product.price ? `<span class="card-price">${product.price} JOD</span>` : '')}
             ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
@@ -369,6 +373,42 @@ function createCard(product, uiIndex) {
                 </div>
 
                 <div class="expanded-description">${product.description || 'No additional description available.'}</div>
+                
+                ${product.colors && product.colors.length > 0 ? `
+                <div class="colors-section" style="margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 20px; border: 1px solid var(--card-border); position: relative; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                    <div class="colors-title" style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; font-weight: 800; color: var(--text-primary); margin-bottom: 1.2rem; text-transform: uppercase; letter-spacing: 0.12em;">
+                        <i data-lucide="palette" style="width: 16px; color: var(--accent);"></i> Available Colors
+                    </div>
+                    <div class="color-list" style="display: flex; flex-wrap: wrap; gap: 1rem; position: relative; z-index: 1;">
+                        ${product.colors.map(color => {
+                const cssColor = color.toLowerCase().replace(/\s+/g, '');
+                const isWhite = cssColor === 'white' || cssColor === '#ffffff';
+                const badgeStyle = `
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 0.8rem;
+                                    padding: 0.6rem 1.2rem;
+                                    background: #ffffff;
+                                    border: 1px solid var(--card-border);
+                                    border-left: 5px solid ${isWhite ? '#e2e8f0' : cssColor};
+                                    border-radius: 12px;
+                                    font-size: 0.95rem;
+                                    font-weight: 800;
+                                    color: ${isWhite ? '#475569' : cssColor};
+                                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                                    cursor: default;
+                                    transition: all 0.3s ease;
+                                `;
+                return `
+                                <div class="color-badge" style="${badgeStyle.replace(/\n\s*/g, ' ')}" onmouseover="this.style.transform='translateY(-5px)';" onmouseout="this.style.transform='none';">
+                                    <span class="color-dot" style="width: 24px; height: 24px; border-radius: 6px; background-color: ${cssColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; position: relative;"></span>
+                                    <span class="color-name">${color}</span>
+                                </div>
+                            `;
+            }).join('')}
+                    </div>
+                </div>
+                ` : ''}
                 
                 <div class="expanded-pricing">
                     <div class="main-price">

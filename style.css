@@ -877,3 +877,154 @@ footer {
     width: 24px;
     height: 24px;
 }
+
+/* Available Colors Premium Section */
+.colors-section {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-radius: 20px !important;
+    border: 1px solid var(--card-border) !important;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    display: block !important;
+}
+
+.colors-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(217, 119, 6, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+    animation: colors-glow 8s infinite alternate;
+}
+
+@keyframes colors-glow {
+    from {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+
+    to {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.colors-title {
+    display: flex !important;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 800 !important;
+    color: var(--text-primary) !important;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.colors-title i {
+    color: var(--accent) !important;
+}
+
+.color-list {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.color-badge {
+    display: flex !important;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.6rem 1.2rem;
+    background: #ffffff !important;
+    border: 1px solid var(--card-border) !important;
+    border-left: 5px solid var(--badge-color, var(--accent)) !important;
+    border-radius: 12px !important;
+    font-size: 0.95rem;
+    font-weight: 800 !important;
+    color: var(--badge-color, var(--text-secondary)) !important;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: default;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    animation: color-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Specific visibility for white text on white bg */
+.color-badge[style*="white"],
+.color-badge[style*="#ffffff"] {
+    color: #475569 !important;
+    border-left: 5px solid #e2e8f0 !important;
+}
+
+@keyframes color-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.color-badge:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.color-badge:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.color-badge:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.color-badge:nth-child(4) {
+    animation-delay: 0.4s;
+}
+
+.color-badge:nth-child(n+5) {
+    animation-delay: 0.5s;
+}
+
+.color-badge:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15), 0 0 15px var(--badge-color);
+    border-color: var(--badge-color) !important;
+    z-index: 2;
+}
+
+.color-dot {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.color-badge:hover .color-dot {
+    transform: scale(1.2) rotate(-10deg);
+}
+
+.color-dot::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    width: 35%;
+    height: 25%;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+}
