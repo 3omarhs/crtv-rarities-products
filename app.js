@@ -103,7 +103,14 @@ function processData(data) {
         keys.find(k => normalizeKey(k).includes('document') && normalizeKey(k).includes('link')) ||
         keys.find(k => normalizeKey(k) === 'link');
 
-    const priceKey = keys.find(k => normalizeKey(k).includes('price')) ||
+    const retailPriceKey = keys.find(k => k.includes('>=') && k.includes('25')) ||
+        keys.find(k => normalizeKey(k).includes('retail'));
+
+    const bulkPriceKey = keys.find(k => k.includes('<') && k.includes('25')) ||
+        keys.find(k => normalizeKey(k).includes('bulk'));
+
+    const priceKey = keys.find(k => normalizeKey(k) === 'price') ||
+        keys.find(k => normalizeKey(k).includes('price') && !k.includes('25')) ||
         keys.find(k => normalizeKey(k).includes('cost'));
 
     const categoryKey = keys.find(k => normalizeKey(k).includes('category')) ||
@@ -116,6 +123,12 @@ function processData(data) {
         keys.find(k => normalizeKey(k).includes('details')) ||
         keys.find(k => normalizeKey(k).includes('about'));
 
+    const dimensionsKey = keys.find(k => normalizeKey(k).includes('dimension'));
+    const collectionKey = keys.find(k => normalizeKey(k).includes('collection'));
+    const targetMarketKey = keys.find(k => normalizeKey(k).includes('target') && normalizeKey(k).includes('market')) || keys.find(k => normalizeKey(k).includes('target'));
+    const bulkDiscountKey = keys.find(k => normalizeKey(k).includes('discount') && (normalizeKey(k).includes('25') || normalizeKey(k).includes('>')));
+    const availableKey = keys.find(k => normalizeKey(k).includes('availab'));
+
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
         return;
@@ -127,12 +140,27 @@ function processData(data) {
             no: noKey ? item[noKey] : `ITEM-${index + 1}`,
             image: imageKey ? item[imageKey] : null,
             link: linkKey ? item[linkKey] : null,
-            price: priceKey ? item[priceKey] : null,
+            price: (retailPriceKey ? item[retailPriceKey] : null) || item[priceKey] || null,
             category: categoryKey ? item[categoryKey] : null,
             arabicName: arabicNameKey ? item[arabicNameKey] : null,
             description: descriptionKey ? item[descriptionKey] : null,
+            dimensions: dimensionsKey ? item[dimensionsKey] : null,
+            collection: collectionKey ? item[collectionKey] : null,
+            targetMarket: targetMarketKey ? item[targetMarketKey] : null,
+            bulkPrice: bulkPriceKey ? item[bulkPriceKey] : null,
+            bulkDiscount: bulkDiscountKey ? item[bulkDiscountKey] : null,
+            available: (availableKey && item[availableKey] && String(item[availableKey]).trim() !== '') ? item[availableKey] : 'Yes',
             index: index
         };
+
+        // Calculate discount percentage if both prices are available
+        if (product.price && product.bulkPrice) {
+            const p1 = parseFloat(product.price.replace(/[^\d.]/g, ''));
+            const p2 = parseFloat(product.bulkPrice.replace(/[^\d.]/g, ''));
+            if (!isNaN(p1) && !isNaN(p2) && p2 > p1) {
+                product.calculatedDiscount = Math.round(((p2 - p1) / p2) * 100);
+            }
+        }
 
         product._searchData = {
             name: (product.name || '').toLowerCase(),
@@ -315,21 +343,61 @@ function createCard(product, uiIndex) {
             ${product.category ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${product.category}</div>` : ''}
         </div>
         <div class="card-footer">
-            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : `<span style="display: flex; align-items: center; gap: 0.5rem;"><i data-lucide="package" style="width: 16px;"></i> In Stock</span>`}
+            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : ''}
+            ${String(product.available).toLowerCase() !== 'no' ?
+            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
+            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
             <i data-lucide="shield-check" style="margin-left: auto; width: 16px; color: var(--accent);"></i>
         </div>
 
         <div class="expanded-content">
-            <div class="expanded-image-container">
-                <img src="${largeImageSrc}" alt="${product.name}" class="expanded-image">
-            </div>
             <div class="expanded-info">
                 <button class="expanded-close" title="Close Details"><i data-lucide="x"></i></button>
-                <h2 class="expanded-title">${product.name}</h2>
+                <div style="display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                    <h2 class="expanded-title" style="margin: 0;">${product.name}</h2>
+                    ${String(product.available).toLowerCase() !== 'no' ?
+            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
+            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
+                </div>
                 ${product.arabicName ? `<p class="expanded-arabic-name">${product.arabicName}</p>` : ''}
+                
+                <div class="expanded-grid">
+                    ${product.category ? `<div class="expanded-meta"><strong>Category:</strong> <span>${product.category}</span></div>` : ''}
+                    ${product.collection ? `<div class="expanded-meta"><strong>Collection:</strong> <span>${product.collection}</span></div>` : ''}
+                    ${product.dimensions ? `<div class="expanded-meta"><strong>Dimensions:</strong> <span>${product.dimensions}</span></div>` : ''}
+                    ${product.targetMarket ? `<div class="expanded-meta"><strong>Target Market:</strong> <span>${product.targetMarket}</span></div>` : ''}
+                </div>
+
                 <div class="expanded-description">${product.description || 'No additional description available.'}</div>
+                
+                <div class="expanded-pricing">
+                    <div class="main-price">
+                        <div class="main-price-info">
+                            <span class="label">Retail Price (>= 25 QTY):</span>
+                            <span class="value">${product.price ? `${product.price} JOD` : 'Price on request'}</span>
+                        </div>
+                        ${product.calculatedDiscount ? `
+                            <div class="discount-badge">
+                                <span class="discount-percent">${product.calculatedDiscount}%</span>
+                                <span class="discount-off">OFF</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    ${product.bulkPrice ? `
+                        <div class="bulk-price">
+                            <span class="label">Bulk Saving (< 25 QTY):</span>
+                            <span class="value">${product.bulkPrice} JOD</span>
+                        </div>
+                    ` : ''}
+                    ${product.bulkDiscount ? `
+                        <div class="bulk-discount">
+                            <span class="label">Bulk Discount:</span>
+                            <span class="value">${product.bulkDiscount}</span>
+                        </div>
+                    ` : ''}
+                </div>
+
                 <div class="expanded-footer">
-                    <div class="expanded-price">${product.price ? `${product.price} JOD` : 'Price on request'}</div>
                     ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> View Document</a>` : ''}
                 </div>
             </div>
