@@ -15,10 +15,6 @@ const categorySelect = document.getElementById('category-select');
 const productCountEl = document.getElementById('product-count');
 const backToTopBtn = document.getElementById('back-to-top');
 
-let allProducts = [];
-let fuse = null;
-let cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
-
 function normalizeArabic(text) {
     if (!text) return "";
     return String(text)
@@ -30,7 +26,293 @@ function normalizeArabic(text) {
         .trim();
 }
 
+function normalizeKey(key) {
+    return key.toLowerCase().trim();
+}
+
+let allProducts = [];
+let fuse = null;
+let cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
+let currentLang = localStorage.getItem('cr_lang') || null;
+
+const translations = {
+    en: {
+        langText: "العربية",
+        headerWa: "Order via WhatsApp",
+        storeTitle: "Creative Rarities Store",
+        storeSubtitle: "Discover unique and premium products.",
+        loadingText: "Loading Catalog...",
+        searchPlaceholder: "Smart search: name, category, price, item number... ",
+        categoryLabel: "Category:",
+        allCategories: "All Categories",
+        sortLabel: "Sort by:",
+        sortDefault: "Default",
+        sortNameAsc: "Name (A-Z)",
+        sortNameDesc: "Name (Z-A)",
+        sortPriceAsc: "Price (Low-High)",
+        sortPriceDesc: "Price (High-Low)",
+        sortCategoryAsc: "Category (A-Z)",
+        sortCategoryDesc: "Category (Z-A)",
+        sortArabicAsc: "Arabic Name (أ-ي)",
+        sortArabicDesc: "Arabic Name (ي-أ)",
+        footerText: "© 2026 Creative Rarities. Powered by 3omar.hs",
+        cartTitle: "Your Cart",
+        cartEmpty: "Your cart is empty.",
+        totalLabel: "Total:",
+        checkoutBtn: "Checkout via WhatsApp",
+        addToCart: "Add to Cart",
+        added: "Added!",
+        oos: "Out of Stock",
+        inStock: "In Stock",
+        copy: "Copy",
+        copied: "Copied!",
+        noPreview: "No Preview Available",
+        retailPrice: "Retail Price (< 25 QTY):",
+        bulkSaving: "Wholesale Price (>= 25 QTY):",
+        appliedRetail: "(Applied Retail Price for < 25 qty)",
+        appliedBulk: "(Applied Wholesale Price for >= 25 qty)",
+        viewDoc: "View Document",
+        selectColor: "Available Colors:",
+        noDesc: "No additional description available.",
+        confirmClearTitle: "Empty Cart?",
+        confirmClearMsg: "Are you sure you want to empty your cart? This will erase all selected items.",
+        clearAll: "Clear All",
+        keepItems: "Keep Items",
+        cartClearedTitle: "Cart Cleared",
+        cartClearedMsg: "All items have been removed from your cart successfully.",
+        cartAlreadyEmptyMsg: "Your cart is already empty.",
+        done: "Done",
+        ok: "Ok",
+        cartEmptyCheckoutTitle: "Cart is Empty",
+        cartEmptyCheckoutMsg: "Please add some items to your cart before proceeding to checkout.",
+        waOrderHeader: "*Creative Rarities Store - New Order*",
+        waOrderTotal: "Order Total:",
+        qty: "Qty",
+        pcs: "PCS",
+        color: "Color",
+        defaultColor: "Default",
+        collectionLabel: "Collection:",
+        dimensionsLabel: "Dimensions:",
+        targetMarketLabel: "Target Market:",
+        descriptionLabel: "Description:"
+    },
+    ar: {
+        langText: "English",
+        headerWa: "اطلب عبر واتساب",
+        storeTitle: "متجر نوادر إبداعية",
+        storeSubtitle: "اكتشف منتجات فريدة وفاخرة.",
+        loadingText: "جاري تحميل الكتالوج...",
+        searchPlaceholder: "بحث ذكي: الاسم بالتصنيف بالسعر برقم القطعة...",
+        categoryLabel: "التصنيف:",
+        allCategories: "جميع التصنيفات",
+        sortLabel: "ترتيب حسب:",
+        sortDefault: "الافتراضي",
+        sortNameAsc: "الاسم (A-Z)",
+        sortNameDesc: "الاسم (Z-A)",
+        sortPriceAsc: "السعر (أقل-أعلى)",
+        sortPriceDesc: "السعر (أعلى-أقل)",
+        sortCategoryAsc: "التصنيف (A-Z)",
+        sortCategoryDesc: "التصنيف (Z-A)",
+        sortArabicAsc: "الاسم العربي (أ-ي)",
+        sortArabicDesc: "الاسم العربي (ي-أ)",
+        footerText: "© 2026 Creative Rarities. بدعم من 3omar.hs",
+        cartTitle: "سلة التسوق",
+        cartEmpty: "سلة التسوق فارغة.",
+        totalLabel: "المجموع:",
+        checkoutBtn: "إتمام الطلب عبر واتساب",
+        addToCart: "أضف للسلة",
+        added: "تمت الإضافة!",
+        oos: "نفدت الكمية",
+        inStock: "متوفر",
+        copy: "نسخ",
+        copied: "تم النسخ!",
+        noPreview: "لا يوجد معاينة",
+        retailPrice: "سعر المفرق لأقل من 25 قطعة:",
+        bulkSaving: "سعر الجملة لـ 25 قطعة فأكثر:",
+        appliedRetail: "(تم تطبيق سعر المفرق لأقل من 25 قطعة)",
+        appliedBulk: "(تم تطبيق سعر الجملة لـ 25 قطعة فأكثر)",
+        viewDoc: "عرض الملف",
+        selectColor: "الألوان المتاحة:",
+        noDesc: "لا يوجد وصف إضافي متاح.",
+        confirmClearTitle: "تفريغ السلة؟",
+        confirmClearMsg: "هل أنت متأكد أنك تريد تفريغ سلة التسوق؟ سيتم مسح جميع العناصر المختارة.",
+        clearAll: "مسح الكل",
+        keepItems: "الإبقاء على العناصر",
+        cartClearedTitle: "تم تفريغ السلة",
+        cartClearedMsg: "تمت إزالة جميع العناصر من سلتك بنجاح.",
+        cartAlreadyEmptyMsg: "سلة التسوق فارغة بالفعل.",
+        done: "تم",
+        ok: "حسناً",
+        cartEmptyCheckoutTitle: "السلة فارغة",
+        cartEmptyCheckoutMsg: "يرجى إضافة بعض العناصر إلى سلتك قبل المتابعة لإتمام الطلب.",
+        waOrderHeader: "*Creative Rarities Store - طلب جديد*",
+        waOrderTotal: "مجموع الطلب:",
+        qty: "الكمية",
+        pcs: "قطعة",
+        color: "اللون",
+        defaultColor: "افتراضي",
+        collectionLabel: "المجموعة:",
+        dimensionsLabel: "الأبعاد:",
+        targetMarketLabel: "الجمهور المستهدف:",
+        descriptionLabel: "الوصف:"
+    }
+};
+
+const aiValueTranslations = {
+    ar: {
+        categories: {
+            "Pet Supplies - Aquarium Decor & Maintenance": "لوازم الحيوانات الأليفة - ديكور وصيانة الأحواض المائية",
+            "Pet Supplies - Habitat Decor": "لوازم الحيوانات الأليفة - ديكور البيئة",
+            "Pet Supplies - Cat Toys & Furniture": "لوازم الحيوانات الأليفة - ألعاب وأثاث القطط",
+            "Pet Supplies - Reptile Habitats & Decor": "لوازم الحيوانات الأليفة - ديكور وبيئة الزواحف",
+            "Pet Supplies - Bird Feeders & Toys": "لوازم الحيوانات الأليفة - مغذيات وألعاب الطيور",
+            "Pet Supplies - Small Animal Habitats": "لوازم الحيوانات الأليفة - مساكن الحيوانات الصغيرة",
+            "Pet Supplies - Feeding & Bedding": "لوازم الحيوانات الأليفة - التغذية والمفارش",
+            "Home Decor & Organization - Indoor Gardening & Planters": "ديكور المنزل والتنظيم - البستنة الداخلية وأوعية الزرع",
+            "Home Decor & Organization - Kitchen Accessories": "ديكور المنزل والتنظيم - إكسسوارات المطبخ",
+            "Home Decor & Organization - Bathroom Accessories": "ديكور المنزل والتنظيم - إكسسوارات الحمام",
+            "Home Decor & Fragrance - Incense Holders & Burners": "ديكور المنزل والعطور - حوامل ومباخر البخور",
+            "Office Supplies & Desk Accessories - Perpetual Calendars": "لوازم مكتبية وإكسسوارات المكتب - تقاويم مستمرة",
+            "Party Favors / Costume Accessories": "تجهيزات الحفلات / إكسسوارات التنكر",
+            "Toys & Games - Novelty & Gag Toys": "الألعاب والترفيه - ألعاب مبتكرة وهدايا طريفة",
+            "Electronics Accessories - Cell Phone Stands & Charging Docks": "إكسسوارات الإلكترونيات - حوامل الهواتف ومنصات الشحن"
+        },
+        collections: {
+            "The Aquascape Series": "سلسلة أكواسكيب",
+            "Nature Scapes": "مناظر طبيعية",
+            "Feline Fun & Comfort": "راحة ومرح القطط",
+            "Reptile Realms": "عالم الزواحف",
+            "The Modern Sanctuary Series": "سلسلة الملاذ الحديث",
+            "Culinary Creations": "إبداعات الطهي",
+            "The Party Starter Series": "سلسلة مبهجي الحفلات",
+            "The Kinetic Timepiece Collection": "مجموعة الساعات الحركية",
+            "The Serenity Flow Collection": "مجموعة تدفق الصفاء",
+            "The Whimsical Menagerie Collection": "مجموعة الكائنات الطريفة",
+            "The Playful Illusion Collection": "مجموعة الخدع المرحة",
+            "The Bio-Kinetic Tech Collection": "مجموعة التقنية الحيوية الحركية",
+            "Avian Adventures": "مغامرات الطيور",
+            "Small Critter Comforts": "راحة المخلوقات الصغيرة",
+            "Pet Care Essentials": "أساسيات العناية بالحيوانات الأليفة",
+            "Bug World": "عالم الحشرات"
+        },
+        targetMarkets: {
+            "Aquarium Hobbyists": "هواة أحواض السمك",
+            "Aquarium & Reptile Enthusiasts": "محبي أحواض السمك والزواحف",
+            "Cat Owners": "أصحاب القطط",
+            "Reptile Keepers & Turtle Owners": "مربي الزواحف وأصحاب السلاحف",
+            "Urban dwellers, wellness-focused professionals, and biophilic design enthusiasts seeking tranquility in small spaces": "سكان المدن، المحترفون المهتمون بالصحة، ومحبو التصميم الحيوي الباحثون عن الهدوء في المساحات الصغيرة",
+            "Home chefs, organizers, and modern kitchen enthusiasts": "طهاة المنازل، المنظمون، ومحبو المطابخ الحديثة",
+            "Event Organizers, Photo Booth Operators, and Party Guests": "منظمو الفعاليات، مشغلو كبائن التصوير، وضيوف الحفلات",
+            "Office Professionals, Students, Kinetic Art Lovers, and Eco-Conscious Minimalists": "الموظفون، الطلاب، محبو الفن الحركي، والمحبون للبساطة المهتمون بالبيئة",
+            "Meditation Practitioners, Tea Lovers, Spa Decorators, and Fans of Unique Aromatherapy": "ممارسو التأمل، محبو الشاي، مصممو المنتجعات الصحية، ومحبو العلاج العطري الفريد",
+            "Cat Lovers, Families with Children, Novelty Gift Shoppers, and Bathroom Decor Enthusiasts": "محبو القطط، العائلات التي لديها أطفال، متسوقو الهدايا المبتكرة، ومحبو ديكورات الحمام",
+            "Pranksters, Social Media Content Creators, and Party Enthusiasts": "محبي المقالب، صناع محتوى التواصل الاجتماعي، ومحبي الحفلات",
+            "Tech Enthusiasts, Modern Workspace Designers, Gamers, and iPhone Users": "عشاق التقنية، مصممو مساحات العمل الحديثة، اللاعبون، ومستخدمو الآيفون",
+            "Bird Watchers & Owners": "مراقبو ومربو الطيور",
+            "Hamster & Small Pet Owners": "أصحاب الهامستر والحيوانات الأليفة الصغيرة",
+            "Pet Owners": "أصحاب الحيوانات الأليفة",
+            "Insect Keepers": "مربي الحشرات"
+        },
+        colors: {
+            "Black": "أسود",
+            "White": "أبيض",
+            "Brown": "بني",
+            "Blue": "أزرق",
+            "Gray": "رمادي",
+            "Green": "أخضر",
+            "Red": "أحمر",
+            "Pink": "وردي",
+            "Purple": "أرجواني",
+            "Yellow": "أصفر",
+            "Orange": "برتقالي",
+            "Silver": "فضي",
+            "Gold": "ذهبي",
+            "Beige": "بيج",
+            "Black & White": "أسود وأبيض"
+        },
+        descriptions: {
+            "Fool your friends with this Realistic Cigarette Style Bubble Wand. Modeled to look just like the real thing, this slender stick is actually a fun bubble blower. Perfect for pranks, photoshoots, or just breaking the ice at parties, it lets you blow whimsical bubbles instead of smoke. Please note: This product includes the bubble wand only; the box packaging shown in the display is not included.": "امزح مع أصدقائك باستخدام عصا الفقاعات المصممة بشكل سيجارة واقعية. تم تصميمها لتبدو تماماً مثل الشيء الحقيقي، ولكن هذا العصا الرفيعة هي في الواقع منفاخ فقاعات ممتع. مثالية للمقالب، أو جلسات التصوير، أو لكسر الجمود في الحفلات، فهي تتيح لك نفخ فقاعات خيالية بدلاً من الدخان. يرجى ملاحظة: يتضمن هذا المنتج عصا الفقاعات فقط؛ ولا يشمل صندوق التغليف الموضح في العرض.",
+            "Elevate your relaxation ritual with this Levitating Teapot Backflow Incense Fountain. Featuring a glossy black finish and a surreal, gravity-defying design, this burner directs heavy incense smoke down the spout to mimic the act of pouring tea. The smoke pools elegantly in the cup below, creating a mesmerizing, water-like visual effect that calms the mind. Accented with a golden finial, it creates a tranquil atmosphere perfect for meditation corners or spa-inspired living spaces.": "ارتقِ بطقوس الاسترخاء الخاصة بك مع نافورة البخور ذات التدفق العكسي (إبريق الشاي الطائر). بفضل اللمسة النهائية السوداء اللامعة والتصميم السريالي الذي يتحدى الجاذبية، تقوم هذه المبخرة بتوجيه دخان البخور الكثيف إلى الأسفل عبر الفوهة ليحاكي عملية صب الشاي. يتجمع الدخان بأناقة في الكوب بالأسفل، مما يخلق تأثيراً بصرياً ساحراً يشبه الماء يهدئ العقل. مزينة بلمسة نهائية ذهبية، تخلق جواً هادئاً مثالياً لزوايا التأمل أو مساحات المعيشة المستوحاة من المنتجعات الصحية.",
+            "Bring the calming rhythm of nature indoors with this gravity-fed watering system. Designed to simulate a gentle rainfall, it hydrates your plants evenly while providing a mesmerizing and serene visual experience. The sleek, modern open-frame architecture allows water to drip slowly from the upper reservoir, ensuring optimal soil moisture without over-saturation. A concealed bottom tray catches excess water, keeping your surfaces pristine. This piece is the perfect fusion of functional botany and modern art.": "أحضر الإيقاع الهادئ للطبيعة إلى الداخل مع نظام الري هذا الذي يعمل بالجاذبية. صُمم ليحاكي سقوط المطر اللطيف، فهو يروي نباتاتك بالتساوي مع توفير تجربة بصرية ساحرة وهادئة. تتيح البنية الحديثة ذات الإطار المفتوح للماء بالتقطير ببطء من الخزان العلوي، مما يضمن رطوبة تربة مثالية دون إشباع زائد. تلتقط الصينية السفلية المخفية المياه الزائدة، مما يحافظ على نظافة الأسطح. هذه القطعة هي الدمج المثالي بين علم النبات العملي والفن الحديث.",
+            "Keep track of time with a playful twist using this Infinite Spin Manual Desktop Calendar. Featuring a vibrant yellow finish and a clever 3D-printed design, this perpetual calendar replaces disposable paper planners with an interactive, everlasting solution. Three independent rotating rings allow you to manually align the day, date, and month, turning your morning routine into a satisfying tactile ritual. Its compact, modern form makes it a functional conversation piece for any creative workspace or study desk.": "تتبع الوقت بلمسة مرحة مع هذا التقويم المكتبي اليدوي دائم الدوران. يتميز هذا التقويم الدائم بلمسة نهائية صفراء نابضة بالحياة وتصميم ذكي مطبوع ثلاثي الأبعاد، ويحل محل المخططات الورقية التي تستخدم لمرة واحدة بحل تفاعلي وأبدي. تتيح لك ثلاث حلقات دوارة مستقلة محاذاة اليوم والتاريخ والشهر يدوياً، مما يحول روتينك الصباحي إلى طقس ملموس وممتع. شكله الحديث والمدمج يجعله قطعة مميزة وعملية لأي مساحة عمل إبداعية أو مكتب دراسة.",
+            "Transform your desk setup with this Articulated Vertebrae MagSafe Docking Stand. Featuring a bold, S-curved design reminiscent of a spinal column, this stand combines industrial aesthetics with functional stability. The segmented arm, accented with contrasting joints, creates a dynamic floating effect for your phone while securely housing your magnetic charger. With built-in cable management channels to keep wires hidden, this piece serves as both a high-tech charging station and a modern sculptural display.": "حول إعداد مكتبك مع قاعدة شحن MagSafe ذات الفقرات المفصّلة. تتميز هذه القاعدة بتصميم جريء على شكل حرف S يشبه العمود الفقري، وهي تجمع بين الجمال الصناعي والاستقرار الوظيفي. تخلق الذراع المجزأة، المزينة بمفاصل متباينة، تأثيراً عائماً ديناميكياً لهاتفك بينما تضم شاحنك المغناطيسي بأمان. مع قنوات إدارة الكابلات المدمجة لإبقاء الأسلاك مخفية، تعمل هذه القطعة كمحطة شحن متطورة وعرض نحتي حديث في آن واحد."
+        },
+        templates: {
+            upgrade: "قم بترقية {area} الخاص بك باستخدام {product}.",
+            expertly: "تم تصميمه باحتراف لـ {target}، ويوفر هذا الملحق عالي الجودة {benefit}.",
+            durable: "يضمن هيكله المتين الاستدامة، مما يجعله مناسباً تماماً لأي {context}.",
+            easy: "سهل الاستخدام والتنظيف، ويجمع بين الوظيفة والجمال الأنيق.",
+            dimensions: "الأبعاد: {dims} مم."
+        },
+        benefits: {
+            "enrichment for your aquatic life while beautifying the tank": "إثراء لحياتك المائية مع تجميل الحوض",
+            "a realistic and engaging landscape for your pets": "منظراً طبيعياً واقعياً وجذاباً لحيواناتك الأليفة",
+            "hours of entertainment and comfort for your feline friend": "ساعات من الترفيه والراحة لصديقك القط",
+            "a naturalistic environment for rest and exploration": "بيئة طبيعية للراحة والاستكشاف",
+            "optimal soil moisture without over-saturation": "رطوبة تربة مثالية دون إشباع زائد"
+        }
+    }
+};
+
+function translateValue(field, value) {
+    if (currentLang !== 'ar') return value;
+    if (!value) return value;
+
+    const maps = aiValueTranslations.ar;
+
+    switch (field) {
+        case 'category':
+            return maps.categories[value] || value;
+        case 'collection':
+            return maps.collections[value] || value;
+        case 'targetMarket':
+            return maps.targetMarkets[value] || value;
+        case 'colors':
+            if (Array.isArray(value)) {
+                return value.map(c => maps.colors[c] || c);
+            }
+            return String(value).split(',').map(c => maps.colors[c.trim()] || c.trim()).join(', ');
+        case 'dimensions':
+            return String(value).replace(/(\d+)\s*[*x]\s*(\d+)\s*[*x]\s*(\d+)/g, '$1 × $2 × $3 مم');
+        case 'description':
+            let originalText = String(value);
+            let normalizedText = originalText.replace(/\s+/g, ' ').trim();
+
+            // Check descriptions map using normalized version
+            if (maps.descriptions) {
+                const translatedKey = Object.keys(maps.descriptions).find(key =>
+                    key.replace(/\s+/g, ' ').trim() === normalizedText
+                );
+                if (translatedKey) return maps.descriptions[translatedKey];
+            }
+
+            let translated = originalText;
+            // Template translation (Smart AI fallback)
+            translated = translated.replace(/Upgrade your (.*?) with the (.*?)\./gi, (match, area, product) => {
+                return maps.templates.upgrade.replace('{area}', area).replace('{product}', product);
+            });
+            translated = translated.replace(/Expertly designed for (.*?), this high-quality accessory provides (.*?)\./gi, (match, target, benefit) => {
+                return maps.templates.expertly.replace('{target}', maps.targetMarkets[target.trim()] || target.trim()).replace('{benefit}', maps.benefits[benefit.trim()] || benefit.trim());
+            });
+            translated = translated.replace(/Its durable construction ensures longevity, making it a perfect fit for any (.*?)\./gi, (match, context) => {
+                return maps.templates.durable.replace('{context}', context.trim());
+            });
+            translated = translated.replace(/Easy to use and clean, it combines functionality with a sleek aesthetic\./gi, maps.templates.easy);
+            translated = translated.replace(/Dimensions: (.*?)\./gi, (match, dims) => {
+                return maps.templates.dimensions.replace('{dims}', translateValue('dimensions', dims.trim()));
+            });
+            return translated;
+        default:
+            return value;
+    }
+}
+
 async function init() {
+    if (!currentLang) {
+        document.getElementById('lang-modal').classList.add('open');
+    } else {
+        applyLanguage();
+    }
     try {
         const data = await fetchSheetData();
         processData(data);
@@ -41,6 +323,73 @@ async function init() {
         showError(err.message);
     }
     setupCart();
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('cr_lang', lang);
+    document.getElementById('lang-modal').classList.remove('open');
+    applyLanguage();
+}
+
+function skipLanguage() {
+    if (!currentLang) {
+        setLanguage('en');
+    } else {
+        document.getElementById('lang-modal').classList.remove('open');
+    }
+}
+
+function toggleLanguage() {
+    setLanguage(currentLang === 'en' ? 'ar' : 'en');
+}
+
+function applyLanguage() {
+    const t = translations[currentLang];
+    document.body.className = currentLang === 'ar' ? 'rtl' : '';
+    document.documentElement.lang = currentLang;
+
+    const setT = (id, text, prop = 'textContent') => {
+        const el = document.getElementById(id);
+        if (el) el[prop] = text;
+    };
+
+    setT('lang-text', t.langText);
+    setT('header-wa-text', t.headerWa);
+
+    const storeTitleEl = document.getElementById('store-title');
+    if (storeTitleEl) {
+        if (currentLang === 'en') {
+            storeTitleEl.innerHTML = `Creative <span class="gradient-text">Rarities</span> Store`;
+        } else {
+            storeTitleEl.innerHTML = `متجر <span class="gradient-text">نوادر إبداعية</span>`;
+        }
+    }
+
+    setT('store-subtitle', t.storeSubtitle);
+    setT('loading-text', t.loadingText);
+    setT('search-input', t.searchPlaceholder, 'placeholder');
+    setT('category-label', t.categoryLabel);
+    setT('all-categories-opt', t.allCategories);
+    setT('sort-label', t.sortLabel);
+    setT('sort-default', t.sortDefault);
+    setT('sort-name-asc', t.sortNameAsc);
+    setT('sort-name-desc', t.sortNameDesc);
+    setT('sort-price-asc', t.sortPriceAsc);
+    setT('sort-price-desc', t.sortPriceDesc);
+    setT('sort-category-asc', t.sortCategoryAsc);
+    setT('sort-category-desc', t.sortCategoryDesc);
+    setT('sort-arabic-asc', t.sortArabicAsc);
+    setT('sort-arabic-desc', t.sortArabicDesc);
+    setT('footer-text', t.footerText);
+    setT('cart-title', t.cartTitle);
+    setT('cart-empty-msg', t.cartEmpty);
+    setT('total-label', t.totalLabel);
+    setT('checkout-text', t.checkoutBtn);
+
+    if (allProducts.length > 0) {
+        renderProducts(currentProducts);
+    }
 }
 
 function fetchSheetData() {
@@ -106,14 +455,15 @@ function processData(data) {
         keys.find(k => normalizeKey(k).includes('document') && normalizeKey(k).includes('link')) ||
         keys.find(k => normalizeKey(k) === 'link');
 
-    const retailPriceKey = keys.find(k => k.includes('>=') && k.includes('25')) ||
-        keys.find(k => normalizeKey(k).includes('retail'));
+    const retailPriceKey = keys.find(k => k.includes('<') && k.includes('25')) ||
+        keys.find(k => normalizeKey(k).includes('retail')) ||
+        keys.find(k => normalizeKey(k) === 'price');
 
-    const bulkPriceKey = keys.find(k => k.includes('<') && k.includes('25')) ||
+    const wholesalePriceKey = keys.find(k => k.includes('>=') && k.includes('25')) ||
+        keys.find(k => normalizeKey(k).includes('wholesale')) ||
         keys.find(k => normalizeKey(k).includes('bulk'));
 
-    const priceKey = keys.find(k => normalizeKey(k) === 'price') ||
-        keys.find(k => normalizeKey(k).includes('price') && !k.includes('25')) ||
+    const priceKey = keys.find(k => normalizeKey(k).includes('price') && !k.includes('25')) ||
         keys.find(k => normalizeKey(k).includes('cost'));
 
     const categoryKey = keys.find(k => normalizeKey(k).includes('category')) ||
@@ -152,7 +502,7 @@ function processData(data) {
             dimensions: dimensionsKey ? item[dimensionsKey] : null,
             collection: collectionKey ? item[collectionKey] : null,
             targetMarket: targetMarketKey ? item[targetMarketKey] : null,
-            bulkPrice: bulkPriceKey ? item[bulkPriceKey] : null,
+            bulkPrice: wholesalePriceKey ? item[wholesalePriceKey] : null,
             bulkDiscount: bulkDiscountKey ? item[bulkDiscountKey] : null,
             available: (availableKey && item[availableKey] && String(item[availableKey]).trim() !== '') ? item[availableKey] : 'Yes',
             hidden: hiddenKey ? String(item[hiddenKey]).toLowerCase() === 'yes' : false,
@@ -160,12 +510,12 @@ function processData(data) {
             index: index
         };
 
-        // Calculate discount percentage if both prices are available
+        // Calculate discount percentage if both prices are available (Retail > Wholesale)
         if (product.price && product.bulkPrice) {
-            const p1 = parseFloat(product.price.replace(/[^\d.]/g, ''));
-            const p2 = parseFloat(product.bulkPrice.replace(/[^\d.]/g, ''));
-            if (!isNaN(p1) && !isNaN(p2) && p2 > p1) {
-                product.calculatedDiscount = Math.round(((p2 - p1) / p2) * 100);
+            const pRetail = parseFloat(String(product.price).replace(/[^\d.]/g, ''));
+            const pWholesale = parseFloat(String(product.bulkPrice).replace(/[^\d.]/g, ''));
+            if (!isNaN(pRetail) && !isNaN(pWholesale) && pRetail > pWholesale) {
+                product.calculatedDiscount = Math.round(((pRetail - pWholesale) / pRetail) * 100);
             }
         }
 
@@ -179,6 +529,8 @@ function processData(data) {
 
         return product;
     }).filter(p => !p.hidden).filter(p => p.name).reverse();
+
+    window.lastRawData = data; // Save for language switch re-processing
 
     const fuseOptions = {
         keys: [
@@ -198,7 +550,8 @@ function processData(data) {
     fuse = new Fuse(allProducts, fuseOptions);
 
     const categories = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort();
-    categorySelect.innerHTML = '<option value="all">All Categories</option>' +
+    const t = translations[currentLang || 'en'];
+    categorySelect.innerHTML = `<option value="all" id="all-categories-opt">${t.allCategories}</option>` +
         categories.map(c => `<option value="${c}">${c}</option>`).join('');
 
     renderProducts(allProducts);
@@ -212,8 +565,13 @@ function processData(data) {
 let currentlyRendered = 0;
 const BATCH_SIZE = 10;
 let currentProducts = [];
+let renderTimeouts = [];
 
 function renderProducts(products) {
+    // Clear any pending render timeouts to prevent duplication
+    renderTimeouts.forEach(clearTimeout);
+    renderTimeouts = [];
+
     productGrid.innerHTML = '';
     currentProducts = products;
     currentlyRendered = 0;
@@ -230,20 +588,25 @@ function renderProducts(products) {
 }
 
 function renderBatch() {
-    const end = Math.min(currentlyRendered + BATCH_SIZE, currentProducts.length);
-    const batch = currentProducts.slice(currentlyRendered, end);
+    if (currentlyRendered >= currentProducts.length) return;
+
+    const start = currentlyRendered;
+    const end = Math.min(start + BATCH_SIZE, currentProducts.length);
+    const batch = currentProducts.slice(start, end);
+
+    currentlyRendered = end; // Increment immediately to prevent duplicate batch calls
 
     batch.forEach((product, index) => {
-        setTimeout(() => {
-            const card = createCard(product, currentlyRendered + index);
+        const timeoutId = setTimeout(() => {
+            const card = createCard(product, start + index);
             productGrid.appendChild(card);
 
             if (index === batch.length - 1) {
-                currentlyRendered = end;
                 if (window.lucide) lucide.createIcons();
                 setupSentinel();
             }
         }, index * 150);
+        renderTimeouts.push(timeoutId);
     });
 }
 
@@ -293,6 +656,7 @@ function setupLazyLoading() {
 }
 
 function createCard(product, uiIndex) {
+    const t = translations[currentLang || 'en'];
     const article = document.createElement('article');
     article.className = 'card fade-in-up';
     article.style.animationDelay = `${Math.min(uiIndex * 0.05, 1)}s`;
@@ -316,7 +680,7 @@ function createCard(product, uiIndex) {
     }
 
     const imgId = `img-${product.index}`;
-    const noLinkPlaceholder = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ENo%20Preview%20Available%3C%2Ftext%3E%3C%2Fsvg%3E';
+    const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     let imageSrc = directImageSrc || (driveId
         ? `https://lh3.googleusercontent.com/d/${driveId}=w800`
@@ -324,7 +688,15 @@ function createCard(product, uiIndex) {
 
     const secondaryFallback = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : imageSrc;
     const isPlaceholder = !driveId && !directImageSrc;
-    const largeImageSrc = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` : imageSrc;
+
+    const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
+    const secondaryName = (currentLang === 'ar') ? product.name : product.arabicName;
+
+    const displayCategory = translateValue('category', product.category);
+    const displayCollection = translateValue('collection', product.collection);
+    const displayDimensions = translateValue('dimensions', product.dimensions);
+    const displayTargetMarket = translateValue('targetMarket', product.targetMarket);
+    const displayDescription = translateValue('description', product.description);
 
     article.innerHTML = `
         <div class="card-image-container" style="${isPlaceholder ? 'padding: 2rem; background: #f8fafc;' : ''}">
@@ -343,22 +715,22 @@ function createCard(product, uiIndex) {
                 <button 
                     class="add-to-cart-btn-mini ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}" 
                     onclick="event.stopPropagation(); ${String(product.available).toLowerCase() === 'no' ? '' : `addToCart(${product.index}, this)`}" 
-                    title="${String(product.available).toLowerCase() === 'no' ? 'Out of Stock' : 'Add to Cart'}"
+                    title="${String(product.available).toLowerCase() === 'no' ? t.oos : t.addToCart}"
                     ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
                 >
                     <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 14px;"></i> 
-                    ${String(product.available).toLowerCase() === 'no' ? ' OOS' : ' + Cart'}
+                    ${String(product.available).toLowerCase() === 'no' ? ' ' + t.oos : ' + ' + t.addToCart}
                 </button>
             </div>
-            <h2 class="card-title">${product.name}</h2>
-            ${product.arabicName ? `<p class="card-arabic-name">${product.arabicName}</p>` : ''}
-            ${product.category ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${product.category}</div>` : ''}
+            <h2 class="card-title">${displayName}</h2>
+            ${secondaryName ? `<p class="card-arabic-name">${secondaryName}</p>` : ''}
+            ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
         </div>
         <div class="card-footer">
             ${product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : (product.price ? `<span class="card-price">${product.price} JOD</span>` : '')}
             ${String(product.available).toLowerCase() !== 'no' ?
-            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
-            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
+            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
+            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}
             <i data-lucide="shield-check" style="margin-left: auto; width: 16px; color: var(--accent);"></i>
         </div>
 
@@ -366,32 +738,35 @@ function createCard(product, uiIndex) {
             <div class="expanded-info">
                 <button class="expanded-close" title="Close Details"><i data-lucide="x"></i></button>
                 <div style="display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-                    <h2 class="expanded-title" style="margin: 0;">${product.name}</h2>
+                    <h2 class="expanded-title" style="margin: 0;">${displayName}</h2>
                     ${String(product.available).toLowerCase() !== 'no' ?
-            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
-            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
+            `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
+            `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;">
                     <span class="card-number" style="font-size: 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border-radius: 8px; color: var(--text-primary);">No: ${product.no}</span>
                     <button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard('${product.no}', this)" title="Copy Item Number">
-                        <i data-lucide="copy" style="width: 14px;"></i> Copy
+                        <i data-lucide="copy" style="width: 14px;"></i> ${t.copy}
                     </button>
                 </div>
-                ${product.arabicName ? `<p class="expanded-arabic-name">${product.arabicName}</p>` : ''}
+                ${secondaryName ? `<p class="expanded-arabic-name">${secondaryName}</p>` : ''}
                 
                 <div class="expanded-grid">
-                    ${product.category ? `<div class="expanded-meta"><strong>Category:</strong> <span>${product.category}</span></div>` : ''}
-                    ${product.collection ? `<div class="expanded-meta"><strong>Collection:</strong> <span>${product.collection}</span></div>` : ''}
-                    ${product.dimensions ? `<div class="expanded-meta"><strong>Dimensions:</strong> <span>${product.dimensions}</span></div>` : ''}
-                    ${product.targetMarket ? `<div class="expanded-meta"><strong>Target Market:</strong> <span>${product.targetMarket}</span></div>` : ''}
+                    ${displayCategory ? `<div class="expanded-meta"><strong>${t.categoryLabel}</strong> <span>${displayCategory}</span></div>` : ''}
+                    ${displayCollection ? `<div class="expanded-meta"><strong>${t.collectionLabel}</strong> <span>${displayCollection}</span></div>` : ''}
+                    ${displayDimensions ? `<div class="expanded-meta"><strong>${t.dimensionsLabel}</strong> <span>${displayDimensions}</span></div>` : ''}
+                    ${displayTargetMarket ? `<div class="expanded-meta"><strong>${t.targetMarketLabel}</strong> <span>${displayTargetMarket}</span></div>` : ''}
                 </div>
 
-                <div class="expanded-description">${product.description || 'No additional description available.'}</div>
+                <div class="expanded-description">
+                    <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-primary);">${t.descriptionLabel}</strong>
+                    ${displayDescription || t.noDesc}
+                </div>
                 
                 ${product.colors && product.colors.length > 0 ? `
                 <div class="colors-section" style="margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 20px; border: 1px solid var(--card-border); position: relative; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
                     <div class="colors-title" style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; font-weight: 800; color: var(--text-primary); margin-bottom: 1.2rem; text-transform: uppercase; letter-spacing: 0.12em;">
-                        <i data-lucide="palette" style="width: 16px; color: var(--accent);"></i> Select Color
+                        <i data-lucide="palette" style="width: 16px; color: var(--accent);"></i> ${t.selectColor}
                     </div>
                     <div class="color-list" style="display: flex; flex-wrap: wrap; gap: 1rem; position: relative; z-index: 1;">
                         ${product.colors.map((color, idx) => {
@@ -399,6 +774,7 @@ function createCard(product, uiIndex) {
                 const isWhite = cssColor === 'white' || cssColor === '#ffffff';
                 const isFirst = idx === 0;
                 if (isFirst) article.dataset.selectedColor = color;
+                const displayColorName = translateValue('colors', color);
                 const badgeStyle = `
                                     display: flex;
                                     align-items: center;
@@ -422,7 +798,7 @@ function createCard(product, uiIndex) {
                                      onmouseover="if(!this.classList.contains('selected')) this.style.transform='translateY(-5px)';" 
                                      onmouseout="if(!this.classList.contains('selected')) this.style.transform='none';">
                                     <span class="color-dot" style="width: 24px; height: 24px; border-radius: 6px; background-color: ${cssColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; position: relative;"></span>
-                                    <span class="color-name">${color}</span>
+                                    <span class="color-name">${displayColorName}</span>
                                 </div>
                             `;
             }).join('')}
@@ -432,21 +808,23 @@ function createCard(product, uiIndex) {
                 
                 <div class="expanded-pricing">
                     <div class="main-price">
-                        <div class="main-price-info">
-                            <span class="label">Retail Price (>= 25 QTY):</span>
+                        <div class="price-info-block">
+                            <span class="label">${t.retailPrice}</span>
                             <span class="value">${product.price ? `${product.price} JOD` : 'Price on request'}</span>
                         </div>
-                        ${product.calculatedDiscount ? `
-                            <div class="discount-badge">
-                                <span class="discount-percent">${product.calculatedDiscount}%</span>
-                                <span class="discount-off">OFF</span>
-                            </div>
-                        ` : ''}
                     </div>
                     ${product.bulkPrice ? `
                         <div class="bulk-price">
-                            <span class="label">Bulk Saving (< 25 QTY):</span>
-                            <span class="value">${product.bulkPrice} JOD</span>
+                            <div class="price-info-block">
+                                <span class="label">${t.bulkSaving}</span>
+                                <span class="value">${product.bulkPrice} JOD</span>
+                            </div>
+                            ${product.calculatedDiscount ? `
+                                <div class="discount-badge">
+                                    <span class="discount-percent">${product.calculatedDiscount}%</span>
+                                    <span class="discount-off">OFF</span>
+                                </div>
+                            ` : ''}
                         </div>
                     ` : ''}
                     ${product.bulkDiscount ? `
@@ -464,9 +842,9 @@ function createCard(product, uiIndex) {
                         ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
                     >
                         <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 18px;"></i> 
-                        ${String(product.available).toLowerCase() === 'no' ? 'Out of Stock' : 'Add to Cart'}
+                        ${String(product.available).toLowerCase() === 'no' ? t.oos : t.addToCart}
                     </button>
-                    ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> View Document</a>` : ''}
+                    ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> ${t.viewDoc}</a>` : ''}
                 </div>
             </div>
         </div>
@@ -583,10 +961,11 @@ function setupSearch() {
 }
 
 window.copyToClipboard = function (text, btn) {
+    const t = translations[currentLang || 'en'];
     navigator.clipboard.writeText(text).then(() => {
         const originalHtml = btn.innerHTML;
         btn.classList.add('copied');
-        btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> Copied`;
+        btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> ${t.copied}`;
         if (window.lucide) lucide.createIcons();
         setTimeout(() => {
             btn.classList.remove('copied');
@@ -694,6 +1073,7 @@ function toggleCart() {
 }
 
 window.addToCart = function (productIndex, btn) {
+    const t = translations[currentLang || 'en'];
     const product = allProducts.find(p => p.index === productIndex);
     if (!product || String(product.available).toLowerCase() === 'no') return;
 
@@ -721,7 +1101,7 @@ window.addToCart = function (productIndex, btn) {
 
     // Visual feedback
     const originalContent = btn.innerHTML;
-    btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> Added!`;
+    btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> ${t.added}`;
     if (btn.classList.contains('add-to-cart-btn-mini')) {
         btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i>`;
     }
@@ -817,22 +1197,23 @@ function showModal({ title, message, type = 'warning', confirmText = 'Confirm', 
 }
 
 function emptyCart() {
+    const t = translations[currentLang || 'en'];
     if (cart.length === 0) {
         showModal({
-            title: "Cart Empty",
-            message: "Your cart is already empty.",
+            title: t.cartAlreadyEmptyMsg,
+            message: t.cartAlreadyEmptyMsg, // Simplified
             type: "success",
-            confirmText: "Ok"
+            confirmText: t.ok
         });
         return;
     }
 
     showModal({
-        title: "Empty Cart?",
-        message: "Are you sure you want to empty your cart? This will erase all selected items.",
+        title: t.confirmClearTitle,
+        message: t.confirmClearMsg,
         type: "warning",
-        confirmText: "Clear All",
-        cancelText: "Keep Items",
+        confirmText: t.clearAll,
+        cancelText: t.keepItems,
         onConfirm: () => {
             cart.length = 0;
             saveCart();
@@ -841,10 +1222,10 @@ function emptyCart() {
             // Show success modal after clearing
             setTimeout(() => {
                 showModal({
-                    title: "Cart Cleared",
-                    message: "All items have been removed from your cart successfully.",
+                    title: t.cartClearedTitle,
+                    message: t.cartClearedMsg,
                     type: "success",
-                    confirmText: "Done"
+                    confirmText: t.done
                 });
             }, 400);
         }
@@ -855,6 +1236,7 @@ window.emptyCart = emptyCart;
 
 
 function updateCartUI() {
+    const t = translations[currentLang || 'en'];
     const cartItemsContainer = document.getElementById('cart-items');
     const cartCount = document.getElementById('cart-count');
     const cartTotalValue = document.getElementById('cart-total-value');
@@ -864,7 +1246,7 @@ function updateCartUI() {
     cartCount.style.display = totalCount > 0 ? 'flex' : 'none';
 
     if (cart.length === 0) {
-        cartItemsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Your cart is empty.</p>';
+        cartItemsContainer.innerHTML = `<p id="cart-empty-msg" style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">${t.cartEmpty}</p>`;
         cartTotalValue.textContent = '0.000 JOD';
         return;
     }
@@ -879,10 +1261,10 @@ function updateCartUI() {
 
     cartItemsContainer.innerHTML = cart.map(item => {
         const totalQtyForProduct = productQuantities[item.no];
-        const isBulk = totalQtyForProduct < 25;
+        const isWholesale = totalQtyForProduct >= 25;
 
-        // Use bulkPrice if qty < 25, otherwise use retail price
-        const priceString = isBulk && item.bulkPrice ? item.bulkPrice : item.price;
+        // Use bulkPrice (Wholesale) if qty >= 25, otherwise use price (Retail)
+        const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
         const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
 
         const subtotal = unitPrice * item.quantity;
@@ -898,7 +1280,7 @@ function updateCartUI() {
                     <div class="cart-item-title">${item.name} ${item.color ? `<small style="color: var(--text-secondary);">(${item.color})</small>` : ''}</div>
                     <div class="cart-item-price">
                         ${unitPrice.toFixed(3)} JOD 
-                        ${item.bulkPrice && isBulk ? `<small style="display:block; font-size:0.7rem; color:#b45309;">(Applied Bulk Saving Price for <25 qty)</small>` : (item.price && !isBulk ? `<small style="display:block; font-size:0.7rem; color:#059669;">(Applied Retail Price for >=25 qty)</small>` : '')}
+                        ${item.bulkPrice && isWholesale ? `<small style="display:block; font-size:0.7rem; color:#b45309;">${t.appliedBulk}</small>` : (item.price && !isWholesale ? `<small style="display:block; font-size:0.7rem; color:#059669;">${t.appliedRetail}</small>` : '')}
                     </div>
                     <div class="cart-item-controls">
                         <button class="qty-btn" onclick="updateQty(${item.index}, -1, '${item.color || ""}')"><i data-lucide="minus" style="width: 14px;"></i></button>
@@ -916,17 +1298,18 @@ function updateCartUI() {
 }
 
 function checkoutWhatsApp() {
+    const t = translations[currentLang || 'en'];
     if (cart.length === 0) {
         showModal({
-            title: "Cart is Empty",
-            message: "Please add some items to your cart before proceeding to checkout.",
+            title: t.cartEmptyCheckoutTitle,
+            message: t.cartEmptyCheckoutMsg,
             type: "warning",
-            confirmText: "Ok"
+            confirmText: t.ok
         });
         return;
     }
 
-    let message = "*Creative Rarities Store - New Order*\n\n";
+    let message = `${t.waOrderHeader}\n\n`;
     let total = 0;
 
     // First calculate product quantities to determine pricing (bulk vs retail)
@@ -937,23 +1320,24 @@ function checkoutWhatsApp() {
 
     cart.forEach((item) => {
         const totalQtyForProduct = productQuantities[item.no];
-        const isBulk = totalQtyForProduct < 25;
-        const priceString = isBulk && item.bulkPrice ? item.bulkPrice : item.price;
+        const isWholesale = totalQtyForProduct >= 25;
+        const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
         const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
         const subtotal = unitPrice * item.quantity;
         total += subtotal;
 
         message += `*${item.name}*\n`;
-        message += `ID: ${item.no} | Color: ${item.color || 'Default'}\n`;
-        message += `Qty: ${item.quantity} PCS x ${unitPrice.toFixed(3)} JOD = ${subtotal.toFixed(3)} JOD\n\n`;
+        message += `ID: ${item.no} | ${t.color}: ${item.color || t.defaultColor}\n`;
+        message += `${t.qty}: ${item.quantity} ${t.pcs} x ${unitPrice.toFixed(3)} JOD = ${subtotal.toFixed(3)} JOD\n\n`;
     });
 
     message += `--------------------------\n`;
-    message += `*Order Total: ${total.toFixed(3)} JOD*`;
+    message += `*${t.waOrderTotal} ${total.toFixed(3)} JOD*`;
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://web.whatsapp.com/send/?phone=962795965910&text=${encodedMessage}&type=phone_number&app_absent=0`;
 
+    // Original whatsapp link template that works better on mobile
+    const whatsappUrl = `https://wa.me/962795965910?text=${encodedMessage}`;
 
     window.open(whatsappUrl, '_blank');
 }

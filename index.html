@@ -30,11 +30,17 @@
     <header>
         <div class="container header-content">
             <div class="header-actions">
-                <a href="https://wa.me/962795965910?text=Hi,%20I%20would%20Like%20to%20order.%20May%20I%20get%20your%20assestant."
-                    target="_blank" class="whatsapp-btn" title="Order via WhatsApp">
-                    <i data-lucide="message-circle"></i>
-                    <span>Order via WhatsApp</span>
-                </a>
+                <div class="header-top-btns">
+                    <button id="lang-switch" class="lang-switch-btn" onclick="toggleLanguage()">
+                        <i data-lucide="languages"></i>
+                        <span id="lang-text">العربية</span>
+                    </button>
+                    <a href="https://wa.me/962795965910?text=Hi,%20I%20would%20Like%20to%20order.%20May%20I%20get%20your%20assestant."
+                        target="_blank" class="whatsapp-btn" title="Order via WhatsApp" id="header-wa-btn">
+                        <i data-lucide="message-circle"></i>
+                        <span id="header-wa-text">Order via WhatsApp</span>
+                    </a>
+                </div>
                 <div class="header-socials">
                     <a href="mailto:crtvrarities@gmail.com" class="social-icon" title="Send Email">
                         <i data-lucide="mail"></i>
@@ -50,15 +56,15 @@
                 </div>
             </div>
             <img src="logo.png" alt="PricePulse Logo" class="brand-logo" onerror="this.style.display='none'">
-            <h1>Creative <span class="gradient-text">Rarities</span> Store</h1>
-            <p>Discover unique and premium products.</p>
+            <h1 id="store-title">Creative <span class="gradient-text">Rarities</span> Store</h1>
+            <p id="store-subtitle">Discover unique and premium products.</p>
         </div>
     </header>
 
     <main class="container">
         <div id="loading" class="loading-state">
             <div class="spinner"></div>
-            <p>Loading Catalog...</p>
+            <p id="loading-text">Loading Catalog...</p>
         </div>
 
         <div id="controls" class="controls-container hidden">
@@ -67,25 +73,25 @@
                 <input type="text" id="search-input" placeholder="Smart search: name, category, price, item number... ">
             </div>
             <div class="filter-wrapper">
-                <label for="category-select"
+                <label for="category-select" id="category-label"
                     style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Category:</label>
                 <select id="category-select" class="sort-select">
-                    <option value="all">All Categories</option>
+                    <option value="all" id="all-categories-opt">All Categories</option>
                 </select>
             </div>
             <div class="sort-wrapper">
-                <label for="sort-select"
+                <label for="sort-select" id="sort-label"
                     style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Sort by:</label>
                 <select id="sort-select" class="sort-select">
-                    <option value="default">Default</option>
-                    <option value="name-asc">Name (A-Z)</option>
-                    <option value="name-desc">Name (Z-A)</option>
-                    <option value="price-asc">Price (Low-High)</option>
-                    <option value="price-desc">Price (High-Low)</option>
-                    <option value="category-asc">Category (A-Z)</option>
-                    <option value="category-desc">Category (Z-A)</option>
-                    <option value="arabic-asc">Arabic Name (أ-ي)</option>
-                    <option value="arabic-desc">Arabic Name (ي-أ)</option>
+                    <option value="default" id="sort-default">Default</option>
+                    <option value="name-asc" id="sort-name-asc">Name (A-Z)</option>
+                    <option value="name-desc" id="sort-name-desc">Name (Z-A)</option>
+                    <option value="price-asc" id="sort-price-asc">Price (Low-High)</option>
+                    <option value="price-desc" id="sort-price-desc">Price (High-Low)</option>
+                    <option value="category-asc" id="sort-category-asc">Category (A-Z)</option>
+                    <option value="category-desc" id="sort-category-desc">Category (Z-A)</option>
+                    <option value="arabic-asc" id="sort-arabic-asc">Arabic Name (أ-ي)</option>
+                    <option value="arabic-desc" id="sort-arabic-desc">Arabic Name (ي-أ)</option>
                 </select>
             </div>
             <div class="stats" id="product-count"></div>
@@ -102,7 +108,7 @@
     </main>
 
     <footer>
-        <p>&copy; 2026 Creative Rarities. Powered by 3omar.hs</p>
+        <p id="footer-text">&copy; 2026 Creative Rarities. Powered by 3omar.hs</p>
     </footer>
 
     <!-- Back to Top Button -->
@@ -120,9 +126,9 @@
     <div id="cart-overlay" class="cart-overlay"></div>
     <div id="cart-drawer" class="cart-drawer">
         <div class="cart-header">
-            <h2>Your Cart</h2>
+            <h2 id="cart-title">Your Cart</h2>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button id="clear-cart-btn" class="clear-cart-btn" title="Empty Cart" onclick="emptyCart()">
+                <button id="clear-cart-btn-header" class="clear-cart-btn" title="Empty Cart" onclick="emptyCart()">
                     <i data-lucide="trash-2" style="width: 18px;"></i>
                 </button>
 
@@ -131,17 +137,49 @@
         </div>
         <div id="cart-items" class="cart-items">
             <!-- Cart items will be injected here -->
-            <p style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Your cart is empty.</p>
+            <p id="cart-empty-msg" style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Your cart
+                is empty.</p>
         </div>
         <div class="cart-footer">
             <div class="cart-total">
-                <span>Total:</span>
+                <span id="total-label">Total:</span>
                 <span id="cart-total-value">0.00 JOD</span>
             </div>
             <button id="checkout-btn" class="checkout-btn">
                 <i data-lucide="message-circle"></i>
-                Checkout via WhatsApp
+                <span id="checkout-text">Checkout via WhatsApp</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Language Selector Modal (First Visit) -->
+    <div id="lang-modal" class="modal-overlay">
+        <div class="modal-container">
+            <button class="modal-close-btn" onclick="skipLanguage()" aria-label="Skip language selection">
+                <i data-lucide="x"></i>
+            </button>
+            <div class="modal-header">
+                <div class="modal-header-bg">
+                    <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                        <path d="M0,0 L400,0 L400,100 C200,150 200,50 0,100 Z" fill="rgba(0,0,0,0.02)"></path>
+                    </svg>
+                </div>
+                <div class="modal-icon-wrapper">
+                    <div class="modal-icon-container" style="background: var(--accent); color: white;">
+                        <i data-lucide="languages"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-content">
+                <h3>Select Language / اختر اللغة</h3>
+                <p>Please choose your preferred language to continue.</p>
+                <p dir="rtl">يرجى اختيار لغتك المفضلة للمتابعة.</p>
+            </div>
+            <div class="modal-footer" style="flex-direction: column; gap: 1rem;">
+                <button onclick="setLanguage('en')" class="modal-btn primary" style="width: 100%;">English</button>
+                <button onclick="setLanguage('ar')" class="modal-btn secondary"
+                    style="width: 100%; font-weight: 700;">العربية</button>
+            </div>
         </div>
     </div>
 

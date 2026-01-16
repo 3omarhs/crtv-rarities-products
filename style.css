@@ -665,17 +665,14 @@ footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
-    padding: 1.5rem 1.5rem;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border: 2px solid #fde68a;
-    border-radius: 16px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 15px rgba(217, 119, 6, 0.1);
+    margin-bottom: 1rem;
+    padding: 1rem 1.5rem;
+    background: #f8fafc;
+    border: 1px dashed var(--card-border);
+    border-radius: 12px;
 }
 
-.main-price::before {
+.bulk-price::before {
     content: '';
     position: absolute;
     top: 0;
@@ -685,26 +682,24 @@ footer {
     background: var(--accent);
 }
 
-.main-price-info {
+.price-info-block {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
 }
 
 .main-price .label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #92400e;
-    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
 }
 
 .main-price .value {
-    font-size: 2.2rem;
-    font-weight: 900;
-    color: #b45309;
-    line-height: 1;
-    letter-spacing: -0.02em;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
 }
 
 .discount-badge {
@@ -737,23 +732,30 @@ footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
-    padding: 1rem 1.5rem;
-    background: #fffbeb;
-    border: 1px dashed #f59e0b;
-    border-radius: 12px;
-    box-shadow: inset 0 2px 4px rgba(245, 158, 11, 0.05);
+    margin-bottom: 1.5rem;
+    padding: 1.5rem 1.5rem;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 2px solid #fde68a;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(217, 119, 6, 0.1);
 }
 
 .bulk-price .label {
-    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: #92400e;
+    font-weight: 800;
 }
 
 .bulk-price .value {
-    font-weight: 800;
+    font-size: 2.2rem;
+    font-weight: 900;
     color: #b45309;
-    font-size: 1.25rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
 }
 
 .bulk-discount {
@@ -1154,20 +1156,21 @@ footer {
 .cart-drawer {
     position: fixed;
     top: 0;
-    right: -100%;
+    right: 0;
     width: 100%;
     max-width: 450px;
     height: 100vh;
     background: #ffffff;
     box-shadow: -10px 0 50px rgba(0, 0, 0, 0.1);
     z-index: 1002;
-    transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
     display: flex;
     flex-direction: column;
 }
 
 .cart-drawer.open {
-    right: 0;
+    transform: translateX(0);
 }
 
 .cart-header {
@@ -1434,8 +1437,31 @@ footer {
     transform: scale(0.8) translateY(40px);
     transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     position: relative;
-    overflow: hidden;
     padding-bottom: 2.5rem;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.05);
+    border: none;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    background: rgba(15, 23, 42, 0.1);
+    transform: rotate(90deg);
+    color: #1e293b;
 }
 
 .modal-overlay.open .modal-container {
@@ -1636,4 +1662,126 @@ footer {
        The image shows a single 'Ok' button. 
        For confirmation, we'll keep them stacked for that modern 'mobile first' feel 
        OR side-by-side if there's space. Let's stick to stacked for the aesthetic. */
+}
+
+/* Arabic RTL Support */
+body.rtl {
+    direction: rtl;
+    text-align: right;
+}
+
+body.rtl .header-actions {
+    right: auto;
+    left: 0;
+}
+
+body.rtl .search-wrapper #search-input {
+    padding: 1rem 3rem 1rem 1rem;
+}
+
+body.rtl .search-icon {
+    left: auto;
+    right: 1rem;
+}
+
+body.rtl .filter-wrapper label,
+body.rtl .sort-wrapper label {
+    margin-right: 0;
+    margin-left: 0.5rem;
+}
+
+body.rtl .card-category {
+    flex-direction: row-reverse;
+}
+
+body.rtl .card-price {
+    flex-direction: row-reverse;
+}
+
+body.rtl .stock-badge {
+    margin-left: 0;
+    margin-right: 0.5rem;
+}
+
+body.rtl .expanded-close {
+    right: auto;
+    left: 0;
+}
+
+body.rtl .expanded-title {
+    padding-right: 0;
+    padding-left: 40px;
+}
+
+body.rtl .expanded-meta strong {
+    margin-right: 0;
+    margin-left: 0.4rem;
+}
+
+body.rtl .main-price::before {
+    left: auto;
+    right: 0;
+}
+
+body.rtl .floating-cart {
+    right: auto;
+    left: 2rem;
+}
+
+body.rtl .cart-drawer {
+    right: auto;
+    left: 0;
+    transform: translateX(-110%);
+    box-shadow: 10px 0 50px rgba(0, 0, 0, 0.1);
+}
+
+body.rtl .cart-drawer.open {
+    transform: translateX(0);
+}
+
+body.rtl .cart-item-info {
+    text-align: right;
+}
+
+body.rtl .lang-switch-btn {
+    flex-direction: row-reverse;
+}
+
+/* Language Switch Button */
+.header-top-btns {
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+}
+
+.lang-switch-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    padding: 0.8rem 1.2rem;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.lang-switch-btn:hover {
+    background: #f1f5f9;
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .lang-switch-btn span {
+        display: none;
+    }
+
+    .lang-switch-btn {
+        padding: 0.8rem;
+    }
 }
