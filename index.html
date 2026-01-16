@@ -110,6 +110,70 @@
         <i data-lucide="arrow-up"></i>
     </button>
 
+    <!-- Floating Cart Button -->
+    <div id="floating-cart" class="floating-cart" title="View Cart">
+        <i data-lucide="shopping-cart"></i>
+        <div id="cart-count" class="cart-count">0</div>
+    </div>
+
+    <!-- Cart Overlay & Drawer -->
+    <div id="cart-overlay" class="cart-overlay"></div>
+    <div id="cart-drawer" class="cart-drawer">
+        <div class="cart-header">
+            <h2>Your Cart</h2>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button id="clear-cart-btn" class="clear-cart-btn" title="Empty Cart" onclick="emptyCart()">
+                    <i data-lucide="trash-2" style="width: 18px;"></i>
+                </button>
+
+                <button id="close-cart" class="close-cart" title="Close Cart"><i data-lucide="x"></i></button>
+            </div>
+        </div>
+        <div id="cart-items" class="cart-items">
+            <!-- Cart items will be injected here -->
+            <p style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Your cart is empty.</p>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total:</span>
+                <span id="cart-total-value">0.00 JOD</span>
+            </div>
+            <button id="checkout-btn" class="checkout-btn">
+                <i data-lucide="message-circle"></i>
+                Checkout via WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-header-bg">
+                    <svg viewBox="0 0 400 200" preserveAspectRatio="none">
+                        <path d="M0,0 L400,0 L400,100 C200,150 200,50 0,100 Z" fill="rgba(0,0,0,0.02)"></path>
+                    </svg>
+                </div>
+                <div class="modal-icon-wrapper">
+                    <div class="modal-icon-dots">
+                        <span></span><span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="modal-icon-container warning" id="modal-icon-box">
+                        <i data-lucide="alert-triangle" id="modal-icon"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-content">
+                <h3 id="modal-title">Empty Cart?</h3>
+                <p id="modal-message">Are you sure you want to remove all items from your cart?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-confirm-btn" class="modal-btn primary">Clear All</button>
+                <button id="modal-cancel-btn" class="modal-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="drive-images.js"></script>
     <script src="app.js"></script>
     <script>

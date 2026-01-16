@@ -1,4 +1,5 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
+console.log("App.js version 1.1 loaded");
 const GID = '897526080';
 // Using the direct publish link provided by the user for better access
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
@@ -16,6 +17,7 @@ const backToTopBtn = document.getElementById('back-to-top');
 
 let allProducts = [];
 let fuse = null;
+let cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
 
 function normalizeArabic(text) {
     if (!text) return "";
@@ -38,6 +40,7 @@ async function init() {
     } catch (err) {
         showError(err.message);
     }
+    setupCart();
 }
 
 function fetchSheetData() {
@@ -336,10 +339,15 @@ function createCard(product, uiIndex) {
             >
         </div>
         <div class="card-content">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                <div class="card-number">${product.no}</div>
-                <button class="copy-btn" onclick="copyToClipboard('${product.no}', this)" title="Copy Item Number">
-                    <i data-lucide="copy" style="width: 14px;"></i> Copy
+            <div style="display: flex; justify-content: flex-end; align-items: start; margin-bottom: 0.5rem;">
+                <button 
+                    class="add-to-cart-btn-mini ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}" 
+                    onclick="event.stopPropagation(); ${String(product.available).toLowerCase() === 'no' ? '' : `addToCart(${product.index}, this)`}" 
+                    title="${String(product.available).toLowerCase() === 'no' ? 'Out of Stock' : 'Add to Cart'}"
+                    ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
+                >
+                    <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 14px;"></i> 
+                    ${String(product.available).toLowerCase() === 'no' ? ' OOS' : ' + Cart'}
                 </button>
             </div>
             <h2 class="card-title">${product.name}</h2>
@@ -363,6 +371,12 @@ function createCard(product, uiIndex) {
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> In Stock</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> Out of Stock</span>`}
                 </div>
+                <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;">
+                    <span class="card-number" style="font-size: 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border-radius: 8px; color: var(--text-primary);">No: ${product.no}</span>
+                    <button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard('${product.no}', this)" title="Copy Item Number">
+                        <i data-lucide="copy" style="width: 14px;"></i> Copy
+                    </button>
+                </div>
                 ${product.arabicName ? `<p class="expanded-arabic-name">${product.arabicName}</p>` : ''}
                 
                 <div class="expanded-grid">
@@ -377,12 +391,14 @@ function createCard(product, uiIndex) {
                 ${product.colors && product.colors.length > 0 ? `
                 <div class="colors-section" style="margin: 2rem 0; padding: 1.5rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 20px; border: 1px solid var(--card-border); position: relative; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
                     <div class="colors-title" style="display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; font-weight: 800; color: var(--text-primary); margin-bottom: 1.2rem; text-transform: uppercase; letter-spacing: 0.12em;">
-                        <i data-lucide="palette" style="width: 16px; color: var(--accent);"></i> Available Colors
+                        <i data-lucide="palette" style="width: 16px; color: var(--accent);"></i> Select Color
                     </div>
                     <div class="color-list" style="display: flex; flex-wrap: wrap; gap: 1rem; position: relative; z-index: 1;">
-                        ${product.colors.map(color => {
+                        ${product.colors.map((color, idx) => {
                 const cssColor = color.toLowerCase().replace(/\s+/g, '');
                 const isWhite = cssColor === 'white' || cssColor === '#ffffff';
+                const isFirst = idx === 0;
+                if (isFirst) article.dataset.selectedColor = color;
                 const badgeStyle = `
                                     display: flex;
                                     align-items: center;
@@ -396,11 +412,15 @@ function createCard(product, uiIndex) {
                                     font-weight: 800;
                                     color: ${isWhite ? '#475569' : cssColor};
                                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-                                    cursor: default;
+                                    cursor: pointer;
                                     transition: all 0.3s ease;
                                 `;
                 return `
-                                <div class="color-badge" style="${badgeStyle.replace(/\n\s*/g, ' ')}" onmouseover="this.style.transform='translateY(-5px)';" onmouseout="this.style.transform='none';">
+                                <div class="color-badge ${isFirst ? 'selected' : ''}" 
+                                     style="${badgeStyle.replace(/\n\s*/g, ' ')} --badge-color: ${isWhite ? '#94a3b8' : cssColor}" 
+                                     onclick="event.stopPropagation(); selectColor(this, '${color}')"
+                                     onmouseover="if(!this.classList.contains('selected')) this.style.transform='translateY(-5px)';" 
+                                     onmouseout="if(!this.classList.contains('selected')) this.style.transform='none';">
                                     <span class="color-dot" style="width: 24px; height: 24px; border-radius: 6px; background-color: ${cssColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; position: relative;"></span>
                                     <span class="color-name">${color}</span>
                                 </div>
@@ -437,7 +457,15 @@ function createCard(product, uiIndex) {
                     ` : ''}
                 </div>
 
-                <div class="expanded-footer">
+                <div class="expanded-footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 1rem;">
+                    <button 
+                        class="add-to-cart-btn ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}" 
+                        onclick="${String(product.available).toLowerCase() === 'no' ? '' : `addToCart(${product.index}, this)`}"
+                        ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
+                    >
+                        <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 18px;"></i> 
+                        ${String(product.available).toLowerCase() === 'no' ? 'Out of Stock' : 'Add to Cart'}
+                    </button>
                     ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> View Document</a>` : ''}
                 </div>
             </div>
@@ -578,7 +606,9 @@ function showError(msg) {
     console.error(msg);
 }
 
-init();
+// Initialize the application after all functions are defined
+// Moved to bottom to ensure all hoisted/global functions are available
+
 
 function sortProducts(products, sortBy) {
     const sorted = [...products];
@@ -633,3 +663,311 @@ function setupBackToTop() {
         });
     });
 }
+
+// Cart Logic
+function setupCart() {
+    const floatingCart = document.getElementById('floating-cart');
+    const closeCart = document.getElementById('close-cart');
+    const cartOverlay = document.getElementById('cart-overlay');
+    const clearCartBtn = document.getElementById('clear-cart-btn');
+    const checkoutBtn = document.getElementById('checkout-btn');
+
+    floatingCart.addEventListener('click', toggleCart);
+    closeCart.addEventListener('click', toggleCart);
+    cartOverlay.addEventListener('click', toggleCart);
+    checkoutBtn.addEventListener('click', checkoutWhatsApp);
+
+    if (clearCartBtn) {
+        clearCartBtn.addEventListener('click', () => {
+            console.log("Clear cart button clicked (via listener)");
+            emptyCart();
+        });
+    }
+
+
+    updateCartUI();
+}
+
+function toggleCart() {
+    document.getElementById('cart-drawer').classList.toggle('open');
+    document.getElementById('cart-overlay').classList.toggle('open');
+}
+
+window.addToCart = function (productIndex, btn) {
+    const product = allProducts.find(p => p.index === productIndex);
+    if (!product || String(product.available).toLowerCase() === 'no') return;
+
+    const card = btn.closest('.card');
+    const selectedColor = card.dataset.selectedColor || null;
+
+    const existingItem = cart.find(item => item.index === productIndex && item.color === selectedColor);
+    if (existingItem) {
+        existingItem.quantity += 1;
+    } else {
+        cart.push({
+            index: product.index,
+            name: product.name,
+            no: product.no,
+            price: product.price,       // Retail Price (>= 25)
+            bulkPrice: product.bulkPrice, // Bulk Price (< 25)
+            image: product.image,
+            color: selectedColor,
+            quantity: 1
+        });
+    }
+
+    saveCart();
+    updateCartUI();
+
+    // Visual feedback
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i> Added!`;
+    if (btn.classList.contains('add-to-cart-btn-mini')) {
+        btn.innerHTML = `<i data-lucide="check" style="width: 14px;"></i>`;
+    }
+    btn.classList.add('added');
+    if (window.lucide) lucide.createIcons();
+
+    setTimeout(() => {
+        btn.innerHTML = originalContent;
+        btn.classList.remove('added');
+        if (window.lucide) lucide.createIcons();
+    }, 2000);
+};
+
+window.updateQty = function (index, delta, color) {
+    const item = cart.find(i => i.index === index && (i.color || "") === color);
+    if (!item) return;
+
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+        cart = cart.filter(i => !(i.index === index && (i.color || "") === color));
+    }
+
+    saveCart();
+    updateCartUI();
+};
+
+window.removeFromCart = function (index, color) {
+    cart = cart.filter(i => !(i.index === index && (i.color || "") === color));
+    saveCart();
+    updateCartUI();
+};
+
+function saveCart() {
+    localStorage.setItem('cr_cart', JSON.stringify(cart));
+}
+
+/**
+ * Shows a custom premium modal
+ * @param {string} title 
+ * @param {string} message 
+ * @param {object} options { type: 'success'|'warning', confirmText: string, cancelText: string, onConfirm: function }
+ */
+function showModal({ title, message, type = 'warning', confirmText = 'Confirm', cancelText = 'Cancel', onConfirm = null }) {
+    const modal = document.getElementById('confirm-modal');
+    const titleEl = document.getElementById('modal-title');
+    const messageEl = document.getElementById('modal-message');
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    const cancelBtn = document.getElementById('modal-cancel-btn');
+    const iconBox = document.getElementById('modal-icon-box');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    confirmBtn.textContent = confirmText;
+
+    // Reset classes
+    iconBox.className = 'modal-icon-container ' + type;
+    confirmBtn.className = 'modal-btn primary ' + (type === 'success' ? 'success-btn' : '');
+
+    // Set Icon
+    const iconName = type === 'success' ? 'check' : 'x-circle';
+    iconBox.innerHTML = `<i data-lucide="${iconName}" id="modal-icon"></i>`;
+
+    if (onConfirm) {
+        cancelBtn.style.display = 'block';
+        cancelBtn.textContent = cancelText;
+    } else {
+        cancelBtn.style.display = 'none';
+    }
+
+    const closeModal = () => {
+        modal.classList.remove('open');
+    };
+
+    const handleConfirm = () => {
+        if (onConfirm) onConfirm();
+        closeModal();
+    };
+
+    // Remove old listeners to avoid duplicates
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+    newConfirmBtn.addEventListener('click', handleConfirm);
+    newCancelBtn.addEventListener('click', closeModal);
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModal();
+    };
+
+    modal.classList.add('open');
+    if (window.lucide) lucide.createIcons();
+}
+
+function emptyCart() {
+    if (cart.length === 0) {
+        showModal({
+            title: "Cart Empty",
+            message: "Your cart is already empty.",
+            type: "success",
+            confirmText: "Ok"
+        });
+        return;
+    }
+
+    showModal({
+        title: "Empty Cart?",
+        message: "Are you sure you want to empty your cart? This will erase all selected items.",
+        type: "warning",
+        confirmText: "Clear All",
+        cancelText: "Keep Items",
+        onConfirm: () => {
+            cart.length = 0;
+            saveCart();
+            updateCartUI();
+
+            // Show success modal after clearing
+            setTimeout(() => {
+                showModal({
+                    title: "Cart Cleared",
+                    message: "All items have been removed from your cart successfully.",
+                    type: "success",
+                    confirmText: "Done"
+                });
+            }, 400);
+        }
+    });
+}
+window.emptyCart = emptyCart;
+
+
+
+function updateCartUI() {
+    const cartItemsContainer = document.getElementById('cart-items');
+    const cartCount = document.getElementById('cart-count');
+    const cartTotalValue = document.getElementById('cart-total-value');
+
+    const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    cartCount.textContent = totalCount;
+    cartCount.style.display = totalCount > 0 ? 'flex' : 'none';
+
+    if (cart.length === 0) {
+        cartItemsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">Your cart is empty.</p>';
+        cartTotalValue.textContent = '0.000 JOD';
+        return;
+    }
+
+    let total = 0;
+
+    // Group quantities by product Item Number (no) to determine tiered pricing across variants (colors)
+    const productQuantities = {};
+    cart.forEach(item => {
+        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+    });
+
+    cartItemsContainer.innerHTML = cart.map(item => {
+        const totalQtyForProduct = productQuantities[item.no];
+        const isBulk = totalQtyForProduct < 25;
+
+        // Use bulkPrice if qty < 25, otherwise use retail price
+        const priceString = isBulk && item.bulkPrice ? item.bulkPrice : item.price;
+        const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
+
+        const subtotal = unitPrice * item.quantity;
+        total += subtotal;
+
+        let driveId = extractDriveId(item.image);
+        let imgSrc = (item.image && !driveId) ? item.image : (driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3C%2Fsvg%3E');
+
+        return `
+            <div class="cart-item">
+                <img src="${imgSrc}" class="cart-item-img" alt="${item.name}">
+                <div class="cart-item-info">
+                    <div class="cart-item-title">${item.name} ${item.color ? `<small style="color: var(--text-secondary);">(${item.color})</small>` : ''}</div>
+                    <div class="cart-item-price">
+                        ${unitPrice.toFixed(3)} JOD 
+                        ${item.bulkPrice && isBulk ? `<small style="display:block; font-size:0.7rem; color:#b45309;">(Applied Bulk Saving Price for <25 qty)</small>` : (item.price && !isBulk ? `<small style="display:block; font-size:0.7rem; color:#059669;">(Applied Retail Price for >=25 qty)</small>` : '')}
+                    </div>
+                    <div class="cart-item-controls">
+                        <button class="qty-btn" onclick="updateQty(${item.index}, -1, '${item.color || ""}')"><i data-lucide="minus" style="width: 14px;"></i></button>
+                        <span>${item.quantity}</span>
+                        <button class="qty-btn" onclick="updateQty(${item.index}, 1, '${item.color || ""}')"><i data-lucide="plus" style="width: 14px;"></i></button>
+                        <button class="remove-item" onclick="removeFromCart(${item.index}, '${item.color || ""}')"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    cartTotalValue.textContent = `${total.toFixed(3)} JOD`;
+    if (window.lucide) lucide.createIcons();
+}
+
+function checkoutWhatsApp() {
+    if (cart.length === 0) {
+        showModal({
+            title: "Cart is Empty",
+            message: "Please add some items to your cart before proceeding to checkout.",
+            type: "warning",
+            confirmText: "Ok"
+        });
+        return;
+    }
+
+    let message = "*Creative Rarities Store - New Order*\n\n";
+    let total = 0;
+
+    // First calculate product quantities to determine pricing (bulk vs retail)
+    const productQuantities = {};
+    cart.forEach(item => {
+        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+    });
+
+    cart.forEach((item) => {
+        const totalQtyForProduct = productQuantities[item.no];
+        const isBulk = totalQtyForProduct < 25;
+        const priceString = isBulk && item.bulkPrice ? item.bulkPrice : item.price;
+        const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
+        const subtotal = unitPrice * item.quantity;
+        total += subtotal;
+
+        message += `*${item.name}*\n`;
+        message += `ID: ${item.no} | Color: ${item.color || 'Default'}\n`;
+        message += `Qty: ${item.quantity} PCS x ${unitPrice.toFixed(3)} JOD = ${subtotal.toFixed(3)} JOD\n\n`;
+    });
+
+    message += `--------------------------\n`;
+    message += `*Order Total: ${total.toFixed(3)} JOD*`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://web.whatsapp.com/send/?phone=962795965910&text=${encodedMessage}&type=phone_number&app_absent=0`;
+
+
+    window.open(whatsappUrl, '_blank');
+}
+
+window.selectColor = function (badge, color) {
+    const section = badge.closest('.color-list');
+    section.querySelectorAll('.color-badge').forEach(b => {
+        b.classList.remove('selected');
+        b.style.transform = 'none';
+    });
+    badge.classList.add('selected');
+    badge.closest('.card').dataset.selectedColor = color;
+};
+
+// Initialize after all definitions
+init();
+
