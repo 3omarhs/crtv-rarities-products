@@ -14,6 +14,7 @@ const sortSelect = document.getElementById('sort-select');
 const categorySelect = document.getElementById('category-select');
 const productCountEl = document.getElementById('product-count');
 const backToTopBtn = document.getElementById('back-to-top');
+const searchClear = document.getElementById('search-clear');
 
 function normalizeArabic(text) {
     if (!text) return "";
@@ -67,10 +68,11 @@ const translations = {
         copy: "Copy",
         copied: "Copied!",
         noPreview: "No Preview Available",
-        retailPrice: "Retail Price (< 25 QTY):",
-        bulkSaving: "Wholesale Price (>= 25 QTY):",
-        appliedRetail: "(Applied Retail Price for < 25 qty)",
-        appliedBulk: "(Applied Wholesale Price for >= 25 qty)",
+        retailPrice: "Retail Price:",
+        priceLabel: "Price:",
+        bulkSaving: "Wholesale Price:",
+        appliedRetail: "(Applied Retail Price)",
+        appliedBulk: "(Applied Wholesale Price)",
         viewDoc: "View Document",
         selectColor: "Available Colors:",
         noDesc: "No additional description available.",
@@ -127,10 +129,11 @@ const translations = {
         copy: "نسخ",
         copied: "تم النسخ!",
         noPreview: "لا يوجد معاينة",
-        retailPrice: "سعر المفرق لأقل من 25 قطعة:",
-        bulkSaving: "سعر الجملة لـ 25 قطعة فأكثر:",
-        appliedRetail: "(تم تطبيق سعر المفرق لأقل من 25 قطعة)",
-        appliedBulk: "(تم تطبيق سعر الجملة لـ 25 قطعة فأكثر)",
+        retailPrice: "سعر المفرق:",
+        priceLabel: "السعر:",
+        bulkSaving: "سعر الجملة:",
+        appliedRetail: "(تم تطبيق سعر المفرق)",
+        appliedBulk: "(تم تطبيق سعر الجملة)",
         viewDoc: "عرض الملف",
         selectColor: "الألوان المتاحة:",
         noDesc: "لا يوجد وصف إضافي متاح.",
@@ -301,11 +304,11 @@ function translateValue(field, value) {
             translated = translated.replace(/Dimensions: (.*?)\./gi, (match, dims) => {
                 return maps.templates.dimensions.replace('{dims}', translateValue('dimensions', dims.trim()));
             });
-            return translated;
         default:
             return value;
     }
 }
+window.translateValue = translateValue;
 
 async function init() {
     if (!currentLang) {
@@ -345,9 +348,12 @@ function toggleLanguage() {
 }
 
 function applyLanguage() {
+    window.currentLang = currentLang;
     const t = translations[currentLang];
     document.body.className = currentLang === 'ar' ? 'rtl' : '';
     document.documentElement.lang = currentLang;
+
+    if (window.updateChatbotLanguage) window.updateChatbotLanguage();
 
     const setT = (id, text, prop = 'textContent') => {
         const el = document.getElementById(id);
@@ -455,15 +461,15 @@ function processData(data) {
         keys.find(k => normalizeKey(k).includes('document') && normalizeKey(k).includes('link')) ||
         keys.find(k => normalizeKey(k) === 'link');
 
-    const retailPriceKey = keys.find(k => k.includes('<') && k.includes('25')) ||
+    const retailPriceKey = keys.find(k => k.includes('<')) ||
         keys.find(k => normalizeKey(k).includes('retail')) ||
         keys.find(k => normalizeKey(k) === 'price');
 
-    const wholesalePriceKey = keys.find(k => k.includes('>=') && k.includes('25')) ||
+    const wholesalePriceKey = keys.find(k => k.includes('>')) ||
         keys.find(k => normalizeKey(k).includes('wholesale')) ||
         keys.find(k => normalizeKey(k).includes('bulk'));
 
-    const priceKey = keys.find(k => normalizeKey(k).includes('price') && !k.includes('25')) ||
+    const priceKey = keys.find(k => normalizeKey(k).includes('price') && !k.includes('<') && !k.includes('>')) ||
         keys.find(k => normalizeKey(k).includes('cost'));
 
     const categoryKey = keys.find(k => normalizeKey(k).includes('category')) ||
@@ -524,12 +530,14 @@ function processData(data) {
             arabicName: normalizeArabic(product.arabicName),
             no: String(product.no || '').toLowerCase(),
             category: (product.category || '').toLowerCase(),
-            price: String(product.price || '').toLowerCase()
         };
-
         return product;
     }).filter(p => !p.hidden).filter(p => p.name).reverse();
 
+    window.allProducts = allProducts;
+    if (window.setChatbotProducts) {
+        window.setChatbotProducts(allProducts);
+    }
     window.lastRawData = data; // Save for language switch re-processing
 
     const fuseOptions = {
@@ -661,33 +669,19 @@ function createCard(product, uiIndex) {
     article.className = 'card fade-in-up';
     article.style.animationDelay = `${Math.min(uiIndex * 0.05, 1)}s`;
 
-    let driveId = null;
-    let directImageSrc = null;
-
-    if (product.image) {
-        driveId = extractDriveId(product.image);
-        if (!driveId && (product.image.startsWith('http') || product.image.startsWith('data:'))) {
-            directImageSrc = product.image;
-        }
-    }
-
-    if (!driveId && !directImageSrc && product.link) {
-        driveId = extractDriveId(product.link);
-    }
-
-    if (!driveId && !directImageSrc && window.DRIVE_MAPPING) {
-        driveId = window.DRIVE_MAPPING[product.no] || null;
-    }
+    // Local path prioritization: Try assets/products/[no].jpg first
+    // We'll let handleImageError handle the extension check and cloud fallbacks
+    let imageSrc = `assets/products/${product.no}.jpg`;
 
     const imgId = `img-${product.index}`;
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
-    let imageSrc = directImageSrc || (driveId
-        ? `https://lh3.googleusercontent.com/d/${driveId}=w800`
-        : noLinkPlaceholder);
+    // Cloud Fallbacks (Backup)
+    let driveId = extractDriveId(product.image);
+    if (!driveId && product.link) driveId = extractDriveId(product.link);
+    if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
 
-    const secondaryFallback = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : imageSrc;
-    const isPlaceholder = !driveId && !directImageSrc;
+    const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` : noLinkPlaceholder;
 
     const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
     const secondaryName = (currentLang === 'ar') ? product.name : product.arabicName;
@@ -699,15 +693,15 @@ function createCard(product, uiIndex) {
     const displayDescription = translateValue('description', product.description);
 
     article.innerHTML = `
-        <div class="card-image-container" style="${isPlaceholder ? 'padding: 2rem; background: #f8fafc;' : ''}">
+        <div class="card-image-container">
             <img 
                 src="${imageSrc}" 
                 alt="${product.name}" 
                 class="product-image"
                 id="${imgId}"
                 loading="lazy"
-                style="${isPlaceholder ? 'object-fit: contain; opacity: 0.5;' : 'object-fit: cover;'}"
-                onerror="handleImageError(this, '${secondaryFallback}', '${product.name}')"
+                referrerpolicy="no-referrer"
+                onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
             >
         </div>
         <div class="card-content">
@@ -727,7 +721,7 @@ function createCard(product, uiIndex) {
             ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
         </div>
         <div class="card-footer">
-            ${product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : (product.price ? `<span class="card-price">${product.price} JOD</span>` : '')}
+            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : (product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : '')}
             ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}
@@ -737,6 +731,27 @@ function createCard(product, uiIndex) {
         <div class="expanded-content">
             <div class="expanded-info">
                 <button class="expanded-close" title="Close Details"><i data-lucide="x"></i></button>
+                
+                <div class="expanded-image-container">
+                    <img 
+                        src="${imageSrc}" 
+                        alt="${product.name}" 
+                        class="expanded-image"
+                        onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
+                    >
+                </div>
+                
+                <div class="expanded-gallery">
+                    <div class="gallery-thumb active" onclick="switchGalleryImage(this)">
+                        <img src="${imageSrc}" onerror="handleGalleryImageError(this, '${product.no}', '')">
+                    </div>
+                    ${[1, 2, 3, 4, 5].map(num => `
+                        <div class="gallery-thumb" onclick="switchGalleryImage(this)">
+                            <img src="assets/products/${product.no}_${num}.jpg" onerror="handleGalleryImageError(this, '${product.no}', '_${num}')">
+                        </div>
+                    `).join('')}
+                </div>
+
                 <div style="display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
                     <h2 class="expanded-title" style="margin: 0;">${displayName}</h2>
                     ${String(product.available).toLowerCase() !== 'no' ?
@@ -748,6 +763,7 @@ function createCard(product, uiIndex) {
                     <button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard('${product.no}', this)" title="Copy Item Number">
                         <i data-lucide="copy" style="width: 14px;"></i> ${t.copy}
                     </button>
+                    ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn" title="${t.viewDoc}"><i data-lucide="file-text"></i></a>` : ''}
                 </div>
                 ${secondaryName ? `<p class="expanded-arabic-name">${secondaryName}</p>` : ''}
                 
@@ -807,26 +823,39 @@ function createCard(product, uiIndex) {
                 ` : ''}
                 
                 <div class="expanded-pricing">
-                    <div class="main-price">
-                        <div class="price-info-block">
-                            <span class="label">${t.retailPrice}</span>
-                            <span class="value">${product.price ? `${product.price} JOD` : 'Price on request'}</span>
-                        </div>
-                    </div>
-                    ${product.bulkPrice ? `
-                        <div class="bulk-price">
+                    ${(() => {
+            const pRetail = parseFloat(String(product.price).replace(/[^\d.]/g, '')) || 0;
+            const pWholesale = parseFloat(String(product.bulkPrice).replace(/[^\d.]/g, '')) || 0;
+            const hasWholesale = pWholesale > 0 && pWholesale < pRetail;
+            const activePriceLabel = hasWholesale ? t.retailPrice : t.priceLabel;
+
+            let pricingHtml = `
+                        <div class="main-price">
                             <div class="price-info-block">
-                                <span class="label">${t.bulkSaving}</span>
-                                <span class="value">${product.bulkPrice} JOD</span>
+                                <span class="label">${activePriceLabel}</span>
+                                <span class="value">${product.price ? `${product.price} JOD` : 'Price on request'}</span>
                             </div>
-                            ${product.calculatedDiscount ? `
-                                <div class="discount-badge">
-                                    <span class="discount-percent">${product.calculatedDiscount}%</span>
-                                    <span class="discount-off">OFF</span>
-                                </div>
-                            ` : ''}
                         </div>
-                    ` : ''}
+                    `;
+
+            if (hasWholesale) {
+                pricingHtml += `
+                            <div class="bulk-price">
+                                <div class="price-info-block">
+                                    <span class="label">${t.bulkSaving}</span>
+                                    <span class="value">${product.bulkPrice} JOD</span>
+                                </div>
+                                ${product.calculatedDiscount ? `
+                                    <div class="discount-badge">
+                                        <span class="discount-percent">${product.calculatedDiscount}%</span>
+                                        <span class="discount-off">OFF</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+            }
+            return pricingHtml;
+        })()}
                     ${product.bulkDiscount ? `
                         <div class="bulk-discount">
                             <span class="label">Bulk Discount:</span>
@@ -844,14 +873,14 @@ function createCard(product, uiIndex) {
                         <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 18px;"></i> 
                         ${String(product.available).toLowerCase() === 'no' ? t.oos : t.addToCart}
                     </button>
-                    ${product.link ? `<a href="${product.link}" target="_blank" class="view-doc-btn"><i data-lucide="file-text"></i> ${t.viewDoc}</a>` : ''}
+                    <!-- Link moved up and shrunk as requested -->
                 </div>
             </div>
         </div>
     `;
 
     article.addEventListener('click', (e) => {
-        if (e.target.closest('.copy-btn') || e.target.closest('.view-doc-btn')) return;
+        if (e.target.closest('.copy-btn') || e.target.closest('.view-doc-btn') || e.target.closest('.add-to-cart-btn-mini') || e.target.closest('.add-to-cart-btn')) return;
 
         const isCloseBtn = e.target.closest('.expanded-close');
         const isExpanded = article.classList.contains('expanded');
@@ -881,38 +910,86 @@ function createCard(product, uiIndex) {
     return article;
 }
 
-window.handleImageError = function (img, fallback, productName) {
+window.handleImageError = function (img, fallback, productName, itemNo, driveId) {
     if (!img.dataset.retries) img.dataset.retries = 0;
     let retryCount = parseInt(img.dataset.retries);
 
+    // 1. Try alternate local extensions
     if (retryCount === 0) {
         img.dataset.retries = 1;
-        img.src = fallback;
+        img.src = `assets/products/${itemNo}.png`;
         return;
     }
-
     if (retryCount === 1) {
         img.dataset.retries = 2;
-        setTimeout(() => {
-            img.src = fallback + '&retry=' + Date.now();
-        }, 1000);
+        img.src = `assets/products/${itemNo}.webp`;
         return;
     }
 
+    // 2. Cloud Fallback: Try stable LH3 link first
     if (retryCount === 2) {
         img.dataset.retries = 3;
-        const driveId = extractDriveId(img.src);
-        if (driveId) {
-            img.src = `https://drive.google.com/uc?export=view&id=${driveId}`;
+        const currentDriveId = driveId || extractDriveId(fallback);
+        if (currentDriveId) {
+            img.src = `https://lh3.googleusercontent.com/d/${currentDriveId}=w1000`;
+            img.classList.add('is-doc-preview');
+            return;
+        }
+        img.src = fallback;
+        img.classList.add('is-doc-preview');
+        return;
+    }
+
+    // 3. Last backup: Drive Thumbnail
+    if (retryCount === 3) {
+        img.dataset.retries = 4;
+        const currentDriveId = driveId || extractDriveId(img.src) || extractDriveId(fallback);
+        if (currentDriveId) {
+            img.src = `https://drive.google.com/thumbnail?id=${currentDriveId}&sz=w1000`;
+            img.classList.add('is-doc-preview');
             return;
         }
     }
 
+    // 4. Ultimate Failure SVG
     img.onerror = null;
     img.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ef4444%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EAccess%20Denied%20/%20Private%3C%2Ftext%3E%3C%2Fsvg%3E';
     img.style.objectFit = 'contain';
     img.parentElement.style.padding = '1.5rem';
     console.warn(`Persistent preview error for: ${productName}.`);
+};
+
+window.switchGalleryImage = function (btn) {
+    const card = btn.closest('.card');
+    const mainImg = card.querySelector('.expanded-image');
+    const thumbImg = btn.querySelector('img');
+    if (mainImg && thumbImg) {
+        mainImg.style.opacity = '0';
+        setTimeout(() => {
+            mainImg.src = thumbImg.src;
+            mainImg.style.opacity = '1';
+        }, 150);
+    }
+    // Update active state
+    card.querySelectorAll('.gallery-thumb').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+};
+
+window.handleGalleryImageError = function (img, itemNo, suffix) {
+    if (!img.dataset.retries) img.dataset.retries = '0';
+    let retries = parseInt(img.dataset.retries);
+
+    if (retries === 0) {
+        img.dataset.retries = '1';
+        img.src = `assets/products/${itemNo}${suffix}.png`;
+    } else if (retries === 1) {
+        img.dataset.retries = '2';
+        img.src = `assets/products/${itemNo}${suffix}.webp`;
+    } else {
+        if (suffix !== '') {
+            img.closest('.gallery-thumb').style.display = 'none';
+        }
+    }
 };
 
 function updateDisplay() {
@@ -955,9 +1032,23 @@ function setupFilter() {
 }
 
 function setupSearch() {
-    searchInput.addEventListener('input', () => {
-        updateDisplay();
-    });
+    if (searchInput && searchClear) {
+        searchInput.addEventListener('input', () => {
+            if (searchInput.value.trim() !== '') {
+                searchClear.classList.add('visible');
+            } else {
+                searchClear.classList.remove('visible');
+            }
+            updateDisplay();
+        });
+
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            searchClear.classList.remove('visible');
+            searchInput.focus();
+            updateDisplay();
+        });
+    }
 }
 
 window.copyToClipboard = function (text, btn) {
@@ -1088,8 +1179,8 @@ window.addToCart = function (productIndex, btn) {
             index: product.index,
             name: product.name,
             no: product.no,
-            price: product.price,       // Retail Price (>= 25)
-            bulkPrice: product.bulkPrice, // Bulk Price (< 25)
+            price: product.price,       // Retail Price
+            bulkPrice: product.bulkPrice, // Wholesale Price
             image: product.image,
             color: selectedColor,
             quantity: 1
@@ -1261,26 +1352,40 @@ function updateCartUI() {
 
     cartItemsContainer.innerHTML = cart.map(item => {
         const totalQtyForProduct = productQuantities[item.no];
-        const isWholesale = totalQtyForProduct >= 25;
+        const isWholesale = totalQtyForProduct >= 10;
 
-        // Use bulkPrice (Wholesale) if qty >= 25, otherwise use price (Retail)
+        // Use bulkPrice (Wholesale) if qty >= 10, otherwise use price (Retail)
         const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
         const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
 
         const subtotal = unitPrice * item.quantity;
         total += subtotal;
 
+        // Image Logic: Try local first, then cloud fallbacks
+        let localImg = `assets/products/${item.no}.jpg`;
         let driveId = extractDriveId(item.image);
-        let imgSrc = (item.image && !driveId) ? item.image : (driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3C%2Fsvg%3E');
+        const placeholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3C%2Fsvg%3E`;
+        let cloudFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : placeholder;
+
+        // Determine if we should show the "Applied" message
+        const pRetail = parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 0;
+        const pWholesale = parseFloat(String(item.bulkPrice).replace(/[^\d.]/g, '')) || 0;
+        const hasPriceDifference = pWholesale > 0 && Math.abs(pRetail - pWholesale) > 0.0001;
 
         return `
             <div class="cart-item">
-                <img src="${imgSrc}" class="cart-item-img" alt="${item.name}">
+                <img 
+                    src="${localImg}" 
+                    class="cart-item-img" 
+                    alt="${item.name}"
+                    referrerpolicy="no-referrer"
+                    onerror="this.onerror=null; this.src='${cloudFallback}';"
+                >
                 <div class="cart-item-info">
                     <div class="cart-item-title">${item.name} ${item.color ? `<small style="color: var(--text-secondary);">(${item.color})</small>` : ''}</div>
                     <div class="cart-item-price">
                         ${unitPrice.toFixed(3)} JOD 
-                        ${item.bulkPrice && isWholesale ? `<small style="display:block; font-size:0.7rem; color:#b45309;">${t.appliedBulk}</small>` : (item.price && !isWholesale ? `<small style="display:block; font-size:0.7rem; color:#059669;">${t.appliedRetail}</small>` : '')}
+                        ${hasPriceDifference ? (isWholesale && item.bulkPrice ? `<small style="display:block; font-size:0.7rem; color:#b45309;">${t.appliedBulk}</small>` : (item.price && !isWholesale ? `<small style="display:block; font-size:0.7rem; color:#059669;">${t.appliedRetail}</small>` : '')) : ''}
                     </div>
                     <div class="cart-item-controls">
                         <button class="qty-btn" onclick="updateQty(${item.index}, -1, '${item.color || ""}')"><i data-lucide="minus" style="width: 14px;"></i></button>
@@ -1320,7 +1425,7 @@ function checkoutWhatsApp() {
 
     cart.forEach((item) => {
         const totalQtyForProduct = productQuantities[item.no];
-        const isWholesale = totalQtyForProduct >= 25;
+        const isWholesale = totalQtyForProduct >= 10;
         const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
         const unitPrice = parseFloat(String(priceString).replace(/[^\d.]/g, '')) || 0;
         const subtotal = unitPrice * item.quantity;

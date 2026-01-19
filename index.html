@@ -21,7 +21,8 @@
     <!-- Fuse.js for Smart Search -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.1.0/fuse.min.js"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.5">
+    <link rel="stylesheet" href="chatbot-styles.css">
 </head>
 
 <body>
@@ -71,6 +72,7 @@
             <div class="search-wrapper">
                 <i data-lucide="search" class="search-icon"></i>
                 <input type="text" id="search-input" placeholder="Smart search: name, category, price, item number... ">
+                <button id="search-clear" class="search-clear"><i data-lucide="x"></i></button>
             </div>
             <div class="filter-wrapper">
                 <label for="category-select" id="category-label"
@@ -213,7 +215,8 @@
     </div>
 
     <script src="drive-images.js"></script>
-    <script src="app.js"></script>
+    <script src="chatbot.js?v=1.2"></script>
+    <script src="app.js?v=1.1"></script>
     <script>
         lucide.createIcons();
     </script>
