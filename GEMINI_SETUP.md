@@ -18,7 +18,8 @@ I have integrated the **Nawaderna AI Assistant** into your store. This assistant
 ## 🚀 Deployment Notes
 
 - Ensure `storedetails.txt` remains in the root directory, as the bot fetches it to stay updated on your store's info.
-- The API key is currently hardcoded in `chatbot.js`. If you move to a public repository, consider moving the key to a secure environment variable or using a backend proxy to protect it.
+- **Load Balancing**: You can add multiple `Gemini API Key:` lines to `geminiCredintials.txt`. The chatbot will automatically rotate between them and retry if one hits its quota limit.
+- The API key is dynamically loaded from `geminiCredintials.txt`. Ensure this file is present and correctly formatted. For better security in production, consider moving the key to a secure backend proxy or environment variables.
 
 ---
 *Created by Antigravity AI Assistant*

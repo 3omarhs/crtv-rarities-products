@@ -70,9 +70,9 @@ const translations = {
         noPreview: "No Preview Available",
         retailPrice: "Retail Price:",
         priceLabel: "Price:",
-        bulkSaving: "Wholesale Price:",
+        bulkSaving: "Wholesale Price (More than 10 pieces):",
         appliedRetail: "(Applied Retail Price)",
-        appliedBulk: "(Applied Wholesale Price)",
+        appliedBulk: "(Applied Wholesale Price - More than 10 pieces)",
         viewDoc: "View Document",
         selectColor: "Available Colors:",
         noDesc: "No additional description available.",
@@ -131,9 +131,9 @@ const translations = {
         noPreview: "لا يوجد معاينة",
         retailPrice: "سعر المفرق:",
         priceLabel: "السعر:",
-        bulkSaving: "سعر الجملة:",
+        bulkSaving: "سعر الجملة (أكثر من 10 قطع):",
         appliedRetail: "(تم تطبيق سعر المفرق)",
-        appliedBulk: "(تم تطبيق سعر الجملة)",
+        appliedBulk: "(تم تطبيق سعر الجملة - أكثر من 10 قطع)",
         viewDoc: "عرض الملف",
         selectColor: "الألوان المتاحة:",
         noDesc: "لا يوجد وصف إضافي متاح.",
@@ -730,13 +730,20 @@ function createCard(product, uiIndex) {
 
         <div class="expanded-content">
             <div class="expanded-info">
-                <button class="expanded-close" title="Close Details"><i data-lucide="x"></i></button>
+                <button class="expanded-close" title="Close Details" onclick="event.stopPropagation(); this.closest('.card').classList.remove('expanded');"><i data-lucide="x"></i></button>
                 
                 <div class="expanded-image-container">
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="changeZoom(this, 0.2)" title="Zoom In"><i data-lucide="plus"></i></button>
+                        <button class="zoom-btn" onclick="changeZoom(this, -0.2)" title="Zoom Out"><i data-lucide="minus"></i></button>
+                        <button class="zoom-btn" onclick="resetZoom(this)" title="Reset Zoom"><i data-lucide="maximize"></i></button>
+                        <button class="zoom-btn" onclick="openLightbox(this)" title="Show Full Image"><i data-lucide="expand"></i></button>
+                    </div>
                     <img 
                         src="${imageSrc}" 
                         alt="${product.name}" 
                         class="expanded-image"
+                        data-zoom="1"
                         onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
                     >
                 </div>
@@ -967,6 +974,8 @@ window.switchGalleryImage = function (btn) {
         mainImg.style.opacity = '0';
         setTimeout(() => {
             mainImg.src = thumbImg.src;
+            mainImg.style.transform = 'scale(1)';
+            mainImg.dataset.zoom = '1';
             mainImg.style.opacity = '1';
         }, 150);
     }
@@ -1447,6 +1456,30 @@ function checkoutWhatsApp() {
     window.open(whatsappUrl, '_blank');
 }
 
+window.openCardByNumber = function (itemNo) {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.value = itemNo;
+        // Trigger the input event to update display
+        const event = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(event);
+
+        // Wait for search result to appear
+        setTimeout(() => {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                const title = card.querySelector('.card-title');
+                // Check if card title contains the item number in brackets or similar pattern
+                // Most cards show as "Name (No)" or have data-no
+                if (card.innerHTML.includes(`ITEM #${itemNo}`) || card.innerHTML.includes(`#${itemNo}`)) {
+                    card.click(); // Expand the card
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }, 300);
+    }
+};
+
 window.selectColor = function (badge, color) {
     const section = badge.closest('.color-list');
     section.querySelectorAll('.color-badge').forEach(b => {
@@ -1455,6 +1488,79 @@ window.selectColor = function (badge, color) {
     });
     badge.classList.add('selected');
     badge.closest('.card').dataset.selectedColor = color;
+};
+
+window.changeZoom = function (btn, delta) {
+    const container = btn.closest('.expanded-image-container');
+    const img = container.querySelector('.expanded-image');
+    if (!img) return;
+
+    let currentScale = parseFloat(img.dataset.zoom || '1');
+    let newScale = currentScale + delta;
+
+    // Bounds check: 0.5x to 4x
+    if (newScale < 0.5) newScale = 0.5;
+    if (newScale > 4) newScale = 4;
+
+    img.style.transform = `scale(${newScale})`;
+    img.dataset.zoom = newScale;
+};
+
+window.resetZoom = function (btn) {
+    const container = btn.closest('.expanded-image-container');
+    const img = container.querySelector('.expanded-image');
+    if (!img) return;
+
+    img.style.transform = 'scale(1)';
+    img.dataset.zoom = '1';
+};
+
+window.openLightbox = function (btn) {
+    console.log("Attempting to open lightbox...");
+    const container = btn.closest('.expanded-image-container');
+    const mainImg = container ? container.querySelector('.expanded-image') : null;
+
+    if (!mainImg) {
+        console.error("Lightbox Error: Could not find main image.");
+        return;
+    }
+
+    let lightbox = document.getElementById('image-lightbox');
+    if (!lightbox) {
+        console.log("Creating lightbox overlay...");
+        const html = `
+            <div id="image-lightbox" class="lightbox-overlay" onclick="closeLightbox()">
+                <div class="lightbox-content" onclick="event.stopPropagation()">
+                    <button class="lightbox-close" onclick="closeLightbox()"><i data-lucide="x"></i></button>
+                    <img id="lightbox-img" class="lightbox-image" src="" alt="Full Image">
+                    <div id="lightbox-caption" class="lightbox-caption"></div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        lightbox = document.getElementById('image-lightbox');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCaption = document.getElementById('lightbox-caption');
+    const card = btn.closest('.card');
+    const titleEl = card ? card.querySelector('.card-title') : null;
+    const title = titleEl ? titleEl.innerText : 'Product Image';
+
+    console.log("Lightbox Image Source:", mainImg.src);
+    lightboxImg.src = mainImg.src;
+    lightboxCaption.innerText = title;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function () {
+    const lightbox = document.getElementById('image-lightbox');
+    if (lightbox) {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
 };
 
 // Initialize after all definitions

@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     /* Platinum & Slate Theme (Light Mode) for better logo integration */
     --bg-color: #f8fafc;
     /* Slate 50 - Very light grey/white */
@@ -638,13 +638,61 @@ footer {
     overflow: hidden;
     margin-bottom: 1.5rem;
     border: 1px solid var(--card-border);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .expanded-image {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center center;
+}
+
+.zoom-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 100;
+    pointer-events: auto;
+}
+
+.zoom-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: var(--navy-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.zoom-btn:hover {
+    background: white;
+    color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.zoom-btn:active {
+    transform: translateY(0) scale(0.95);
+}
+
+.zoom-btn i {
+    width: 18px;
+    height: 18px;
 }
 
 /* Gallery Styles */
@@ -698,19 +746,21 @@ footer {
 
 .expanded-close {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 32px;
-    height: 32px;
+    top: 1rem;
+    left: 1rem;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: #f1f5f9;
-    border: none;
-    color: var(--text-primary);
+    background: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    border: 1px solid var(--card-border);
+    color: var(--navy-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .expanded-close:hover {
@@ -1820,8 +1870,8 @@ body.rtl .stock-badge {
 }
 
 body.rtl .expanded-close {
-    right: auto;
-    left: 0;
+    left: auto;
+    right: 1rem;
 }
 
 body.rtl .expanded-title {
@@ -1900,4 +1950,71 @@ body.rtl .lang-switch-btn {
     .lang-switch-btn {
         padding: 0.8rem;
     }
+}
+
+/* Full Image Lightbox */
+.lightbox-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 3000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.lightbox-overlay.open {
+    display: flex;
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.lightbox-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: -50px;
+    right: 0;
+    background: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--navy-secondary);
+    transition: all 0.2s ease;
+}
+
+.lightbox-close:hover {
+    transform: scale(1.1) rotate(90deg);
+    color: var(--accent);
+}
+
+.lightbox-caption {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center;
 }

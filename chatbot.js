@@ -1,11 +1,11 @@
-const GEMINI_API_KEY = "AIzaSyDBOrQ8O6CJiNqlmmazKmbv1yqJPHt_Xo0";
+let GEMINI_API_KEYS = [];
+let currentKeyIndex = 0;
 const GEMINI_MODEL = "gemini-flash-latest";
 
 let chatHistory = [];
 let storeInfo = "";
 let productListInfo = "";
 
-// Set product list for AI context
 window.productListInfo = "";
 window.setChatbotProducts = function (products) {
     if (!products || products.length === 0) {
@@ -40,6 +40,42 @@ async function loadStoreDetails() {
     }
 }
 
+// Load credentials from the file
+async function loadCredentials() {
+    try {
+        console.log("Chatbot: Fetching credentials...");
+        const response = await fetch('geminiCredintials.txt?t=' + Date.now());
+        if (!response.ok) throw new Error("Could not load geminiCredintials.txt");
+        const text = await response.text();
+
+        // Parse the text
+        const lines = text.split(/\r?\n/);
+        lines.forEach(line => {
+            const cleanLine = line.trim();
+            if (cleanLine.toLowerCase().includes('gemini api key:')) {
+                const key = cleanLine.split(/gemini api key:/i)[1].trim();
+                if (key && !GEMINI_API_KEYS.includes(key)) {
+                    GEMINI_API_KEYS.push(key);
+                }
+            }
+            if (cleanLine.toLowerCase().startsWith('name:')) {
+                const nameValue = cleanLine.split(/name:/i)[1].trim();
+                window.CHATBOT_NAME = nameValue;
+            }
+        });
+
+        if (GEMINI_API_KEYS.length === 0) {
+            console.error("Chatbot: No API Keys found in geminiCredintials.txt");
+            appendMessage("⚠️ System: No Gemini API Keys found in geminiCredintials.txt. Please check the file format.", 'bot');
+        } else {
+            console.log(`Chatbot: ${GEMINI_API_KEYS.length} credentials loaded successfully.`);
+        }
+    } catch (error) {
+        console.error("Error loading credentials:", error);
+        appendMessage("⚠️ System Error: Failed to load credentials file. " + error.message, 'bot');
+    }
+}
+
 // Inject Chatbot HTML
 function injectChatbot() {
     // Check if it already exists to prevent duplicates
@@ -52,7 +88,7 @@ function injectChatbot() {
                     <div class="chatbot-header-info">
                         <div class="chatbot-avatar">✨</div>
                         <div>
-                            <h3 id="chatbot-title">Nawaderna AI</h3>
+                            <h3 id="chatbot-title">${window.CHATBOT_NAME || 'Nawaderna'} AI</h3>
                             <span class="online-status">Online</span>
                         </div>
                     </div>
@@ -115,6 +151,11 @@ async function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
+    if (GEMINI_API_KEYS.length === 0) {
+        appendMessage("System error: Chatbot credentials are not loaded. Please ensure geminiCredintials.txt is present and contains valid API Keys.", 'bot');
+        return;
+    }
+
     // Add user message to UI
     appendMessage(text, 'user');
     input.value = '';
@@ -126,12 +167,8 @@ async function sendMessage() {
     // Prepare history for API (Gemini expects specific role format)
     const userMessage = { role: "user", parts: [{ text: text }] };
 
-    // Construct the payload
-    const payload = {
-        contents: [...chatHistory, userMessage],
-        system_instruction: {
-            parts: [{
-                text: `You are the Nawaderna Smart Agent (المساعد الذكي نوادرنا). 
+    // Prepare context: System instructions as the first message
+    const systemPrompt = `You are the Nawaderna Smart Agent (المساعد الذكي نوادرنا). 
             Follow these rules:
             1. Store Context: ${storeInfo}
             2. PRODUCT CATALOG: ${window.productListInfo || "Catalog loading..."}
@@ -140,39 +177,97 @@ async function sendMessage() {
             5. If the user wants to buy, tell them to use WhatsApp: +962795965910.
             6. CRITICAL: Use the "PRODUCT CATALOG" to answer about availability and prices. 
             7. If asked about the "last item", refer to the item with the highest number or the one at the start of the catalog list.
-            8. Formatting: You can use **bold**, *italic*, and - bullet points.` }]
-        }
+            8. Formatting: You can use **bold**, *italic*, and - bullet points.
+            9. When mentioning a product, ALWAYS use the format ITEM #[Number] (e.g., ITEM #105) so the UI can create a direct link button.`;
+
+    const contents = [
+        { role: "user", parts: [{ text: `CONTEXT & RULES: ${systemPrompt}\n\nPlease keep these rules in mind for all following messages. Respond only with 'OK, I am ready' if you understand.` }] },
+        { role: "model", parts: [{ text: "OK, I am ready. I will follow all rules and use the provided product catalog to assist you." }] },
+        ...chatHistory,
+        userMessage
+    ];
+
+    const payload = {
+        contents: contents
     };
 
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+    let success = false;
+    let attempts = 0;
+    const maxAttempts = GEMINI_API_KEYS.length;
 
-        const data = await response.json();
+    while (attempts < maxAttempts && !success) {
+        const currentKey = GEMINI_API_KEYS[currentKeyIndex];
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-        if (data.error) {
-            throw new Error(data.error.message);
+        try {
+            console.log(`Chatbot: Requesting with key #${currentKeyIndex + 1} (${attempts + 1}/${maxAttempts})...`);
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${currentKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const data = await response.json();
+
+            if (data.error) {
+                if (data.error.code === 429 || data.error.message.toLowerCase().includes('quota')) {
+                    console.warn(`Key ${currentKeyIndex + 1} quota exceeded. Trying next key...`);
+                    currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length;
+                    attempts++;
+                    continue; // Try next key
+                }
+                throw new Error(`API Error: ${data.error.message} (Code: ${data.error.code})`);
+            }
+
+            const botResponse = data.candidates && data.candidates[0].content
+                ? data.candidates[0].content.parts[0].text
+                : "I'm sorry, I couldn't formulate a response. Please try again.";
+
+            // Update local history (Keep last 10 turns for stability)
+            chatHistory.push(userMessage);
+            chatHistory.push({ role: "model", parts: [{ text: botResponse }] });
+            if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+
+            typing.classList.add('hidden');
+            appendMessage(botResponse, 'bot');
+            success = true;
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error(`Attempt with key #${currentKeyIndex + 1} failed:`, error);
+
+            let displayError = error.message;
+            if (error.name === 'AbortError') displayError = "Request timed out after 15 seconds.";
+
+            if (attempts >= maxAttempts - 1) {
+                typing.classList.add('hidden');
+                let errorMsg = `I'm having trouble connecting to the AI. (Error: ${displayError})`;
+
+                if (displayError.toLowerCase().includes('quota')) {
+                    errorMsg = "Limit reached on all available keys! Please wait 1 minute. (Quota Exceeded)";
+                } else if (displayError.includes('403')) {
+                    errorMsg = "Access Denied: Your API key has been reported as leaked or disabled.";
+                }
+
+                appendMessage(errorMsg, 'bot');
+                success = false; // Mark as failed
+                break; // Exit loop
+            } else {
+                currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length;
+                attempts++;
+            }
         }
+    }
 
-        const botResponse = data.candidates[0].content.parts[0].text;
-
-        // Update local history
-        chatHistory.push(userMessage);
-        chatHistory.push({ role: "model", parts: [{ text: botResponse }] });
-
+    // Final cleanup if everything failed
+    if (!success) {
         typing.classList.add('hidden');
-        appendMessage(botResponse, 'bot');
-
-    } catch (error) {
-        console.error("Gemini Error:", error);
-        typing.classList.add('hidden');
-        const errorMsg = error.message && error.message.includes('not found')
-            ? "Server error: The AI model configuration is currently being updated. Please try again in a few minutes."
-            : "I'm having trouble connecting to the AI. Please check your internet or try again later.";
-        appendMessage(errorMsg, 'bot');
+        if (attempts >= maxAttempts) {
+            appendMessage("Limit reached on all available keys! Please wait 1 minute. (All Keys Quota Exceeded)", 'bot');
+        }
     }
 }
 
@@ -189,10 +284,48 @@ function appendMessage(text, side) {
         .replace(/^\s*[\-\*]\s+(.*)/gm, '• $1')                       // Bullets at start of lines
         .replace(/\n/g, '<br>');                                      // New lines
 
+    // 1. Make URLs clickable
+    const urlRegex = /(https?:\/\/[^\s<]+)/g;
+    formattedText = formattedText.replace(urlRegex, '<a href="$1" target="_blank" class="chatbot-link">$1</a>');
+
+    // 2. Make Item Numbers Copyable and add "View Product" buttons
+    // Format: ITEM #123
+    const itemRegex = /ITEM\s*#(\d+)/gi;
+    formattedText = formattedText.replace(itemRegex, (match, itemNo) => {
+        return `
+            <div class="item-number-wrapper">
+                <span style="font-weight:bold; color:var(--accent);">ITEM #${itemNo}</span>
+                <button class="copy-item-num" onclick="copyToClipboard('${itemNo}', this)" title="Copy Item Number">
+                    <i data-lucide="copy"></i>
+                </button>
+                <button class="chatbot-item-btn" onclick="openCardByNumber('${itemNo}')">
+                    <i data-lucide="external-link"></i> ${document.body.classList.contains('rtl') ? 'عرض المنتج' : 'View Product'}
+                </button>
+            </div>
+        `;
+    });
+
     msgDiv.innerHTML = formattedText;
     container.appendChild(msgDiv);
+
+    // Initialize icons for the new message
+    if (window.lucide) lucide.createIcons();
+
     container.scrollTop = container.scrollHeight;
 }
+
+window.copyToClipboard = function (text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const icon = btn.querySelector('i');
+        const originalInner = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="color:#10b981;"></i>';
+        if (window.lucide) lucide.createIcons();
+        setTimeout(() => {
+            btn.innerHTML = originalInner;
+            if (window.lucide) lucide.createIcons();
+        }, 2000);
+    });
+};
 
 // Watch for RTL changes
 const observer = new MutationObserver(() => {
@@ -208,6 +341,6 @@ const observer = new MutationObserver(() => {
 observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 // Initialize
-loadStoreDetails().then(() => {
+Promise.all([loadStoreDetails(), loadCredentials()]).then(() => {
     injectChatbot();
 });
