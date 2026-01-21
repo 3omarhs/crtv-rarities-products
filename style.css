@@ -612,10 +612,17 @@ footer {
     display: grid;
 }
 
-.card.expanded .card-content,
-.card.expanded .card-footer,
-.card.expanded .card-image-container {
-    display: none;
+/* Collapsed View Wrapper */
+.collapsed-view {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+/* Hide collapsed view when expanded */
+.card.expanded .collapsed-view {
+    display: none !important;
 }
 
 @keyframes slideDown {
@@ -661,6 +668,11 @@ footer {
     gap: 0.5rem;
     z-index: 100;
     pointer-events: auto;
+}
+
+body.rtl .zoom-controls {
+    right: auto;
+    left: 1rem;
 }
 
 .zoom-btn {
@@ -746,14 +758,15 @@ footer {
 
 .expanded-close {
     position: absolute;
-    top: 1rem;
-    left: 1rem;
+    top: 1.5rem;
+    left: 1.5rem;
     width: 44px;
     height: 44px;
     border-radius: 50%;
     background: white;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    /* Ensure it stays above everything */
     border: 1px solid var(--card-border);
     color: var(--navy-secondary);
     display: flex;
@@ -763,9 +776,21 @@ footer {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+body.rtl .expanded-close {
+    left: auto;
+    right: 1.5rem;
+}
+
 .expanded-close:hover {
-    background: #e2e8f0;
-    transform: rotate(90deg);
+    background: #f1f5f9;
+    transform: rotate(90deg) scale(1.1);
+    color: var(--accent);
+}
+
+.expanded-close i {
+    width: 24px;
+    height: 24px;
+    stroke-width: 3;
 }
 
 .expanded-title {

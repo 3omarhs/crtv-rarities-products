@@ -693,39 +693,42 @@ function createCard(product, uiIndex) {
     const displayDescription = translateValue('description', product.description);
 
     article.innerHTML = `
-        <div class="card-image-container">
-            <img 
-                src="${imageSrc}" 
-                alt="${product.name}" 
-                class="product-image"
-                id="${imgId}"
-                loading="lazy"
-                referrerpolicy="no-referrer"
-                onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
-            >
-        </div>
-        <div class="card-content">
-            <div style="display: flex; justify-content: flex-end; align-items: start; margin-bottom: 0.5rem;">
-                <button 
-                    class="add-to-cart-btn-mini ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}" 
-                    onclick="event.stopPropagation(); ${String(product.available).toLowerCase() === 'no' ? '' : `addToCart(${product.index}, this)`}" 
-                    title="${String(product.available).toLowerCase() === 'no' ? t.oos : t.addToCart}"
-                    ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
+        <div class="collapsed-view">
+            <div class="card-image-container">
+                <img 
+                    src="${imageSrc}" 
+                    alt="${product.name}" 
+                    class="product-image"
+                    id="${imgId}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                    onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
                 >
-                    <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 14px;"></i> 
-                    ${String(product.available).toLowerCase() === 'no' ? ' ' + t.oos : ' + ' + t.addToCart}
-                </button>
             </div>
-            <h2 class="card-title">${displayName}</h2>
-            ${secondaryName ? `<p class="card-arabic-name">${secondaryName}</p>` : ''}
-            ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
-        </div>
-        <div class="card-footer">
-            ${product.price ? `<span class="card-price">${product.price} JOD</span>` : (product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : '')}
-            ${String(product.available).toLowerCase() !== 'no' ?
+            <div class="card-content">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <span class="card-number" style="font-size: 0.75rem; color: var(--text-secondary); background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">#${product.no}</span>
+                    <button 
+                        class="add-to-cart-btn-mini ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}" 
+                        onclick="event.stopPropagation(); ${String(product.available).toLowerCase() === 'no' ? '' : `addToCart(${product.index}, this)`}" 
+                        title="${String(product.available).toLowerCase() === 'no' ? t.oos : t.addToCart}"
+                        ${String(product.available).toLowerCase() === 'no' ? 'disabled' : ''}
+                    >
+                        <i data-lucide="${String(product.available).toLowerCase() === 'no' ? 'x-circle' : 'shopping-cart'}" style="width: 14px;"></i> 
+                        ${String(product.available).toLowerCase() === 'no' ? ' ' + t.oos : ' + ' + t.addToCart}
+                    </button>
+                </div>
+                <h2 class="card-title">${displayName}</h2>
+                ${secondaryName ? `<p class="card-arabic-name">${secondaryName}</p>` : ''}
+                ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
+            </div>
+            <div class="card-footer">
+                ${product.price ? `<span class="card-price">${product.price} JOD</span>` : (product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : '')}
+                ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}
-            <i data-lucide="shield-check" style="margin-left: auto; width: 16px; color: var(--accent);"></i>
+                <i data-lucide="shield-check" style="margin-left: auto; width: 16px; color: var(--accent);"></i>
+            </div>
         </div>
 
         <div class="expanded-content">

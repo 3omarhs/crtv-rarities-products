@@ -102,6 +102,9 @@ function injectChatbot() {
                         <br>أهلاً بك! كيف يمكنني مساعدتك في اكتشاف شيء فريد اليوم؟
                     </div>
                 </div>
+                <div id="chatbot-suggestions" class="chatbot-suggestions">
+                    <!-- Suggestions will be injected here -->
+                </div>
                 <div id="chatbot-typing" class="chatbot-typing hidden">
                     Agent is thinking <div class="typing-dots"><span></span><span></span><span></span></div>
                 </div>
@@ -123,10 +126,33 @@ function injectChatbot() {
     document.body.insertAdjacentHTML('beforeend', chatbotHTML);
     if (window.lucide) lucide.createIcons();
 
+    // Add default suggestions
+    renderSuggestions([
+        "Show me best sellers",
+        "How to order?",
+        "Do you have aquarium decor?",
+        "What are the latest items?"
+    ]);
+
     // Auto-scroll to bottom
     const messages = document.getElementById('chatbot-messages');
     if (messages) messages.scrollTop = messages.scrollHeight;
 }
+
+function renderSuggestions(suggestions) {
+    const container = document.getElementById('chatbot-suggestions');
+    if (!container) return;
+
+    container.innerHTML = suggestions.map(s =>
+        `<button class="suggestion-chip" onclick="sendSuggestion('${s}')">${s}</button>`
+    ).join('');
+}
+
+window.sendSuggestion = function (text) {
+    const input = document.getElementById('chatbot-input');
+    input.value = text;
+    sendMessage();
+};
 
 function toggleChatbot() {
     const windowEl = document.getElementById('chatbot-window');
@@ -160,6 +186,10 @@ async function sendMessage() {
     appendMessage(text, 'user');
     input.value = '';
 
+    // Hide suggestions
+    const suggestionsBox = document.getElementById('chatbot-suggestions');
+    if (suggestionsBox) suggestionsBox.style.display = 'none';
+
     // Show typing indicator
     const typing = document.getElementById('chatbot-typing');
     typing.classList.remove('hidden');
@@ -174,11 +204,11 @@ async function sendMessage() {
             2. PRODUCT CATALOG: ${window.productListInfo || "Catalog loading..."}
             3. Respond in the user's language (English or Arabic/Jordanian).
             4. Be helpful, artistic, and premium.
-            5. If the user wants to buy, tell them to use WhatsApp: +962795965910.
+            5. MANDATORY: You must end EVERY single response by offering the WhatsApp number for orders/support: +962795965910. This is required for every message.
             6. CRITICAL: Use the "PRODUCT CATALOG" to answer about availability and prices. 
             7. If asked about the "last item", refer to the item with the highest number or the one at the start of the catalog list.
             8. Formatting: You can use **bold**, *italic*, and - bullet points.
-            9. When mentioning a product, ALWAYS use the format ITEM #[Number] (e.g., ITEM #105) so the UI can create a direct link button.`;
+            9. When mentioning a product, ALWAYS use the format ITEM #[Number] (e.g., ITEM #TRND-1225) so the UI can create a direct link button.`;
 
     const contents = [
         { role: "user", parts: [{ text: `CONTEXT & RULES: ${systemPrompt}\n\nPlease keep these rules in mind for all following messages. Respond only with 'OK, I am ready' if you understand.` }] },
@@ -288,9 +318,16 @@ function appendMessage(text, side) {
     const urlRegex = /(https?:\/\/[^\s<]+)/g;
     formattedText = formattedText.replace(urlRegex, '<a href="$1" target="_blank" class="chatbot-link">$1</a>');
 
-    // 2. Make Item Numbers Copyable and add "View Product" buttons
-    // Format: ITEM #123
-    const itemRegex = /ITEM\s*#(\d+)/gi;
+    // 2. Make WhatsApp Number Clickable
+    const waRegex = /(\+?962795965910)/g;
+    formattedText = formattedText.replace(waRegex, (match) => {
+        const message = encodeURIComponent("Hi, I would Like to order. May I get your assestant.");
+        return `<a href="https://wa.me/962795965910?text=${message}" target="_blank" class="chatbot-link" style="color:#25d366; font-weight:bold; text-decoration:none;">${match} <i data-lucide="message-circle" style="width:14px; vertical-align:middle;"></i></a>`;
+    });
+
+    // 3. Make Item Numbers Copyable and add "View Product" buttons
+    // Format: ITEM #123 or ITEM #TRND-1225- (Support hyphens and letters)
+    const itemRegex = /ITEM\s*#([a-zA-Z0-9-]+)/gi;
     formattedText = formattedText.replace(itemRegex, (match, itemNo) => {
         return `
             <div class="item-number-wrapper">
@@ -325,6 +362,44 @@ window.copyToClipboard = function (text, btn) {
             if (window.lucide) lucide.createIcons();
         }, 2000);
     });
+};
+
+window.openCardByNumber = function (itemNo) {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.value = itemNo;
+        // Trigger the input event to update display
+        const event = new Event('input', { bubbles: true });
+        searchInput.dispatchEvent(event);
+
+        // Wait for search result to appear
+        setTimeout(() => {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                const title = card.querySelector('.card-title');
+                // Check if the card content contains the item number
+                // We added a .card-number span in app.js, so we can check that or innerText
+                const cardText = card.innerText || "";
+                if (cardText.includes(itemNo) || cardText.includes(`#${itemNo}`)) {
+
+                    // Force Expand Logic
+                    if (!card.classList.contains('expanded')) {
+                        // If we have a direct reference to the open logic, use it, otherwise simulate click
+                        // Since app.js handles the click, we can simulate it. 
+                        // However, we must ensure we don't click a sub-element.
+                        card.click();
+                    } else {
+                        // Already expanded, just scroll
+                    }
+
+                    // Smooth scroll to it
+                    setTimeout(() => {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+            });
+        }, 500); // Increased timeout slightly to ensure render
+    }
 };
 
 // Watch for RTL changes
