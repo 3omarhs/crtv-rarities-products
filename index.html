@@ -148,9 +148,10 @@
                 <span id="total-label">Total:</span>
                 <span id="cart-total-value">0.00 JOD</span>
             </div>
-            <button id="checkout-btn" class="checkout-btn">
+            <button id="checkout-btn" class="checkout-btn"
+                onclick="event.stopPropagation(); window.location.href='checkout.html';">
                 <i data-lucide="message-circle"></i>
-                <span id="checkout-text">Checkout via WhatsApp</span>
+                <span id="checkout-text">Checkout</span>
             </button>
         </div>
     </div>
@@ -214,8 +215,116 @@
             </div>
         </div>
     </div>
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="modal-overlay">
+        <div class="modal-container checkout-container">
+            <div class="modal-header">
+                <h3 class="checkout-title">Checkout</h3>
+                <button class="modal-close-btn" onclick="closeCheckout()" aria-label="Close Checkout">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="checkout-progress">
+                <div class="step active" data-step="1">1. Info</div>
+                <div class="step" data-step="2">2. Delivery</div>
+                <div class="step" data-step="3">3. Review</div>
+            </div>
+
+            <div class="modal-content checkout-body">
+                <!-- Step 1: Contact Info -->
+                <div id="checkout-step-1" class="checkout-step active">
+                    <h4>Contact Information</h4>
+                    <div class="form-group">
+                        <label for="cx-name">Full Name</label>
+                        <input type="text" id="cx-name" class="form-input" placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="cx-phone">Phone Number</label>
+                        <div class="phone-input-wrapper">
+                            <span class="country-code">+962</span>
+                            <input type="tel" id="cx-phone" class="form-input" placeholder="7XXXXXXXX">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cx-email">Email Address <span
+                                style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">(Optional)</span></label>
+                        <input type="email" id="cx-email" class="form-input" placeholder="name@example.com">
+                    </div>
+
+                    <button class="whatsapp-direct-btn" onclick="window.checkoutWhatsApp()">
+                        <i data-lucide="message-circle" style="fill: white;"></i>
+                        Place order using whatsapp to contact store manager
+                    </button>
+                </div>
+
+                <!-- Step 2: Delivery Method -->
+                <div id="checkout-step-2" class="checkout-step hidden">
+                    <h4>Delivery Method</h4>
+                    <div class="form-group">
+                        <label for="delivery-method-select">Choose Delivery Method</label>
+                        <select id="delivery-method-select" class="form-input"
+                            onchange="selectDeliveryMethod(this.value)">
+                            <option value="delivery" selected>Choosing a delivery region then company</option>
+                            <option value="pickup">Pick from the representative</option>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic Region/Company Selection -->
+                    <div id="delivery-details" style="margin-top: 1.5rem;">
+                        <div class="form-group">
+                            <label for="cx-region">Select Region</label>
+                            <select id="cx-region" class="form-input" onchange="updateDeliveryCompanies()">
+                                <option value="">-- Choose Region --</option>
+                                <!-- Loaded dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group" id="company-group" style="margin-top: 1rem;">
+                            <label for="cx-company">Select Company</label>
+                            <select id="cx-company" class="form-input" onchange="selectCompanyFromDropdown(this.value)">
+                                <option value="">-- Choose Company --</option>
+                                <!-- Loaded dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review -->
+                <div id="checkout-step-3" class="checkout-step hidden">
+                    <h4>Order Summary</h4>
+                    <div class="summary-box">
+                        <div class="summary-row">
+                            <span>Subtotal:</span>
+                            <span id="summary-subtotal">0.000 JOD</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Delivery:</span>
+                            <span id="summary-delivery">0.000 JOD</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total:</span>
+                            <span id="summary-total">0.000 JOD</span>
+                        </div>
+                    </div>
+                    <div class="customer-summary">
+                        <p id="summary-name"></p>
+                        <p id="summary-phone"></p>
+                        <p id="summary-method"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="checkout-back-btn" class="modal-btn secondary hidden" onclick="checkoutBack()">Back</button>
+                <button id="checkout-next-btn" class="modal-btn primary" onclick="checkoutNext()">Next</button>
+                <button id="checkout-submit-btn" class="modal-btn primary hidden" onclick="submitOrder()">Place
+                    Order</button>
+            </div>
+        </div>
+    </div>
 
     <script src="drive-images.js"></script>
+    <script src="checkout.js?v=2.1"></script>
     <script src="chatbot.js?v=2.0"></script>
     <script src="app.js?v=1.6"></script>
     <script>

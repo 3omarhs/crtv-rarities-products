@@ -1,0 +1,670 @@
+// Checkout System Logic
+// Handles the multi-step modal, delivery calculation, and WhatsApp submission
+
+let checkoutState = {
+    step: 1,
+    cartTotal: 0,
+    deliveryCost: 0,
+    deliveryMethod: 'delivery', // 'pickup' or 'delivery'
+    selectedRegion: '',
+    selectedCompany: '',
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    address: '',
+    deliveryData: []
+};
+
+// Custom parser for the specific format of deliveryCompaniesDetails.txt
+// It handles repeated "Name" keys by grouping them into objects
+function parseDeliveryDetails(text) {
+    const lines = text.split(/\r?\n/);
+    const companies = [];
+    let currentCompany = null;
+    let parsingRegions = false;
+
+    lines.forEach(line => {
+        const cleanLine = line.trim().replace(/,$/, ''); // Remove trailing commas
+
+        if (cleanLine.includes('"Name":')) {
+            // Start of a new company
+            if (currentCompany) {
+                companies.push(currentCompany);
+            }
+            const name = cleanLine.split(':')[1].trim().replace(/"/g, '');
+            currentCompany = { name: name, regions: {} };
+            parsingRegions = false;
+        } else if (cleanLine.includes('Regions:{')) {
+            parsingRegions = true;
+        } else if (cleanLine.includes('}') && parsingRegions) {
+            parsingRegions = false; // End of regions block
+        } else if (parsingRegions && cleanLine.includes(':')) {
+            // Parse "Region": Cost
+            const parts = cleanLine.split(':');
+            const region = parts[0].trim().replace(/"/g, '');
+            const cost = parseFloat(parts[1].trim());
+            if (currentCompany && !isNaN(cost)) {
+                currentCompany.regions[region] = cost;
+            }
+        }
+    });
+
+    // Push the last one
+    if (currentCompany) {
+        companies.push(currentCompany);
+    }
+
+    return companies;
+}
+
+async function initCheckout() {
+    try {
+        const response = await fetch('deliveryCompaniesDetails.txt?v=' + Date.now());
+        if (!response.ok) throw new Error("Failed to load delivery details");
+        const text = await response.text();
+        checkoutState.deliveryData = parseDeliveryDetails(text);
+        console.log("Checkout: Loaded delivery details", checkoutState.deliveryData);
+    } catch (e) {
+        console.warn("Checkout: Could not load delivery details. Defaulting to standard delivery.", e);
+    }
+
+    // Attach event listeners to inputs
+    const nameInput = document.getElementById('cx-name');
+    if (nameInput) nameInput.addEventListener('input', validateStep1);
+
+    const phoneInput = document.getElementById('cx-phone');
+    if (phoneInput) {
+        // Prevent typing non-digits
+        phoneInput.addEventListener('keydown', function (e) {
+            // Allow: backspace, delete, tab, escape, enter and .
+            if ([46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                (e.ctrlKey === true || e.metaKey === true)) {
+                return;
+            }
+            // Ensure that it is a number and stop the keypress
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        });
+
+        // Sanitize on input (paste, etc)
+        phoneInput.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '');
+            // Enforce max length manually just in case
+            if (this.value.length > 9) {
+                this.value = this.value.slice(0, 9);
+            }
+            validateStep1();
+        });
+    }
+
+    // Initial language apply if app loaded first
+    if (window.updateCheckoutLanguage) window.updateCheckoutLanguage();
+
+    // Auto-init for standalone page
+    if (window.location.pathname.includes('checkout.html')) {
+        // Imitate opening the modal to set initial state
+        openCheckoutModal();
+    }
+}
+
+function updateCheckoutLanguage() {
+    const lang = localStorage.getItem('cr_lang') || 'en';
+    const t = (window.translations && window.translations[lang]) ? window.translations[lang] : null;
+
+    if (!t) return;
+
+    const setT = (sel, text) => {
+        const el = document.querySelector(sel);
+        if (el) el.textContent = text;
+    };
+    const setP = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.placeholder = text;
+    };
+
+    setT('.checkout-title', t.checkoutTitle);
+    setT('[data-step="1"]', t.step1);
+    setT('[data-step="2"]', t.step2);
+    setT('[data-step="3"]', t.step3);
+
+    setT('#checkout-step-1 h4', t.contactInfo);
+    setT('label[for="cx-name"]', t.fullName);
+    setP('cx-name', t.enterName);
+    setT('label[for="cx-phone"]', t.phoneNumber);
+
+    const emailLabel = document.querySelector('label[for="cx-email"]');
+    if (emailLabel) emailLabel.innerHTML = `${t.emailAddr} <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-secondary);">${t.optional}</span>`;
+
+    setT('.whatsapp-direct-btn', t.waOrderBtn);
+
+    setT('#checkout-step-2 h4', t.deliveryMethod);
+    setT('label[for="delivery-method-select"]', t.chooseMethod);
+
+    const methodSelect = document.getElementById('delivery-method-select');
+    if (methodSelect && methodSelect.options.length >= 2) {
+        methodSelect.options[0].text = t.methodDelivery;
+        methodSelect.options[1].text = t.methodPickup;
+    }
+
+    setT('label[for="cx-region"]', t.selectRegion);
+    const regionSelect = document.getElementById('cx-region');
+    if (regionSelect && regionSelect.options.length > 0) {
+        regionSelect.options[0].text = t.chooseRegion;
+    }
+
+    setT('label[for="cx-company"]', t.selectCompany);
+    const companySelect = document.getElementById('cx-company');
+    if (companySelect && companySelect.options.length > 0 && companySelect.value === "") {
+        companySelect.options[0].text = t.chooseCompany;
+    }
+
+    setT('label[for="cx-address"]', t.detailedAddress);
+    setP('cx-address', t.enterAddress);
+
+    setT('#checkout-step-3 h4', t.orderSummary);
+
+    // Safely update summary labels which are siblings to the value spans
+    const sub = document.getElementById('summary-subtotal');
+    if (sub && sub.previousElementSibling) sub.previousElementSibling.textContent = t.subtotal;
+
+    const del = document.getElementById('summary-delivery');
+    if (del && del.previousElementSibling) del.previousElementSibling.textContent = t.delivery;
+
+    const tot = document.getElementById('summary-total');
+    if (tot && tot.previousElementSibling) tot.previousElementSibling.textContent = t.total;
+
+    setT('#checkout-back-btn', t.back);
+    setT('#checkout-next-btn', t.next);
+    setT('#checkout-submit-btn', t.placeOrder);
+
+    if (checkoutState.step === 3) {
+        renderSummary();
+    }
+}
+
+// Open the modal and reset state (Legacy/Modal Mode) - modified for Redirect
+function openCheckoutModal() {
+    // If we are on the main page, redirect to checkout.html
+    if (!window.location.pathname.includes('checkout.html')) {
+        window.location.href = 'checkout.html';
+        return;
+    }
+
+    if (cart.length === 0) {
+        showError("Your cart is empty!");
+        return;
+    }
+
+    // On standalone page, we just ensure state is ready
+    const modal = document.getElementById('checkout-modal');
+    if (modal) modal.classList.add('open'); // Only if modal exists
+
+    // Reset State
+    checkoutState.step = 1;
+    checkoutState.deliveryMethod = 'delivery';
+    checkoutState.deliveryCost = 0;
+
+    // reset dropdown if exists
+    const methodSelect = document.getElementById('delivery-method-select');
+    if (methodSelect) {
+        methodSelect.value = 'delivery';
+        // Force trigger change to ensure UI updates
+        selectDeliveryMethod('delivery');
+    }
+
+    // Ensure regions are populated
+    populateRegions();
+    const details = document.getElementById('delivery-details');
+    if (details) details.classList.remove('hidden');
+
+    // Reset UI
+    document.querySelectorAll('.checkout-step').forEach(el => el.classList.add('hidden'));
+    const step1 = document.getElementById('checkout-step-1');
+    if (step1) {
+        step1.classList.remove('hidden');
+        step1.classList.add('active');
+    }
+
+    updateStepIndicator(1);
+
+    // Ensure language is correct when opening
+    if (window.updateCheckoutLanguage) window.updateCheckoutLanguage();
+
+    updateButtons();
+
+    // Calculate initial cart total from app.js variable 'cart'
+    updateCheckoutCalculations();
+}
+
+function closeCheckout() {
+    // If independent page, go back
+    if (window.location.pathname.includes('checkout.html')) {
+        window.location.href = 'index.html';
+    } else {
+        const modal = document.getElementById('checkout-modal');
+        if (modal) modal.classList.remove('open');
+    }
+}
+
+function updateStepIndicator(step) {
+    document.querySelectorAll('.checkout-progress .step').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.remove('active', 'completed');
+        if (s === step) el.classList.add('active');
+        if (s < step) el.classList.add('completed');
+    });
+}
+
+function updateButtons() {
+    const backBtn = document.getElementById('checkout-back-btn');
+    const nextBtn = document.getElementById('checkout-next-btn');
+    const submitBtn = document.getElementById('checkout-submit-btn');
+
+    if (checkoutState.step === 1) {
+        backBtn.classList.add('hidden');
+        nextBtn.classList.remove('hidden');
+        submitBtn.classList.add('hidden');
+    } else if (checkoutState.step === 2) {
+        backBtn.classList.remove('hidden');
+        nextBtn.classList.remove('hidden');
+        submitBtn.classList.add('hidden');
+    } else if (checkoutState.step === 3) {
+        backBtn.classList.remove('hidden');
+        nextBtn.classList.add('hidden');
+        submitBtn.classList.remove('hidden');
+    }
+}
+
+function validateStep1() {
+    const name = document.getElementById('cx-name').value.trim();
+    const phone = document.getElementById('cx-phone').value.trim();
+
+    // Check name length
+    const isNameValid = name.length > 2;
+
+    // Check phone: digits only, max 9 chars
+    const phoneDigits = phone.replace(/\D/g, '');
+    const isPhoneValid = phoneDigits.length === 9;
+
+    const isValid = isNameValid && isPhoneValid;
+    return isValid;
+}
+
+function validateStep2() {
+    if (checkoutState.deliveryMethod === 'pickup') return true;
+    if (checkoutState.deliveryMethod === 'delivery') {
+        const region = document.getElementById('cx-region').value;
+        const company = document.getElementById('cx-company').value;
+        const address = document.getElementById('cx-address').value.trim();
+        // require region AND company AND address
+        if (!region || !company || !address) return false;
+        return true;
+    }
+    return false;
+}
+
+function checkoutNext() {
+    if (checkoutState.step === 1) {
+        if (!validateStep1()) {
+            const lang = localStorage.getItem('cr_lang') || 'en';
+            const t = window.translations ? window.translations[lang] : { valNamePhone: "Please enter a valid name and phone number." };
+            alert(t.valNamePhone);
+            return;
+        }
+        // Save info
+        checkoutState.customerName = document.getElementById('cx-name').value.trim();
+        checkoutState.customerPhone = document.getElementById('cx-phone').value.trim();
+        checkoutState.customerEmail = document.getElementById('cx-email').value.trim();
+
+        checkoutState.step = 2;
+    } else if (checkoutState.step === 2) {
+        if (!validateStep2()) {
+            const lang = localStorage.getItem('cr_lang') || 'en';
+            const t = window.translations ? window.translations[lang] : { valRegionCompany: "Please select a region, delivery company, and enter your address." };
+            // Custom message if address is missing but others are present
+            const region = document.getElementById('cx-region').value;
+            const company = document.getElementById('cx-company').value;
+            const address = document.getElementById('cx-address').value.trim();
+
+            if (region && company && !address) {
+                alert(t.valAddress || "Please enter your detailed address.");
+            } else {
+                alert(t.valRegionCompany);
+            }
+            return;
+        }
+        // Save Address
+        if (checkoutState.deliveryMethod === 'delivery') {
+            checkoutState.address = document.getElementById('cx-address').value.trim();
+        } else {
+            checkoutState.address = '';
+        }
+
+        // Prepare Step 3 (Review)
+        renderSummary();
+        checkoutState.step = 3;
+    } else {
+        return;
+    }
+
+    // UI Updates
+    document.querySelectorAll('.checkout-step').forEach(el => {
+        el.classList.add('hidden');
+        el.classList.remove('active');
+    });
+    const currentStepEl = document.getElementById(`checkout-step-${checkoutState.step}`);
+    currentStepEl.classList.remove('hidden');
+    currentStepEl.classList.add('active');
+
+    updateStepIndicator(checkoutState.step);
+    updateButtons();
+}
+
+function checkoutBack() {
+    if (checkoutState.step > 1) {
+        checkoutState.step--;
+        document.querySelectorAll('.checkout-step').forEach(el => {
+            el.classList.add('hidden');
+            el.classList.remove('active');
+        });
+        const currentStepEl = document.getElementById(`checkout-step-${checkoutState.step}`);
+        currentStepEl.classList.remove('hidden');
+        currentStepEl.classList.add('active');
+
+        updateStepIndicator(checkoutState.step);
+        updateButtons();
+    }
+}
+
+function selectDeliveryMethod(method) {
+    checkoutState.deliveryMethod = method;
+
+    if (method === 'pickup') {
+        document.getElementById('delivery-details').classList.add('hidden');
+        document.getElementById('pickup-details').classList.remove('hidden');
+        checkoutState.deliveryCost = 0;
+    } else {
+        document.getElementById('delivery-details').classList.remove('hidden');
+        document.getElementById('pickup-details').classList.add('hidden');
+
+        // Populate Regions if empty
+        const regionSelect = document.getElementById('cx-region');
+        if (regionSelect.options.length <= 1) {
+            populateRegions();
+        }
+    }
+    updateCheckoutCalculations();
+}
+
+function populateRegions() {
+    const regionSelect = document.getElementById('cx-region');
+    // Extract unique regions from all companies
+    const allRegions = new Set();
+    checkoutState.deliveryData.forEach(comp => {
+        Object.keys(comp.regions).forEach(r => allRegions.add(r));
+    });
+
+    // Clear old options (except first)
+    while (regionSelect.options.length > 1) {
+        regionSelect.remove(1);
+    }
+
+    Array.from(allRegions).sort().forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = r;
+        regionSelect.appendChild(opt);
+    });
+}
+
+function updateDeliveryCompanies() {
+    const region = document.getElementById('cx-region').value;
+    const selectEl = document.getElementById('cx-company');
+
+    const lang = localStorage.getItem('cr_lang') || 'en';
+    const t = (window.translations && window.translations[lang]) ? window.translations[lang] : {
+        chooseCompany: "-- Choose Company --",
+        noPartners: "No delivery partners available"
+    };
+
+    // Clear and reset
+    selectEl.innerHTML = `<option value="">${t.chooseCompany}</option>`;
+    checkoutState.selectedRegion = region;
+    checkoutState.selectedCompany = '';
+    checkoutState.deliveryCost = 0;
+
+    if (!region) return;
+
+    // Find companies that serve this region
+    const available = checkoutState.deliveryData.filter(c => c.regions[region] !== undefined);
+
+    if (available.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = t.noPartners;
+        opt.disabled = true;
+        selectEl.appendChild(opt);
+        return;
+    }
+
+    available.forEach((comp, index) => {
+        const cost = comp.regions[region];
+        const opt = document.createElement('option');
+        // Store cost in value or handle by lookup. 
+        // Simple way: value="Name|Cost"
+        opt.value = `${comp.name}|${cost}`;
+        opt.textContent = `${comp.name} - ${cost.toFixed(2)} JOD`;
+        selectEl.appendChild(opt);
+
+        // Auto select first one? User said "Choosing... then company", implying manual choice.
+        // But maybe auto-select is fine. Let's NOT auto-select to force user choice as per "Choosing"
+        // OR better UX: Select first one. 
+        // Let's stick to manual selection to match "Choosing"
+    });
+
+    // If we wanted auto-select:
+    // if (available.length > 0) {
+    //    selectEl.selectedIndex = 1;
+    //    selectCompanyFromDropdown(selectEl.value);
+    // }
+}
+
+function selectCompanyFromDropdown(value) {
+    if (!value) {
+        checkoutState.selectedCompany = '';
+        checkoutState.deliveryCost = 0;
+    } else {
+        const [name, costStr] = value.split('|');
+        checkoutState.selectedCompany = name;
+        checkoutState.deliveryCost = parseFloat(costStr);
+    }
+    updateCheckoutCalculations();
+}
+
+function updateCheckoutCalculations() {
+    // Recalculate cart total using global 'cart' logic
+    let total = 0;
+    cart.forEach(item => {
+        let price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
+        if (isNaN(price)) price = 0;
+        total += price * item.quantity;
+    });
+
+    checkoutState.cartTotal = total;
+
+    // Update summary text if visible
+    // (Will be done in renderSummary)
+}
+
+function renderSummary() {
+    const subtotalEl = document.getElementById('summary-subtotal');
+    const deliveryEl = document.getElementById('summary-delivery');
+    const totalEl = document.getElementById('summary-total');
+    const nameEl = document.getElementById('summary-name');
+    const phoneEl = document.getElementById('summary-phone');
+    const methodEl = document.getElementById('summary-method');
+
+    // Calculations
+    const total = checkoutState.cartTotal + checkoutState.deliveryCost;
+
+    subtotalEl.textContent = `${checkoutState.cartTotal.toFixed(3)} JOD`;
+    deliveryEl.textContent = `${checkoutState.deliveryCost.toFixed(3)} JOD`;
+    totalEl.textContent = `${total.toFixed(3)} JOD`;
+
+    const lang = localStorage.getItem('cr_lang') || 'en';
+    const t = (window.translations && window.translations[lang]) ? window.translations[lang] : {
+        methodSummaryPickup: "Method: Pick from the representative",
+        methodSummaryDelivery: "Method: Delivery to {region} ({company})",
+        nameSummary: "Name: {name}",
+        phoneSummary: "Phone: +962 {phone}"
+    };
+
+    nameEl.textContent = t.nameSummary.replace('{name}', checkoutState.customerName);
+    phoneEl.textContent = t.phoneSummary.replace('{phone}', checkoutState.customerPhone);
+
+    if (checkoutState.deliveryMethod === 'pickup') {
+        methodEl.innerHTML = t.methodSummaryPickup + `<br><span style="font-size:0.9em;color:grey">Amman, Al-Hurriya Street, opposite the Department of Lands south of Amman</span>`;
+    } else {
+        methodEl.innerHTML = t.methodSummaryDelivery
+            .replace('{region}', checkoutState.selectedRegion)
+            .replace('{company}', checkoutState.selectedCompany) + `<br><span style="font-size:0.9em;color:grey">${checkoutState.address}</span>`;
+    }
+}
+
+// Initialize EmailJS
+(function () {
+    if (window.emailjs) {
+        emailjs.init("ReYs8I_wiUao8xZ03"); // PLEASE REPLACE WITH YOUR ACTUAL PUBLIC KEY
+    }
+})();
+
+let isSubmitting = false;
+
+function submitOrder() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    const submitBtn = document.getElementById('checkout-submit-btn');
+
+    // UI Loading State
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-sm" style="width: 20px; height: 20px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; margin-right: 8px;"></span> Sending...`;
+
+    // Prepare Data
+    const orderDetails = cart.map((item, index) => {
+        // Requested format: Item No. then Color then Price and last thing the item name
+        return `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${item.price} - ${item.name} (Qty: ${item.quantity})`;
+    }).join('\n');
+
+    const deliveryCost = checkoutState.deliveryCost.toFixed(3) + " JOD";
+    const grandTotal = (checkoutState.cartTotal + checkoutState.deliveryCost).toFixed(3) + " JOD";
+
+    // Combine delivery and total for the email field
+    const totalDisplay = `Delivery: ${deliveryCost}\nTotal: ${grandTotal}`;
+
+    const templateParams = {
+        to_email: 'Omarhj13702@yahoo.com',
+        from_name: checkoutState.customerName,
+        from_phone: checkoutState.customerPhone,
+        from_email: checkoutState.customerEmail || 'Not provided',
+        delivery_method: checkoutState.deliveryMethod,
+        region: checkoutState.selectedRegion || 'N/A',
+        company: checkoutState.selectedCompany || 'N/A',
+        order_details: orderDetails,
+        total_price: totalDisplay,
+        address: checkoutState.deliveryMethod === 'delivery' ? `${checkoutState.selectedRegion}, ${checkoutState.selectedCompany}\nDetails: ${checkoutState.address}` : 'Pickup'
+    };
+
+    // Send Email
+    if (window.emailjs) {
+        emailjs.send('service_96sxr19', 'template_CrtvRaritiesO_1', templateParams)
+            .then(function () {
+                // Success
+
+                // Success
+
+                // --- ADMIN PORTAL TRACKING (Server Side) ---
+                const newOrder = {
+                    id: Date.now().toString(),
+                    date: new Date().toISOString(),
+                    customerName: checkoutState.customerName,
+                    customerPhone: checkoutState.customerPhone,
+                    items: cart.map((item, index) => `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${item.price} - ${item.name} (Qty: ${item.quantity})`),
+                    total: grandTotal, // e.g. "12.500 JOD"
+                    method: checkoutState.deliveryMethod,
+                    // Added missing details
+                    selectedRegion: checkoutState.selectedRegion || '',
+                    selectedCompany: checkoutState.selectedCompany || '',
+                    address: checkoutState.address || '',
+                    deliveryCost: checkoutState.deliveryCost.toFixed(3)
+                };
+
+                // Save to server
+                fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newOrder)
+                }).catch(err => console.error("Failed to save order to server", err));
+
+                // Legacy: Keep local updates just in case
+                const adminOrders = JSON.parse(localStorage.getItem('admin_orders') || '[]');
+                adminOrders.push(newOrder);
+                localStorage.setItem('admin_orders', JSON.stringify(adminOrders));
+                // -----------------------------
+
+                // -----------------------------
+
+                checkoutState.step = 1; // Reset navigation if needed
+
+                // Manually clear cart without triggering the confirmation modal
+                if (Array.isArray(window.cart)) {
+                    window.cart.length = 0;
+                    if (window.saveCart) window.saveCart();
+                    // No need to update UI as we are redirecting
+                }
+
+
+                window.location.href = 'index.html?orderSuccess=true'; // Return to store with success flag
+            })
+            .catch(function (error) {
+                // Error
+                console.error('FAILED...', error);
+                alert('Failed to send order. Please try again or contact us via WhatsApp.');
+
+                // Fallback to WhatsApp
+                if (window.checkoutWhatsApp) {
+                    window.checkoutWhatsApp();
+                }
+
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                isSubmitting = false;
+            });
+    } else {
+        console.error('EmailJS not loaded');
+        alert('Internal Error: Email service not available.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        isSubmitting = false;
+    }
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => {
+    initCheckout();
+});
+
+// Explicitly export to window
+window.openCheckoutModal = openCheckoutModal;
+window.closeCheckout = closeCheckout;
+window.checkoutNext = checkoutNext;
+window.checkoutBack = checkoutBack;
+window.selectDeliveryMethod = selectDeliveryMethod;
+window.updateDeliveryCompanies = updateDeliveryCompanies;
+window.updateCheckoutLanguage = updateCheckoutLanguage;
+window.selectCompanyFromDropdown = selectCompanyFromDropdown;
+window.submitOrder = submitOrder;
+window.validateStep1 = validateStep1;
+window.validateStep2 = validateStep2;

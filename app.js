@@ -33,7 +33,8 @@ function normalizeKey(key) {
 
 let allProducts = [];
 let fuse = null;
-let cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
+window.cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
+let cart = window.cart; // Keep local reference for existing code compatibility
 let currentLang = localStorage.getItem('cr_lang') || null;
 
 const translations = {
@@ -60,7 +61,7 @@ const translations = {
         cartTitle: "Your Cart",
         cartEmpty: "Your cart is empty.",
         totalLabel: "Total:",
-        checkoutBtn: "Checkout via WhatsApp",
+        checkoutBtn: "Checkout",
         addToCart: "Add to Cart",
         added: "Added!",
         oos: "Out of Stock",
@@ -87,7 +88,6 @@ const translations = {
         ok: "Ok",
         cartEmptyCheckoutTitle: "Cart is Empty",
         cartEmptyCheckoutMsg: "Please add some items to your cart before proceeding to checkout.",
-        waOrderHeader: "*Creative Rarities Store - New Order*",
         waOrderTotal: "Order Total:",
         qty: "Qty",
         pcs: "PCS",
@@ -96,7 +96,45 @@ const translations = {
         collectionLabel: "Collection:",
         dimensionsLabel: "Dimensions:",
         targetMarketLabel: "Target Market:",
-        descriptionLabel: "Description:"
+        descriptionLabel: "Description:",
+        detailedAddress: "Detailed Address",
+        enterAddress: "Enter your detailed address (City, Street, Building No., Landmark)",
+        valAddress: "Please enter your detailed address.",
+
+        // Checkout & Shared
+        checkoutTitle: "Checkout",
+        step1: "1. Info",
+        step2: "2. Delivery",
+        step3: "3. Review",
+        contactInfo: "Contact Information",
+        fullName: "Full Name",
+        enterName: "Enter your name",
+        phoneNumber: "Phone Number",
+        emailAddr: "Email Address",
+        optional: "(Optional)",
+        waOrderBtn: "Place order using whatsapp to contact store manager",
+        deliveryMethod: "Delivery Method",
+        chooseMethod: "Choose Delivery Method",
+        methodDelivery: "Choosing a delivery region then company",
+        methodPickup: "Pick from the representative",
+        selectRegion: "Select Region",
+        chooseRegion: "-- Choose Region --",
+        selectCompany: "Select Company",
+        chooseCompany: "-- Choose Company --",
+        noPartners: "No delivery partners available",
+        orderSummary: "Order Summary",
+        subtotal: "Subtotal:",
+        delivery: "Delivery:",
+        total: "Total:",
+        back: "Back",
+        next: "Next",
+        placeOrder: "Place Order",
+        valNamePhone: "Please enter a valid name and phone number.",
+        valRegionCompany: "Please select a region and delivery company.",
+        methodSummaryPickup: "Method: Pick from the representative",
+        methodSummaryDelivery: "Method: Delivery to {region} ({company})",
+        nameSummary: "Name: {name}",
+        phoneSummary: "Phone: +962 {phone}"
     },
     ar: {
         langText: "English",
@@ -157,9 +195,47 @@ const translations = {
         collectionLabel: "المجموعة:",
         dimensionsLabel: "الأبعاد:",
         targetMarketLabel: "الجمهور المستهدف:",
-        descriptionLabel: "الوصف:"
+        descriptionLabel: "الوصف:",
+
+        // Checkout & Shared
+        checkoutTitle: "إتمام الطلب",
+        step1: "1. المعلومات",
+        step2: "2. التوصيل",
+        step3: "3. المراجعة",
+        contactInfo: "معلومات الاتصال",
+        fullName: "الاسم الكامل",
+        enterName: "أدخل اسمك",
+        phoneNumber: "رقم الهاتف",
+        emailAddr: "البريد الإلكتروني",
+        optional: "(اختياري)",
+        waOrderBtn: "اطلب عبر واتساب للتواصل مع مدير المتجر",
+        deliveryMethod: "طريقة التوصيل",
+        chooseMethod: "اختر طريقة التوصيل",
+        methodDelivery: "اختيار منطقة التوصيل ثم الشركة",
+        methodPickup: "الاستلام من المندوب",
+        selectRegion: "اختر المنطقة",
+        chooseRegion: "-- اختر المنطقة --",
+        selectCompany: "اختر الشركة",
+        chooseCompany: "-- اختر الشركة --",
+        noPartners: "لا يوجد شركاء توصيل متاحين",
+        orderSummary: "ملخص الطلب",
+        subtotal: "المجموع الفرعي:",
+        delivery: "التوصيل:",
+        total: "الإجمالي:",
+        back: "رجوع",
+        next: "التالي",
+        placeOrder: "تأكيد الطلب",
+        valNamePhone: "يرجى إدخال اسم ورقم هاتف صالحين.",
+        valRegionCompany: "يرجى اختيار المنطقة وشركة التوصيل.",
+        methodSummaryPickup: "الطريقة: الاستلام من المندوب",
+        methodSummaryDelivery: "الطريقة: توصيل إلى {region} ({company})",
+        nameSummary: "الاسم: {name}",
+        phoneSummary: "الهاتف: +962 {phone}"
     }
 };
+
+// Make translations globally accessible
+window.translations = translations;
 
 const aiValueTranslations = {
     ar: {
@@ -312,20 +388,67 @@ window.translateValue = translateValue;
 
 async function init() {
     if (!currentLang) {
-        document.getElementById('lang-modal').classList.add('open');
+        const langModal = document.getElementById('lang-modal');
+        if (langModal) langModal.classList.add('open');
     } else {
         applyLanguage();
     }
-    try {
-        const data = await fetchSheetData();
-        processData(data);
-        setupSearch();
-        setupSort();
-        setupBackToTop();
-    } catch (err) {
-        showError(err.message);
+
+    // Check for Order Success Flag
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('orderSuccess') === 'true') {
+        // Clean URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+
+        // Show Success Modal
+        const t = translations[currentLang || 'en'] || translations['en'];
+        setTimeout(() => {
+            showModal({
+                title: currentLang === 'ar' ? 'تم استلام الطلب' : 'Order Received',
+                message: currentLang === 'ar' ? 'تم استلام طلبك بنجاح! سنتواصل معك قريباً.' : 'Order placed successfully! We have received your order and will contact you soon.',
+                type: 'success',
+                confirmText: t.ok
+            });
+        }, 500); // Slight delay to ensure DOM is ready
+    }
+
+    // Only load products if we have a grid to put them in
+    if (document.getElementById('product-grid')) {
+        try {
+            const data = await fetchSheetData();
+            processData(data);
+            setupSearch();
+            setupSort();
+            setupBackToTop();
+        } catch (err) {
+            showError(err.message);
+        }
     }
     setupCart();
+
+    // If on checkout page, ensure language is applied to form
+    if (window.updateCheckoutLanguage && !document.getElementById('product-grid')) {
+        window.updateCheckoutLanguage();
+    }
+
+    // --- TRACK VISITS (Server Side) ---
+    // Only count unique sessions to prevent spamming stats on reload
+    // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
+    if (!sessionStorage.getItem('visited_session') || true) { // FORCE RUN FOR DEBUGGING (Limit later)
+        if (!sessionStorage.getItem('visited_session')) {
+            sessionStorage.setItem('visited_session', 'true');
+        }
+
+        console.log("Attempting to track visit...");
+        fetch('/api/visits', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                console.log("Visit recorded. Total:", data.visits);
+                localStorage.setItem('site_visits', data.visits);
+            })
+            .catch(e => console.error("Could not track visit:", e));
+    }
 }
 
 function setLanguage(lang) {
@@ -354,6 +477,7 @@ function applyLanguage() {
     document.documentElement.lang = currentLang;
 
     if (window.updateChatbotLanguage) window.updateChatbotLanguage();
+    if (window.updateCheckoutLanguage) window.updateCheckoutLanguage();
 
     const setT = (id, text, prop = 'textContent') => {
         const el = document.getElementById(id);
@@ -1151,21 +1275,20 @@ function setupCart() {
     const floatingCart = document.getElementById('floating-cart');
     const closeCart = document.getElementById('close-cart');
     const cartOverlay = document.getElementById('cart-overlay');
-    const clearCartBtn = document.getElementById('clear-cart-btn');
+    const clearCartBtn = document.getElementById('clear-cart-btn-header'); // Fixed ID from index.html
     const checkoutBtn = document.getElementById('checkout-btn');
 
-    floatingCart.addEventListener('click', toggleCart);
-    closeCart.addEventListener('click', toggleCart);
-    cartOverlay.addEventListener('click', toggleCart);
-    checkoutBtn.addEventListener('click', checkoutWhatsApp);
+    if (floatingCart) floatingCart.addEventListener('click', toggleCart);
+    if (closeCart) closeCart.addEventListener('click', toggleCart);
+    if (cartOverlay) cartOverlay.addEventListener('click', toggleCart);
+
+    // Checkout button logic is now handled directly via onclick in index.html for reliability
 
     if (clearCartBtn) {
         clearCartBtn.addEventListener('click', () => {
-            console.log("Clear cart button clicked (via listener)");
             emptyCart();
         });
     }
-
 
     updateCartUI();
 }
@@ -1174,6 +1297,12 @@ function toggleCart() {
     document.getElementById('cart-drawer').classList.toggle('open');
     document.getElementById('cart-overlay').classList.toggle('open');
 }
+
+function closeCart() {
+    document.getElementById('cart-drawer').classList.remove('open');
+    document.getElementById('cart-overlay').classList.remove('open');
+}
+window.closeCart = closeCart;
 
 window.addToCart = function (productIndex, btn) {
     const t = translations[currentLang || 'en'];
@@ -1298,6 +1427,8 @@ function showModal({ title, message, type = 'warning', confirmText = 'Confirm', 
     modal.classList.add('open');
     if (window.lucide) lucide.createIcons();
 }
+
+
 
 function emptyCart() {
     const t = translations[currentLang || 'en'];
@@ -1458,6 +1589,7 @@ function checkoutWhatsApp() {
 
     window.open(whatsappUrl, '_blank');
 }
+window.checkoutWhatsApp = checkoutWhatsApp;
 
 window.openCardByNumber = function (itemNo) {
     const searchInput = document.getElementById('search-input');
@@ -1567,5 +1699,11 @@ window.closeLightbox = function () {
 };
 
 // Initialize after all definitions
+// Initialize after all definitions
 init();
+setupCart(); // Ensure cart listeners are attached immediately
+
+
+
+
 

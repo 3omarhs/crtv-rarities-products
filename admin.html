@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Creative Rarities</title>
+    <link rel="stylesheet" href="style.css"> <!-- Base styles -->
+    <link rel="stylesheet" href="admin.css"> <!-- Admin specific styles -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="admin-body">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <div class="login-box fade-in-up">
+            <div class="login-header">
+                <h2>Admin Portal</h2>
+                <p>Creative Rarities</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="admin-email">Email</label>
+                    <input type="email" id="admin-email" placeholder="Enter admin email" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-password">Password</label>
+                    <input type="password" id="admin-password" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>Login</span>
+                    <i data-lucide="log-in"></i>
+                </button>
+            </form>
+            <p id="login-error" class="error-msg hidden">Invalid credentials.</p>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard (Hidden by default) -->
+    <div id="admin-dashboard" class="dashboard-container hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>Admin</h3>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="overview">
+                    <i data-lucide="layout-dashboard"></i> Overview
+                </button>
+                <button class="nav-item" data-view="orders">
+                    <i data-lucide="shopping-bag"></i> Orders
+                </button>
+                <button class="nav-item" data-view="analytics">
+                    <i data-lucide="bar-chart-2"></i> Item Analytics
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="nav-item logout">
+                    <i data-lucide="log-out"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <h1 id="page-title">Dashboard Overview</h1>
+                <div class="user-info">
+                    <span>Admin User</span>
+                    <div class="avatar">A</div>
+                </div>
+            </header>
+
+            <!-- Views -->
+            <div id="view-overview" class="view-section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon-box blue"><i data-lucide="users"></i></div>
+                        <div class="stat-info">
+                            <h4>Total Visits</h4>
+                            <span id="stat-visits">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box green"><i data-lucide="shopping-cart"></i></div>
+                        <div class="stat-info">
+                            <h4>Total Orders</h4>
+                            <span id="stat-orders">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box purple"><i data-lucide="dollar-sign"></i></div>
+                        <div class="stat-info">
+                            <h4>Est. Revenue</h4>
+                            <span id="stat-revenue">0.000 JOD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-section">
+                    <h3>Recent Activity</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Detail</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-log">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-orders" class="view-section hidden">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="view-analytics" class="view-section hidden">
+                <h3>Sales by Item</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item No.</th>
+                                <th>Product Name</th>
+                                <th>Units Sold</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="item-analytics-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+
+</html>
