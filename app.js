@@ -159,7 +159,7 @@ const translations = {
         cartTitle: "سلة التسوق",
         cartEmpty: "سلة التسوق فارغة.",
         totalLabel: "المجموع:",
-        checkoutBtn: "إتمام الطلب عبر واتساب",
+        checkoutBtn: "إتمام الطلب",
         addToCart: "أضف للسلة",
         added: "تمت الإضافة!",
         oos: "نفدت الكمية",
