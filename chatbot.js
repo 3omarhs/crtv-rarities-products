@@ -7,6 +7,36 @@ let storeInfo = "";
 let productListInfo = "";
 
 window.productListInfo = "";
+
+const chatbotTranslations = {
+    en: {
+        suggestions: [
+            "Show me best sellers",
+            "How to order?",
+            "Do you have aquarium decor?",
+            "What are the latest items?"
+        ],
+        placeholder: "Type your message...",
+        aiAssistant: "AI Assistant",
+        online: "Online",
+        titleSuffix: " AI",
+        fullTitle: null
+    },
+    ar: {
+        suggestions: [
+            "أرني المنتجات الأكثر مبيعاً",
+            "كيف يمكنني الطلب؟",
+            "هل لديكم ديكورات أحواض سمك؟",
+            "ما هي آخر المنتجات؟"
+        ],
+        placeholder: "اكتب رسالتك...",
+        aiAssistant: "المساعد الذكي",
+        online: "متصل",
+        titleSuffix: " الذكي",
+        fullTitle: "مساعد نوادرنا الذكي"
+    }
+};
+
 window.setChatbotProducts = function (products) {
     if (!products || products.length === 0) {
         console.warn("Chatbot: Received empty product list.");
@@ -76,10 +106,33 @@ async function loadCredentials() {
     }
 }
 
+
+window.updateChatbotLanguage = function () {
+    const lang = document.documentElement.lang === 'ar' ? 'ar' : 'en';
+    const t = chatbotTranslations[lang];
+
+    const input = document.getElementById('chatbot-input');
+    if (input) input.placeholder = t.placeholder;
+
+    const label = document.querySelector('.chatbot-label');
+    if (label) label.textContent = t.aiAssistant;
+
+    const status = document.querySelector('.online-status');
+    if (status) status.textContent = t.online;
+
+    const title = document.getElementById('chatbot-title');
+    if (title) title.textContent = t.fullTitle || ((window.CHATBOT_NAME || 'Nawaderna') + t.titleSuffix);
+
+    renderSuggestions(t.suggestions);
+};
+
 // Inject Chatbot HTML
 function injectChatbot() {
     // Check if it already exists to prevent duplicates
     if (document.getElementById('ai-chatbot-container')) return;
+
+    const lang = document.documentElement.lang === 'ar' ? 'ar' : 'en';
+    const t = chatbotTranslations[lang];
 
     const chatbotHTML = `
         <div id="ai-chatbot-container" class="ai-chatbot-container">
@@ -88,8 +141,8 @@ function injectChatbot() {
                     <div class="chatbot-header-info">
                         <div class="chatbot-avatar">✨</div>
                         <div>
-                            <h3 id="chatbot-title">${window.CHATBOT_NAME || 'Nawaderna'} AI</h3>
-                            <span class="online-status">Online</span>
+                            <h3 id="chatbot-title">${t.fullTitle || (window.CHATBOT_NAME || 'Nawaderna') + t.titleSuffix}</h3>
+                            <span class="online-status">${t.online}</span>
                         </div>
                     </div>
                     <button id="close-chatbot" class="close-chatbot" onclick="toggleChatbot()">
@@ -109,7 +162,7 @@ function injectChatbot() {
                     Agent is thinking <div class="typing-dots"><span></span><span></span><span></span></div>
                 </div>
                 <div class="chatbot-input-area">
-                    <input type="text" id="chatbot-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                    <input type="text" id="chatbot-input" placeholder="${t.placeholder}" onkeypress="handleKeyPress(event)">
                     <button id="send-chat" onclick="sendMessage()">
                         <i data-lucide="send"></i>
                     </button>
@@ -119,20 +172,15 @@ function injectChatbot() {
                 <div class="chatbot-toggle-icon">
                     <i data-lucide="message-square"></i>
                 </div>
-                <span class="chatbot-label">AI Assistant</span>
+                <span class="chatbot-label">${t.aiAssistant}</span>
             </button>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', chatbotHTML);
     if (window.lucide) lucide.createIcons();
 
-    // Add default suggestions
-    renderSuggestions([
-        "Show me best sellers",
-        "How to order?",
-        "Do you have aquarium decor?",
-        "What are the latest items?"
-    ]);
+    // Add default suggestions based on current language
+    renderSuggestions(t.suggestions);
 
     // Auto-scroll to bottom
     const messages = document.getElementById('chatbot-messages');

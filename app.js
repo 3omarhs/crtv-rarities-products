@@ -1,5 +1,6 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
-console.log("App.js version 1.1 loaded");
+// Override console for debugging
+console.log("App.js version 1.15 loaded");
 const GID = '897526080';
 // Using the direct publish link provided by the user for better access
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
@@ -33,7 +34,12 @@ function normalizeKey(key) {
 
 let allProducts = [];
 let fuse = null;
-window.cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
+try {
+    window.cart = JSON.parse(localStorage.getItem('cr_cart') || '[]');
+} catch (e) {
+    console.error("Failed to parse cart", e);
+    window.cart = [];
+}
 let cart = window.cart; // Keep local reference for existing code compatibility
 let currentLang = localStorage.getItem('cr_lang') || null;
 
@@ -98,6 +104,12 @@ const translations = {
         targetMarketLabel: "Target Market:",
         descriptionLabel: "Description:",
         detailedAddress: "Detailed Address",
+        paymentCash: "Cash",
+        paymentCliQ: "CliQ payment",
+        paymentEWallet: "E-Wallets",
+        paymentCashDelivery: "Cash on delivery",
+        paymentCliQDelivery: "CliQ payment on delivery",
+        paymentEWalletDelivery: "E-Wallets on delivery",
         enterAddress: "Enter your detailed address (City, Street, Building No., Landmark)",
         valAddress: "Please enter your detailed address.",
 
@@ -129,12 +141,16 @@ const translations = {
         back: "Back",
         next: "Next",
         placeOrder: "Place Order",
+        placeOrder: "Place Order",
+        pickupLocationLabel: "Pickup Location:",
+        pickupAddress: "Amman, Al-Hurriya Street, opposite the Department of Lands south of Amman",
         valNamePhone: "Please enter a valid name and phone number.",
         valRegionCompany: "Please select a region and delivery company.",
         methodSummaryPickup: "Method: Pick from the representative",
         methodSummaryDelivery: "Method: Delivery to {region} ({company})",
         nameSummary: "Name: {name}",
-        phoneSummary: "Phone: +962 {phone}"
+        phoneSummary: "Phone: +962 {phone}",
+        paymentLabel: "Payment Method:"
     },
     ar: {
         langText: "English",
@@ -196,6 +212,9 @@ const translations = {
         dimensionsLabel: "الأبعاد:",
         targetMarketLabel: "الجمهور المستهدف:",
         descriptionLabel: "الوصف:",
+        detailedAddress: "العنوان بالتفصيل",
+        enterAddress: "أدخل عنوانك بالتفصيل (المدينة، الشارع، رقم العمارة، معلم معروف)",
+        valAddress: "يرجى إدخال تفاصيل العنوان.",
 
         // Checkout & Shared
         checkoutTitle: "إتمام الطلب",
@@ -225,12 +244,22 @@ const translations = {
         back: "رجوع",
         next: "التالي",
         placeOrder: "تأكيد الطلب",
+        placeOrder: "تأكيد الطلب",
+        pickupLocationLabel: "موقع الاستلام:",
+        pickupAddress: "عمان، شارع الحرية، مقابل دائرة اراضي جنوب عمان",
         valNamePhone: "يرجى إدخال اسم ورقم هاتف صالحين.",
         valRegionCompany: "يرجى اختيار المنطقة وشركة التوصيل.",
         methodSummaryPickup: "الطريقة: الاستلام من المندوب",
         methodSummaryDelivery: "الطريقة: توصيل إلى {region} ({company})",
         nameSummary: "الاسم: {name}",
-        phoneSummary: "الهاتف: +962 {phone}"
+        phoneSummary: "الهاتف: +962 {phone}",
+        paymentLabel: "طريقة الدفع:",
+        paymentCash: "نقد",
+        paymentCliQ: "دفع كليك",
+        paymentEWallet: "محافظ إلكترونية",
+        paymentCashDelivery: "الدفع عند الاستلام",
+        paymentCliQDelivery: "دفع كليك عند الاستلام",
+        paymentEWalletDelivery: "محافظ إلكترونية عند الاستلام"
     }
 };
 
@@ -254,7 +283,22 @@ const aiValueTranslations = {
             "Office Supplies & Desk Accessories - Perpetual Calendars": "لوازم مكتبية وإكسسوارات المكتب - تقاويم مستمرة",
             "Party Favors / Costume Accessories": "تجهيزات الحفلات / إكسسوارات التنكر",
             "Toys & Games - Novelty & Gag Toys": "الألعاب والترفيه - ألعاب مبتكرة وهدايا طريفة",
-            "Electronics Accessories - Cell Phone Stands & Charging Docks": "إكسسوارات الإلكترونيات - حوامل الهواتف ومنصات الشحن"
+            "Electronics Accessories - Cell Phone Stands & Charging Docks": "إكسسوارات الإلكترونيات - حوامل الهواتف ومنصات الشحن",
+            "Aquarium Decor & Maintenance": "ديكور وصيانة الأحواض المائية",
+            "Gardening & Planters": "البستنة وأوعية الزرع",
+            "Home Decor & Organization": "ديكور المنزل والتنظيم",
+            "Jewelry Organizer": "منظمات المجوهرات",
+            "Office Supplies & Desk Accessories - Perpetual Calendars": "لوازم مكتبية - تقاويم مستمرة",
+            "Pet Supplies - Bird Feeders & Toys": "لوازم الطيور - مغذيات وألعاب",
+            "Pet Supplies - Cat Toys & Furniture": "لوازم القطط - ألعاب وأثاث",
+            "Pet Supplies - Feeding & Bedding": "لوازم الحيوانات - التغذية والمفارش",
+            "Pets - Cat Tools": "أدوات القطط",
+            "Pets - Hamster Tools": "أدوات الهامستر",
+            "Phone Accessories": "إكسسوارات الهواتف",
+            "Plants Care": "العناية بالنباتات",
+            "Stands": "حوامل",
+            "Toys & Games - Novelty & Gag Toys": "ألعاب وهدايا طريفة",
+            "Trending": "الأكثر رواجاً"
         },
         collections: {
             "The Aquascape Series": "سلسلة أكواسكيب",
@@ -273,6 +317,57 @@ const aiValueTranslations = {
             "Small Critter Comforts": "راحة المخلوقات الصغيرة",
             "Pet Care Essentials": "أساسيات العناية بالحيوانات الأليفة",
             "Bug World": "عالم الحشرات"
+        },
+        regions: {
+            "Amman": "عمان",
+            "Ajloon": "عجلون",
+            "Al Fanadik": "الفنادق",
+            "Al Hashmyeh": "الهاشمية",
+            "Al Jafer": "الجفر",
+            "Al Omari Borders": "حدود العمري",
+            "Al Qaser": "القصر",
+            "Al Qastal": "القسطل",
+            "Al Rosaifa": "الرصيفة",
+            "Al Sukhneh": "السخنة",
+            "AAy": "أي",
+            "Aqaba": "العقبة",
+            "Azraq": "الأزرق",
+            "Balqa": "البلقاء",
+            "Bereian": "بيرين",
+            "Der Allah": "دير علا",
+            "Dulail": "الضليل",
+            "Free Zone": "المنطقة الحرة",
+            "Fuhais": "الفحيص",
+            "Ghour": "الغور",
+            "Ghour Al Safi": "غور الصافي",
+            "Ghweria": "الغويرية",
+            "Irbid": "إربد",
+            "Jerash": "جرش",
+            "Karak": "الكرك",
+            "Khaldieh": "الخالدية",
+            "MaAn / Maan": "معان",
+            "Madaba": "مأدبا",
+            "Mahes": "ماحص",
+            "Moatah": "مؤتة",
+            "Moghayam Hetein": "مخيم حطين",
+            "Mwaqar": "الموقر",
+            "Naour": "ناعور",
+            "Petra": "البتراء",
+            "Qwaireh": "القويرة",
+            "Ramtha": "الرمثا",
+            "Rashadyeh": "الرشادية",
+            "Rwaished": "الرويشد",
+            "Salt": "السلط",
+            "Shoubak": "الشوبك",
+            "Shouneh": "الشونة",
+            "Tafileh": "الطفيلة",
+            "Theban": "ذيبان",
+            "Wadi Mousa": "وادي موسى",
+            "Yajoz": "ياجوز",
+            "Zarqa": "الزرقاء",
+            "Zarqa Al Jadedeh": "الزرقاء الجديدة",
+            "Zone 1": "المنطقة 1",
+            "Zone 2": "المنطقة 2"
         },
         targetMarkets: {
             "Aquarium Hobbyists": "هواة أحواض السمك",
@@ -342,6 +437,8 @@ function translateValue(field, value) {
     switch (field) {
         case 'category':
             return maps.categories[value] || value;
+        case 'region':
+            return maps.regions ? (maps.regions[value] || value) : value;
         case 'collection':
             return maps.collections[value] || value;
         case 'targetMarket':
@@ -416,7 +513,9 @@ async function init() {
     // Only load products if we have a grid to put them in
     if (document.getElementById('product-grid')) {
         try {
+            console.log("Grid found, calling fetchSheetData...");
             const data = await fetchSheetData();
+            console.log("Data fetched, processing...");
             processData(data);
             setupSearch();
             setupSort();
@@ -471,74 +570,99 @@ function toggleLanguage() {
 }
 
 function applyLanguage() {
-    window.currentLang = currentLang;
-    const t = translations[currentLang];
-    document.body.className = currentLang === 'ar' ? 'rtl' : '';
-    document.documentElement.lang = currentLang;
+    try {
+        console.log("App Trace: applyLanguage Start");
+        window.currentLang = currentLang;
+        const t = translations[currentLang];
+        document.body.className = currentLang === 'ar' ? 'rtl' : '';
+        document.documentElement.lang = currentLang;
 
-    if (window.updateChatbotLanguage) window.updateChatbotLanguage();
-    if (window.updateCheckoutLanguage) window.updateCheckoutLanguage();
+        document.documentElement.lang = currentLang;
 
-    const setT = (id, text, prop = 'textContent') => {
-        const el = document.getElementById(id);
-        if (el) el[prop] = text;
-    };
+        try {
+            if (window.updateChatbotLanguage) window.updateChatbotLanguage();
+        } catch (e) { console.warn("Chatbot language update failed", e); }
 
-    setT('lang-text', t.langText);
-    setT('header-wa-text', t.headerWa);
+        try {
+            if (window.updateCheckoutLanguage) window.updateCheckoutLanguage();
+        } catch (e) { console.warn("Checkout language update failed", e); }
 
-    const storeTitleEl = document.getElementById('store-title');
-    if (storeTitleEl) {
-        if (currentLang === 'en') {
-            storeTitleEl.innerHTML = `Creative <span class="gradient-text">Rarities</span> Store`;
-        } else {
-            storeTitleEl.innerHTML = `متجر <span class="gradient-text">نوادر إبداعية</span>`;
+        const setT = (id, text, prop = 'textContent') => {
+            const el = document.getElementById(id);
+            if (el) el[prop] = text;
+        };
+
+        setT('lang-text', t.langText);
+        setT('header-wa-text', t.headerWa);
+
+        const storeTitleEl = document.getElementById('store-title');
+        if (storeTitleEl) {
+            if (currentLang === 'en') {
+                storeTitleEl.innerHTML = `Creative <span class="gradient-text">Rarities</span> Store`;
+            } else {
+                storeTitleEl.innerHTML = `متجر <span class="gradient-text">نوادر إبداعية</span>`;
+            }
         }
-    }
 
-    setT('store-subtitle', t.storeSubtitle);
-    setT('loading-text', t.loadingText);
-    setT('search-input', t.searchPlaceholder, 'placeholder');
-    setT('category-label', t.categoryLabel);
-    setT('all-categories-opt', t.allCategories);
-    setT('sort-label', t.sortLabel);
-    setT('sort-default', t.sortDefault);
-    setT('sort-name-asc', t.sortNameAsc);
-    setT('sort-name-desc', t.sortNameDesc);
-    setT('sort-price-asc', t.sortPriceAsc);
-    setT('sort-price-desc', t.sortPriceDesc);
-    setT('sort-category-asc', t.sortCategoryAsc);
-    setT('sort-category-desc', t.sortCategoryDesc);
-    setT('sort-arabic-asc', t.sortArabicAsc);
-    setT('sort-arabic-desc', t.sortArabicDesc);
-    setT('footer-text', t.footerText);
-    setT('cart-title', t.cartTitle);
-    setT('cart-empty-msg', t.cartEmpty);
-    setT('total-label', t.totalLabel);
-    setT('checkout-text', t.checkoutBtn);
+        setT('store-subtitle', t.storeSubtitle);
+        setT('loading-text', t.loadingText);
+        setT('search-input', t.searchPlaceholder, 'placeholder');
+        setT('category-label', t.categoryLabel);
+        setT('all-categories-opt', t.allCategories);
+        setT('sort-label', t.sortLabel);
+        setT('sort-default', t.sortDefault);
+        setT('sort-name-asc', t.sortNameAsc);
+        setT('sort-name-desc', t.sortNameDesc);
+        setT('sort-price-asc', t.sortPriceAsc);
+        setT('sort-price-desc', t.sortPriceDesc);
+        setT('sort-category-asc', t.sortCategoryAsc);
+        setT('sort-category-desc', t.sortCategoryDesc);
+        setT('sort-arabic-asc', t.sortArabicAsc);
+        setT('sort-arabic-desc', t.sortArabicDesc);
+        setT('footer-text', t.footerText);
+        setT('cart-title', t.cartTitle);
+        setT('cart-empty-msg', t.cartEmpty);
+        setT('total-label', t.totalLabel);
+        setT('checkout-text', t.checkoutBtn);
 
-    if (allProducts.length > 0) {
-        renderProducts(currentProducts);
+        if (allProducts.length > 0) {
+            populateCategoryDropdown();
+            renderProducts(currentProducts);
+        }
+        console.log("App Trace: applyLanguage End");
+    } catch (e) {
+        console.error("Critical: applyLanguage failed", e);
     }
 }
 
-function fetchSheetData() {
-    return new Promise((resolve, reject) => {
-        Papa.parse(CSV_URL, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                if (results.errors.length) {
-                    console.warn('Parse errors:', results.errors);
+async function fetchSheetData() {
+    try {
+        console.log("Fetching CSV data...");
+        const response = await fetch(CSV_URL);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
+        }
+        const csvText = await response.text();
+
+        return new Promise((resolve, reject) => {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    if (results.errors.length) {
+                        console.warn('Parse errors:', results.errors);
+                    }
+                    resolve(results.data);
+                },
+                error: (err) => {
+                    reject(new Error(`Failed to parse CSV: ${err.message}`));
                 }
-                resolve(results.data);
-            },
-            error: (err) => {
-                reject(new Error(`Failed to load spreadsheet: ${err.message}`));
-            }
+            });
         });
-    });
+    } catch (error) {
+        console.error("Fetch Data Error:", error);
+        throw error;
+    }
 }
 
 function normalizeKey(key) {
@@ -558,6 +682,30 @@ function extractDriveId(url) {
     if (url.length > 20 && /^[a-zA-Z0-9_-]+$/.test(url)) return url;
 
     return null;
+}
+
+
+
+function populateCategoryDropdown() {
+    const categorySelect = document.getElementById('category-select');
+    if (!categorySelect || !window.allProducts) return;
+
+    const currentVal = categorySelect.value;
+    const categories = [...new Set(window.allProducts.map(p => p.category).filter(Boolean))].sort();
+    const t = translations[currentLang || 'en'] || translations['en'];
+
+    categorySelect.innerHTML = `<option value="all" id="all-categories-opt">${t.allCategories}</option>` +
+        categories.map(c => {
+            const diplayText = window.translateValue ? window.translateValue('category', c) : c;
+            return `<option value="${c}">${diplayText}</option>`;
+        }).join('');
+
+    // Restore selection if possible, otherwise default to all
+    if (currentVal && (currentVal === 'all' || categories.includes(currentVal))) {
+        categorySelect.value = currentVal;
+    } else {
+        categorySelect.value = 'all';
+    }
 }
 
 function processData(data) {
@@ -681,10 +829,9 @@ function processData(data) {
     };
     fuse = new Fuse(allProducts, fuseOptions);
 
-    const categories = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort();
-    const t = translations[currentLang || 'en'];
-    categorySelect.innerHTML = `<option value="all" id="all-categories-opt">${t.allCategories}</option>` +
-        categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    fuse = new Fuse(allProducts, fuseOptions);
+
+    populateCategoryDropdown();
 
     renderProducts(allProducts);
 
@@ -1476,12 +1623,14 @@ function updateCartUI() {
     const cartTotalValue = document.getElementById('cart-total-value');
 
     const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-    cartCount.textContent = totalCount;
-    cartCount.style.display = totalCount > 0 ? 'flex' : 'none';
+    if (cartCount) {
+        cartCount.textContent = totalCount;
+        cartCount.style.display = totalCount > 0 ? 'flex' : 'none';
+    }
 
     if (cart.length === 0) {
-        cartItemsContainer.innerHTML = `<p id="cart-empty-msg" style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">${t.cartEmpty}</p>`;
-        cartTotalValue.textContent = '0.000 JOD';
+        if (cartItemsContainer) cartItemsContainer.innerHTML = `<p id="cart-empty-msg" style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">${t.cartEmpty}</p>`;
+        if (cartTotalValue) cartTotalValue.textContent = '0.000 JOD';
         return;
     }
 
@@ -1510,6 +1659,23 @@ function updateCartUI() {
         const placeholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3C%2Fsvg%3E`;
         let cloudFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : placeholder;
 
+        // Translate Product Name and Color
+        let displayName = item.name;
+        let displayColor = item.color; // Keep as is if English or undefined
+
+        if (currentLang === 'ar') {
+            // Find the original product to get Arabic name
+            // Use 'no' (Item Number) as unique key
+            const originalProduct = allProducts.find(p => p.no === item.no);
+            if (originalProduct && originalProduct.arabicName) {
+                displayName = originalProduct.arabicName;
+            }
+            // Translate Color
+            if (item.color && typeof aiValueTranslations !== 'undefined' && aiValueTranslations.ar && aiValueTranslations.ar.colors) {
+                displayColor = aiValueTranslations.ar.colors[item.color] || item.color;
+            }
+        }
+
         // Determine if we should show the "Applied" message
         const pRetail = parseFloat(String(item.price).replace(/[^\d.]/g, '')) || 0;
         const pWholesale = parseFloat(String(item.bulkPrice).replace(/[^\d.]/g, '')) || 0;
@@ -1520,12 +1686,12 @@ function updateCartUI() {
                 <img 
                     src="${localImg}" 
                     class="cart-item-img" 
-                    alt="${item.name}"
+                    alt="${displayName}"
                     referrerpolicy="no-referrer"
                     onerror="this.onerror=null; this.src='${cloudFallback}';"
                 >
                 <div class="cart-item-info">
-                    <div class="cart-item-title">${item.name} ${item.color ? `<small style="color: var(--text-secondary);">(${item.color})</small>` : ''}</div>
+                    <div class="cart-item-title">${displayName} ${displayColor ? `<small style="color: var(--text-secondary);">(${displayColor})</small>` : ''}</div>
                     <div class="cart-item-price">
                         ${unitPrice.toFixed(3)} JOD 
                         ${hasPriceDifference ? (isWholesale && item.bulkPrice ? `<small style="display:block; font-size:0.7rem; color:#b45309;">${t.appliedBulk}</small>` : (item.price && !isWholesale ? `<small style="display:block; font-size:0.7rem; color:#059669;">${t.appliedRetail}</small>` : '')) : ''}

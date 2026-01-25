@@ -148,11 +148,16 @@ function updateCheckoutLanguage() {
         methodSelect.options[1].text = t.methodPickup;
     }
 
+    setT('#pickup-label', t.pickupLocationLabel);
+    setT('#pickup-address', t.pickupAddress);
+
     setT('label[for="cx-region"]', t.selectRegion);
     const regionSelect = document.getElementById('cx-region');
     if (regionSelect && regionSelect.options.length > 0) {
         regionSelect.options[0].text = t.chooseRegion;
     }
+    // Re-populate regions to apply translation
+    populateRegions();
 
     setT('label[for="cx-company"]', t.selectCompany);
     const companySelect = document.getElementById('cx-company');
@@ -164,6 +169,7 @@ function updateCheckoutLanguage() {
     setP('cx-address', t.enterAddress);
 
     setT('#checkout-step-3 h4', t.orderSummary);
+    setT('#payment-method-header', t.paymentLabel || "Payment Method");
 
     // Safely update summary labels which are siblings to the value spans
     const sub = document.getElementById('summary-subtotal');
@@ -182,6 +188,9 @@ function updateCheckoutLanguage() {
     if (checkoutState.step === 3) {
         renderSummary();
     }
+
+    // Ensure initial payment labels match default delivery method
+    selectDeliveryMethod(checkoutState.deliveryMethod);
 }
 
 // Open the modal and reset state (Legacy/Modal Mode) - modified for Redirect
@@ -342,6 +351,10 @@ function checkoutNext() {
             checkoutState.address = '';
         }
 
+        // Save Payment Method
+        const selectedPm = document.querySelector('input[name="payment-method"]:checked');
+        checkoutState.paymentMethod = selectedPm ? selectedPm.value : 'Cash on delivery';
+
         // Prepare Step 3 (Review)
         renderSummary();
         checkoutState.step = 3;
@@ -381,13 +394,38 @@ function checkoutBack() {
 function selectDeliveryMethod(method) {
     checkoutState.deliveryMethod = method;
 
+    const lang = localStorage.getItem('cr_lang') || 'en';
+    const t = (window.translations && window.translations[lang]) ? window.translations[lang] : {
+        paymentCash: "Cash",
+        paymentCliQ: "CliQ payment",
+        paymentEWallet: "E-Wallets",
+        paymentCashDelivery: "Cash on delivery",
+        paymentCliQDelivery: "CliQ payment on delivery",
+        paymentEWalletDelivery: "E-Wallets on delivery"
+    };
+
+    const pmCash = document.getElementById('pm-cash');
+    const pmCliq = document.getElementById('pm-cliq');
+    const pmEwallet = document.getElementById('pm-ewallet');
+
     if (method === 'pickup') {
         document.getElementById('delivery-details').classList.add('hidden');
         document.getElementById('pickup-details').classList.remove('hidden');
         checkoutState.deliveryCost = 0;
+
+        // Update Payment Labels for Pickup
+        if (pmCash) pmCash.textContent = t.paymentCash;
+        if (pmCliq) pmCliq.textContent = t.paymentCliQ;
+        if (pmEwallet) pmEwallet.textContent = t.paymentEWallet;
+
     } else {
         document.getElementById('delivery-details').classList.remove('hidden');
         document.getElementById('pickup-details').classList.add('hidden');
+
+        // Update Payment Labels for Delivery
+        if (pmCash) pmCash.textContent = t.paymentCashDelivery;
+        if (pmCliq) pmCliq.textContent = t.paymentCliQDelivery;
+        if (pmEwallet) pmEwallet.textContent = t.paymentEWalletDelivery;
 
         // Populate Regions if empty
         const regionSelect = document.getElementById('cx-region');
@@ -406,17 +444,28 @@ function populateRegions() {
         Object.keys(comp.regions).forEach(r => allRegions.add(r));
     });
 
+    const currentVal = regionSelect.value;
+
     // Clear old options (except first)
     while (regionSelect.options.length > 1) {
         regionSelect.remove(1);
     }
 
-    Array.from(allRegions).sort().forEach(r => {
+    Array.from(allRegions).sort((a, b) => {
+        if (a === 'Amman') return -1;
+        if (b === 'Amman') return 1;
+        return a.localeCompare(b);
+    }).forEach(r => {
         const opt = document.createElement('option');
         opt.value = r;
-        opt.textContent = r;
+        opt.textContent = window.translateValue ? window.translateValue('region', r) : r;
         regionSelect.appendChild(opt);
     });
+
+    // Restore selection
+    if (currentVal && Array.from(allRegions).includes(currentVal)) {
+        regionSelect.value = currentVal;
+    }
 }
 
 function updateDeliveryCompanies() {
@@ -504,6 +553,7 @@ function renderSummary() {
     const nameEl = document.getElementById('summary-name');
     const phoneEl = document.getElementById('summary-phone');
     const methodEl = document.getElementById('summary-method');
+    const paymentEl = document.getElementById('summary-payment');
 
     // Calculations
     const total = checkoutState.cartTotal + checkoutState.deliveryCost;
@@ -524,11 +574,25 @@ function renderSummary() {
     phoneEl.textContent = t.phoneSummary.replace('{phone}', checkoutState.customerPhone);
 
     if (checkoutState.deliveryMethod === 'pickup') {
-        methodEl.innerHTML = t.methodSummaryPickup + `<br><span style="font-size:0.9em;color:grey">Amman, Al-Hurriya Street, opposite the Department of Lands south of Amman</span>`;
+        methodEl.innerHTML = t.methodSummaryPickup + `<br><span style="font-size:0.9em;color:grey">${t.pickupAddress || "Amman, Al-Hurriya Street, opposite the Department of Lands south of Amman"}</span>`;
     } else {
         methodEl.innerHTML = t.methodSummaryDelivery
             .replace('{region}', checkoutState.selectedRegion)
             .replace('{company}', checkoutState.selectedCompany) + `<br><span style="font-size:0.9em;color:grey">${checkoutState.address}</span>`;
+    }
+
+    if (paymentEl) {
+        // Map the stored English value to the current language translation
+        const paymentMap = {
+            "Cash": t.paymentCash,
+            "Cash on delivery": t.paymentCashDelivery,
+            "CliQ payment": t.paymentCliQ,
+            "CliQ payment on delivery": t.paymentCliQDelivery,
+            "E-Wallets": t.paymentEWallet,
+            "E-Wallets on delivery": t.paymentEWalletDelivery
+        };
+        const displayPayment = paymentMap[checkoutState.paymentMethod] || checkoutState.paymentMethod;
+        paymentEl.textContent = (t.paymentLabel || "Payment:") + " " + displayPayment;
     }
 }
 
@@ -573,7 +637,7 @@ function submitOrder() {
         region: checkoutState.selectedRegion || 'N/A',
         company: checkoutState.selectedCompany || 'N/A',
         order_details: orderDetails,
-        total_price: totalDisplay,
+        total_price: totalDisplay + `\nPayment: ${checkoutState.paymentMethod}`,
         address: checkoutState.deliveryMethod === 'delivery' ? `${checkoutState.selectedRegion}, ${checkoutState.selectedCompany}\nDetails: ${checkoutState.address}` : 'Pickup'
     };
 
@@ -598,7 +662,8 @@ function submitOrder() {
                     selectedRegion: checkoutState.selectedRegion || '',
                     selectedCompany: checkoutState.selectedCompany || '',
                     address: checkoutState.address || '',
-                    deliveryCost: checkoutState.deliveryCost.toFixed(3)
+                    deliveryCost: checkoutState.deliveryCost.toFixed(3),
+                    paymentMethod: checkoutState.paymentMethod
                 };
 
                 // Save to server

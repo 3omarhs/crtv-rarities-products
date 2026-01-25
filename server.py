@@ -48,6 +48,19 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
+        if self.path == '/api/debug-log':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            self.send_response(200)
+            self.end_headers()
+            
+            try:
+                log_entry = json.loads(post_data.decode('utf-8'))
+                print(f"[CLIENT LOG] {log_entry.get('level', 'INFO')}: {log_entry.get('message')}")
+            except Exception as e:
+                print(f"Error logging: {e}")
+            return
         if self.path == '/api/visits':
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
@@ -121,6 +134,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                                 msg_body = f"""New Order from {new_order.get('customerName')}
 Phone: {new_order.get('customerPhone')}
 Total: {new_order.get('total')}
+Payment: {new_order.get('paymentMethod', 'Cash on delivery')}
 
 Items:{items_str}
 

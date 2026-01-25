@@ -25,7 +25,7 @@
     <!-- EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="style.css?v=2.1">
 
     <style>
         body {
@@ -137,8 +137,9 @@
                     <!-- Pickup Details -->
                     <div id="pickup-details" class="hidden"
                         style="margin-top: 1.5rem; padding: 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; color: #0369a1;">
-                        <strong>Pickup Location:</strong><br>
-                        Amman, Al-Hurriya Street, opposite the Department of Lands south of Amman
+                        <strong id="pickup-label">Pickup Location:</strong><br>
+                        <span id="pickup-address">Amman, Al-Hurriya Street, opposite the Department of Lands south of
+                            Amman</span>
                     </div>
 
                     <!-- Dynamic Region/Company Selection -->
@@ -164,52 +165,74 @@
                                 style="resize: vertical;"></textarea>
                         </div>
                     </div>
-                </div>
-
-                <!-- Step 3: Review -->
-                <div id="checkout-step-3" class="checkout-step hidden">
-                    <h4>Order Summary</h4>
-                    <div class="summary-box">
-                        <div class="summary-row">
-                            <span>Subtotal:</span>
-                            <span id="summary-subtotal">0.000 JOD</span>
+                    <!-- Payment Method -->
+                    <div style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem;">
+                        <h4 id="payment-method-header">Payment Method</h4>
+                        <div class="form-group">
+                            <label
+                                style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="payment-method" value="Cash on delivery" checked>
+                                <span id="pm-cash">Cash on delivery</span>
+                            </label>
+                            <label
+                                style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="payment-method" value="CliQ payment on delivery">
+                                <span id="pm-cliq">CliQ payment on delivery</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                <input type="radio" name="payment-method" value="E-Wallets on delivery">
+                                <span id="pm-ewallet">E-Wallets on delivery</span>
+                            </label>
                         </div>
-                        <div class="summary-row">
-                            <span>Delivery:</span>
-                            <span id="summary-delivery">0.000 JOD</span>
-                        </div>
-                        <div class="summary-row total">
-                            <span>Total:</span>
-                            <span id="summary-total">0.000 JOD</span>
-                        </div>
-                    </div>
-                    <div class="customer-summary"
-                        style="margin-top: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
-                        <p id="summary-name" style="margin: 0.2rem 0; color: var(--text-primary); text-align: center;">
-                        </p>
-                        <p id="summary-phone" style="margin: 0.2rem 0; color: var(--text-primary); text-align: center;">
-                        </p>
-                        <p id="summary-method"
-                            style="margin: 0.2rem 0; color: var(--text-primary); text-align: center; font-size: 0.9rem;">
-                        </p>
                     </div>
                 </div>
             </div>
 
-            <div class="modal-footer"
-                style="padding-top: 2rem; margin-top: auto; border-top: 1px solid var(--card-border);">
-                <button id="checkout-back-btn" class="modal-btn secondary hidden" onclick="checkoutBack()">Back</button>
-                <button id="checkout-next-btn" class="modal-btn primary" onclick="checkoutNext()">Next</button>
-                <button id="checkout-submit-btn" class="modal-btn primary hidden" onclick="submitOrder()">Place
-                    Order</button>
+            <!-- Step 3: Review -->
+            <div id="checkout-step-3" class="checkout-step hidden">
+                <h4>Order Summary</h4>
+                <div class="summary-box">
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="summary-subtotal">0.000 JOD</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Delivery:</span>
+                        <span id="summary-delivery">0.000 JOD</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="summary-total">0.000 JOD</span>
+                    </div>
+                    <p id="summary-payment" style="font-weight: 600; color: var(--accent); margin-top: 0.5rem;"></p>
+                </div>
+                <div class="customer-summary"
+                    style="margin-top: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                    <p id="summary-name" style="margin: 0.2rem 0; color: var(--text-primary); text-align: center;">
+                    </p>
+                    <p id="summary-phone" style="margin: 0.2rem 0; color: var(--text-primary); text-align: center;">
+                    </p>
+                    <p id="summary-method"
+                        style="margin: 0.2rem 0; color: var(--text-primary); text-align: center; font-size: 0.9rem;">
+                    </p>
+                </div>
             </div>
+        </div>
+
+        <div class="modal-footer"
+            style="padding-top: 2rem; margin-top: auto; border-top: 1px solid var(--card-border);">
+            <button id="checkout-back-btn" class="modal-btn secondary hidden" onclick="checkoutBack()">Back</button>
+            <button id="checkout-next-btn" class="modal-btn primary" onclick="checkoutNext()">Next</button>
+            <button id="checkout-submit-btn" class="modal-btn primary hidden" onclick="submitOrder()">Place
+                Order</button>
+        </div>
         </div>
     </main>
 
     <!-- Scripts -->
     <!-- app.js is needed for translations and cart logic -->
-    <script src="app.js?v=1.6"></script>
-    <script src="checkout.js?v=2.2"></script>
+    <script src="app.js?v=1.21"></script>
+    <script src="checkout.js?v=2.6"></script>
     <script>
         lucide.createIcons();
         // Setup initial view
