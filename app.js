@@ -3,6 +3,7 @@ const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 console.log("App.js version 1.15 loaded");
 const GID = '897526080';
 // Using the direct publish link provided by the user for better access
+// Using the direct publish link provided by the user for better access
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
 
 const productGrid = document.getElementById('product-grid');
@@ -296,7 +297,7 @@ const aiValueTranslations = {
             "Pets - Hamster Tools": "أدوات الهامستر",
             "Phone Accessories": "إكسسوارات الهواتف",
             "Plants Care": "العناية بالنباتات",
-            "Stands": "حوامل",
+            "Stands": "ستاندات",
             "Toys & Games - Novelty & Gag Toys": "ألعاب وهدايا طريفة",
             "Trending": "الأكثر رواجاً"
         },

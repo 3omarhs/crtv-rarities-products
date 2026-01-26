@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body class="admin-body">
@@ -45,7 +46,7 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h3>Admin</h3>
+                <img src="logo.png" alt="Creative Rarities" class="sidebar-logo">
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-view="overview">
@@ -56,6 +57,12 @@
                 </button>
                 <button class="nav-item" data-view="analytics">
                     <i data-lucide="bar-chart-2"></i> Item Analytics
+                </button>
+                <button class="nav-item" data-view="add-product">
+                    <i data-lucide="plus-circle"></i> Add Product
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <i data-lucide="settings"></i> Settings
                 </button>
             </nav>
             <div class="sidebar-footer">
@@ -78,6 +85,7 @@
 
             <!-- Views -->
             <div id="view-overview" class="view-section active">
+                <!-- Dashboard Charts -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="icon-box blue"><i data-lucide="users"></i></div>
@@ -99,6 +107,34 @@
                             <h4>Est. Revenue</h4>
                             <span id="stat-revenue">0.000 JOD</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="charts-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Revenue Trend</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Top Products (Units)</h3>
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="charts-container-2"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Sales by Region</h3>
+                        <canvas id="regionChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Payment Methods</h3>
+                        <canvas id="paymentChart"></canvas>
                     </div>
                 </div>
 
@@ -157,6 +193,145 @@
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div id="view-add-product" class="view-section hidden">
+                <h3>Add New Product</h3>
+                <form id="add-product-form" class="admin-form">
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <input type="hidden" id="gas-url-input" placeholder="Paste Script URL here first"
+                            style="margin-bottom:1rem; width:100%; display:none;">
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Item Number (No)</label>
+                            <input type="text" name="No" required placeholder="e.g. PTSTLS-1225-001">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Product Name (English)</label>
+                            <input type="text" name="product name" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Arabic Name</label>
+                            <input type="text" name="Arabic Name">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Price (JOD)</label>
+                            <input type="number" step="0.01" name="Price < 25 QTY" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Category</label>
+                            <input type="text" name="category" list="cat-list">
+                            <datalist id="cat-list">
+                                <option value="Jewelry Organizer">
+                                <option value="Aquarium Decor & Maintenance">
+                                <option value="Pet Supplies">
+                            </datalist>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Collection</label>
+                            <input type="text" name="collection">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description (80 word)" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Dimensions</label>
+                            <input type="text" name="Dimensions(mm) x y z">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Colors (comma sep)</label>
+                            <input type="text" name="Colors" placeholder="Black, White">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Product Image</label>
+                        <input type="file" id="product-image-upload" accept="image/*">
+                        <small>Image will be uploaded to Google Drive automatically.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Google Apps Script URL</label>
+                        <input type="text" id="google-script-url"
+                            value="https://script.google.com/macros/s/AKfycbwNi335d7SkmxtVrpRHvBtYp2U2wmDQyYNtKSfEyQnTuiijPFwvDrves8a19noneAvvfQ/exec"
+                            placeholder="Paste your Web App URL here" class="form-control"
+                            style="width:100%; padding:0.5rem; margin-bottom:1rem; border:1px solid #ccc; border-radius:4px;">
+                        <small style="color:var(--text-secondary)">Required for writing to Google Sheets. See
+                            instructions provided.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Product To Sheet</button>
+
+                    <div id="loading-modal" class="modal-overlay hidden">
+                        <div class="modal-content">
+                            <div class="spinner"></div>
+                            <h3>Processing...</h3>
+                            <p>Please wait while we upload the image and update the Google Sheet.</p>
+                        </div>
+                    </div>
+
+                    <p id="add-product-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
+                    <p id="add-product-error" class="error-msg hidden" style="margin-top:10px; color:red;"></p>
+                </form>
+            </div>
+
+            <div id="view-settings" class="view-section hidden">
+                <h3>Email Notification Settings</h3>
+                <div class="admin-form" style="max-width: 600px;">
+                    <div class="form-group"
+                        style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-darker); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                        <div>
+                            <label style="margin-bottom: 0; color: white; font-weight: 500;">Enable Email
+                                Notifications</label>
+                            <small style="color: var(--text-secondary); display: block;">Receive an email whenever a new
+                                order is placed.</small>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="email-enabled">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Receiver Email</label>
+                        <input type="email" id="receiver-email"
+                            placeholder="Where to send notifications (e.g. your@email.com)">
+                    </div>
+
+                    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Sender Configuration (Gmail SMTP)
+                        </h4>
+                        <div class="form-group">
+                            <label>Sender Email</label>
+                            <input type="email" id="sender-email" placeholder="Your Gmail address">
+                        </div>
+                        <div class="form-group">
+                            <label>App Password</label>
+                            <input type="password" id="sender-pass"
+                                placeholder="Your Google App Password (not login password)">
+                            <small style="color:var(--text-secondary)">
+                                Use a <a href="https://myaccount.google.com/apppasswords" target="_blank"
+                                    style="color:var(--accent)">Google App Password</a>.
+                            </small>
+                        </div>
+                    </div>
+
+                    <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+                    <p id="settings-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
                 </div>
             </div>
 

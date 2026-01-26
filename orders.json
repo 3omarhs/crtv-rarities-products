@@ -1,1 +1,55 @@
-[]
+[
+  {
+    "id": "1769437253643",
+    "date": "2026-01-26 17:20:53",
+    "customerName": "Omar Jamal",
+    "customerPhone": "795965910",
+    "items": [
+      "1. [ELCD-1226-01-128] (White) - 3.05 - Articulated Vertebrae MagSafe Docking Stand (Qty: 1)",
+      "2. [TYS-0126-130] (White) - 0.375 - Realistic Cigarette Style Bubble Wand (Qty: 1)",
+      "3. [PTSTLS-1225-122] (Black) - 4.2 - Naturalistic Wall-mounted turtle basking platform (Qty: 1)"
+    ],
+    "total": "9.625 JOD",
+    "method": "delivery",
+    "selectedRegion": "Amman",
+    "selectedCompany": "DLX",
+    "address": "شارع الحرية",
+    "deliveryCost": "2.000",
+    "paymentMethod": "CliQ payment on delivery",
+    "timestamp": 1769437253.957632
+  },
+  {
+    "id": "1769437407771",
+    "date": "2026-01-26 17:23:27",
+    "customerName": "Adham",
+    "customerPhone": "772565422",
+    "items": [
+      "1. [PTSTLS-1225-121] (White) - 3.15 - Aquatic Voronoi Shrimp Cave (Qty: 1)"
+    ],
+    "total": "4.650 JOD",
+    "method": "delivery",
+    "selectedRegion": "Amman",
+    "selectedCompany": "FLEET Go",
+    "address": "طبربور خلف اشارة الدوريات",
+    "deliveryCost": "1.500",
+    "paymentMethod": "Cash on delivery",
+    "timestamp": 1769437407.7755494
+  },
+  {
+    "id": "1769439364103",
+    "date": "2026-01-26 17:56:04",
+    "customerName": "Asma Adel",
+    "customerPhone": "783665767",
+    "items": [
+      "1. [TRND-1225-129] (Black & White) - 13.08 - The Rainscape Planter (Qty: 1)"
+    ],
+    "total": "15.080 JOD",
+    "method": "delivery",
+    "selectedRegion": "Zarqa Al Jadedeh",
+    "selectedCompany": "FLEET Go",
+    "address": ".",
+    "deliveryCost": "2.000",
+    "paymentMethod": "Cash on delivery",
+    "timestamp": 1769439364.4227526
+  }
+]
