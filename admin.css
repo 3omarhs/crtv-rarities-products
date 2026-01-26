@@ -473,6 +473,174 @@ input:checked+.slider:before {
     border-radius: 34px;
 }
 
-.slider.round:before {
-    border-radius: 50%;
+/* Order Expansion */
+.order-row {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.order-row:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.expanded-row td {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0 !important;
+    border-bottom: 1px solid var(--border);
+}
+
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+}
+
+.item-tile {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    /* Restore padding */
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    /* Restore gap */
+    align-items: center;
+    /* Center vertically, don't stretch */
+    transition: transform 0.2s;
+    min-height: auto;
+    /* Remove fixed min-height */
+}
+
+.item-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.item-image {
+    width: 110px;
+    /* Fixed reasonable square size */
+    height: 110px;
+    /* Fixed reasonable square size */
+    border-radius: 0.5rem;
+    /* Restore rounded corners */
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+    aspect-ratio: 1/1;
+    background: rgba(255, 255, 255, 0.03);
+    /* Subtle bg for transparent pngs */
+}
+
+.item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0;
+    /* Remove internal padding */
+    justify-content: center;
+    /* Center text stack */
+}
+
+.expanded-container {
+    padding: 1rem;
+}
+
+.order-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid var(--border);
+    margin-top: 1rem;
+    border-radius: 0.5rem;
+}
+
+.info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.info-group label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+    color: var(--text-secondary);
+}
+
+.info-group span {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Removed old .item-image block to avoid conflict - handled above */
+
+.item-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.item-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.item-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0px;
+}
+
+.item-sku {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    /* Prevent ugly wrapping */
+    flex-shrink: 0;
+    /* Ensure it doesn't squish */
+}
+
+.item-qty {
+    background: var(--accent);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.item-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.item-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.item-detail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }

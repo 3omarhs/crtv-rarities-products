@@ -16,7 +16,8 @@
     "address": "شارع الحرية",
     "deliveryCost": "2.000",
     "paymentMethod": "CliQ payment on delivery",
-    "timestamp": 1769437253.957632
+    "timestamp": 1769437253.957632,
+    "status": "Closed"
   },
   {
     "id": "1769437407771",
@@ -33,7 +34,8 @@
     "address": "طبربور خلف اشارة الدوريات",
     "deliveryCost": "1.500",
     "paymentMethod": "Cash on delivery",
-    "timestamp": 1769437407.7755494
+    "timestamp": 1769437407.7755494,
+    "status": "Placed"
   },
   {
     "id": "1769439364103",
@@ -50,6 +52,7 @@
     "address": ".",
     "deliveryCost": "2.000",
     "paymentMethod": "Cash on delivery",
-    "timestamp": 1769439364.4227526
+    "timestamp": 1769439364.4227526,
+    "status": "Delivery"
   }
 ]

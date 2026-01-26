@@ -649,7 +649,10 @@ function submitOrder() {
 
                 // Success
 
-                // --- ADMIN PORTAL TRACKING (Server Side) ---
+                // -----------------------------
+
+                // -----------------------------
+
                 const newOrder = {
                     id: Date.now().toString(),
                     date: new Date().toISOString(),
@@ -658,7 +661,6 @@ function submitOrder() {
                     items: cart.map((item, index) => `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${item.price} - ${item.name} (Qty: ${item.quantity})`),
                     total: grandTotal, // e.g. "12.500 JOD"
                     method: checkoutState.deliveryMethod,
-                    // Added missing details
                     selectedRegion: checkoutState.selectedRegion || '',
                     selectedCompany: checkoutState.selectedCompany || '',
                     address: checkoutState.address || '',
@@ -666,32 +668,49 @@ function submitOrder() {
                     paymentMethod: checkoutState.paymentMethod
                 };
 
-                // Save to server
-                fetch('/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newOrder)
-                }).catch(err => console.error("Failed to save order to server", err));
+                // --- GOOGLE SHEETS STORAGE (Recommended for Vercel) ---
+                // Replace the URL below with your Google Apps Script Web App URL
+                const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
+                // OR fallback to loading from somewhere else if managed dynamically, for now we hardcode placeholder
 
-                // Legacy: Keep local updates just in case
+                // Construct the payload to match GAS expectations
+                const payload = {
+                    action: 'placeOrder',
+                    order: newOrder
+                };
+
+                // Use 'no-cors' or text/plain hack
+                const syncToGoogle = async () => {
+                    try {
+                        if (!GAS_URL.startsWith('http')) return;
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            body: JSON.stringify(payload),
+                            headers: { "Content-Type": "text/plain;charset=utf-8" }
+                        });
+                    } catch (e) {
+                        console.warn("Skipping Google Sheets sync (URL not configured or failed)", e);
+                    }
+                };
+
+                // Legacy: Keep local updates just in case (for local dev)
                 const adminOrders = JSON.parse(localStorage.getItem('admin_orders') || '[]');
                 adminOrders.push(newOrder);
                 localStorage.setItem('admin_orders', JSON.stringify(adminOrders));
                 // -----------------------------
 
-                // -----------------------------
+                // Wait for sync then redirect
+                syncToGoogle().then(() => {
+                    checkoutState.step = 1; // Reset navigation if needed
 
-                checkoutState.step = 1; // Reset navigation if needed
+                    // Manually clear cart without triggering the confirmation modal
+                    if (Array.isArray(window.cart)) {
+                        window.cart.length = 0;
+                        if (window.saveCart) window.saveCart();
+                    }
 
-                // Manually clear cart without triggering the confirmation modal
-                if (Array.isArray(window.cart)) {
-                    window.cart.length = 0;
-                    if (window.saveCart) window.saveCart();
-                    // No need to update UI as we are redirecting
-                }
-
-
-                window.location.href = 'index.html?orderSuccess=true'; // Return to store with success flag
+                    window.location.href = 'index.html?orderSuccess=true'; // Return to store with success flag
+                });
             })
             .catch(function (error) {
                 // Error

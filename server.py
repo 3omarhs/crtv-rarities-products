@@ -318,6 +318,43 @@ Items:
                 print(f"Error saving order: {e}")
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
+
+        if self.path == '/api/update-order-status':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            try:
+                payload = json.loads(post_data.decode('utf-8'))
+                order_id = payload.get('orderId')
+                new_status = payload.get('status')
+                
+                if os.path.exists(ORDERS_FILE):
+                    with open(ORDERS_FILE, 'r', encoding='utf-8') as f:
+                        orders = json.load(f)
+                    
+                    updated = False
+                    for order in orders:
+                        if order.get('id') == order_id:
+                            order['status'] = new_status
+                            updated = True
+                            break
+                    
+                    if updated:
+                        with open(ORDERS_FILE, 'w', encoding='utf-8') as f:
+                            json.dump(orders, f, indent=2, ensure_ascii=False)
+                        self.wfile.write(json.dumps({"status": "success"}).encode())
+                    else:
+                        self.wfile.write(json.dumps({"status": "error", "message": "Order not found"}).encode())
+                else:
+                    self.wfile.write(json.dumps({"status": "error", "message": "No orders file"}).encode())
+            except Exception as e:
+                print(f"Error updating status: {e}")
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
             
         if self.path == '/api/settings':
             content_length = int(self.headers['Content-Length'])

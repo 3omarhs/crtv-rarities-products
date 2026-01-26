@@ -4,43 +4,51 @@ let ADMIN_USERS = [];
 
 async function loadCredentials() {
     try {
-        const response = await fetch('adminCredentials.txt');
+        // Add cache busting to ensure we get the latest file content
+        const response = await fetch('adminCredentials.txt?v=' + new Date().getTime());
         if (!response.ok) throw new Error("Failed to load credentials");
         const text = await response.text();
         const lines = text.split(/\r?\n/);
 
+        ADMIN_USERS = []; // Clear existing
         let currentUser = {};
 
-        lines.forEach(line => {
-            const [key, value] = line.split(':');
-            if (key && value) {
-                const cleanKey = key.trim();
-                const cleanValue = value.trim();
-
-                if (cleanKey === 'Username') {
-                    // Start new user or update current
-                    if (currentUser.email && currentUser.pass) {
-                        ADMIN_USERS.push(currentUser);
-                        currentUser = {};
-                    }
-                    currentUser.email = cleanValue.toLowerCase();
-                }
-                if (cleanKey === 'Password') {
-                    currentUser.pass = cleanValue;
-                }
-            } else if (line.trim() === '') {
-                // Empty line acts as delimiter, push current if complete
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                // Empty line acts as delimiter/commit for previous user
                 if (currentUser.email && currentUser.pass) {
                     ADMIN_USERS.push(currentUser);
                     currentUser = {};
                 }
+                continue;
             }
-        });
 
-        // Push last one if exists
+            // Robust parsing: Split only on first colon to support passwords with colons
+            const firstColon = line.indexOf(':');
+            if (firstColon === -1) continue;
+
+            const key = line.substring(0, firstColon).trim().toLowerCase(); // Normalize key
+            const value = line.substring(firstColon + 1).trim();
+
+            if (key === 'username') {
+                // If starting a new user block without an empty line separator
+                if (currentUser.email && currentUser.pass) {
+                    ADMIN_USERS.push(currentUser);
+                    currentUser = {};
+                }
+                currentUser.email = value.toLowerCase();
+            } else if (key === 'password') {
+                currentUser.pass = value;
+            }
+        }
+
+        // Push the final user if exists
         if (currentUser.email && currentUser.pass) {
             ADMIN_USERS.push(currentUser);
         }
+
+        console.log(`Admin: Loaded ${ADMIN_USERS.length} users.`);
 
     } catch (e) {
         console.error("Admin: Could not load credentials", e);
@@ -282,31 +290,66 @@ function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('admin-dashboard').classList.remove('hidden');
     loadData();
+    initProductData(); // Load product details for modal
 }
+
 
 async function loadData() {
     try {
-        // 1. Visits
-        const visitsRes = await fetch('/api/visits');
-        const visitsData = await visitsRes.json();
-        const visits = visitsData.visits || 0;
-        document.getElementById('stat-visits').textContent = visits;
+        // Get GAS URL
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
 
-        // 2. Orders
-        const ordersRes = await fetch('/api/orders');
-        const orders = await ordersRes.json();
+        // Populate the input if not already set, for product adds
+        const urlInput = document.getElementById('google-script-url');
+        if (urlInput && !urlInput.value) {
+            urlInput.value = GAS_URL;
+        }
+
+        let orders = [];
+
+        try {
+            // First try GAS
+            // Note: simple GET to GAS webapp (Anyone access) usually works fine.
+            const res = await fetch(`${GAS_URL}?action=getOrders`);
+            if (res.ok) {
+                orders = await res.json();
+            } else {
+                throw new Error("GAS fetch failed");
+            }
+        } catch (e) {
+            console.warn("Could not load from GAS, falling back to local/legacy", e);
+            // Fallback to server if GAS fails or not provided
+            try {
+                const ordersRes = await fetch('/api/orders');
+                orders = await ordersRes.json();
+            } catch (ex) {
+                console.error("Local fallback also failed", ex);
+                orders = [];
+            }
+        }
+
+        // 1. Visits (Still local for now, or move to GAS?)
+        // Visits are less critical. Let's keep local or mock 0 if failed.
+        try {
+            const visitsRes = await fetch('/api/visits');
+            const visitsData = await visitsRes.json();
+            document.getElementById('stat-visits').textContent = visitsData.visits || 0;
+        } catch (e) {
+            document.getElementById('stat-visits').textContent = '-';
+        }
+
+        document.getElementById('stat-orders').textContent = orders.length;
 
         // Initialize Dashboard Charts
         if (window.Chart) initDashboard(orders);
 
-        // Also sync local just in case? No, trust server.
-        document.getElementById('stat-orders').textContent = orders.length;
-
         // 3. Revenue
         let revenue = 0;
         orders.forEach(o => {
-            const amt = parseFloat(o.total.replace(/[^\d.]/g, ''));
-            if (!isNaN(amt)) revenue += amt;
+            if (o.status === 'Closed') {
+                const amt = parseFloat(o.total.replace(/[^\d.]/g, ''));
+                if (!isNaN(amt)) revenue += amt;
+            }
         });
         document.getElementById('stat-revenue').textContent = revenue.toFixed(3) + ' JOD';
 
@@ -332,15 +375,113 @@ async function loadData() {
         ordersBody.innerHTML = '';
         [...orders].reverse().forEach(o => {
             const tr = document.createElement('tr');
+            tr.className = 'order-row';
+            const idStr = String(o.id);
+            const rowId = `row-${o.id}`;
+            const detailsId = `details-${o.id}`;
+
+            tr.onclick = (e) => {
+                // Ignore if clicked on select
+                if (e.target.tagName === 'SELECT') return;
+                toggleDetails(detailsId);
+            };
+
             tr.innerHTML = `
-                <td style="font-family:monospace">#${o.id.substr(0, 8)}</td>
+                <td style="font-family:monospace">#${idStr.substr(0, 8)}</td>
                 <td>${o.customerName}<br><span style="font-size:0.8em;color:grey">${o.customerPhone}</span></td>
-                <td>${o.items.length} Items</td>
+                <td>${o.items ? o.items.length : 0} Items</td>
                 <td>${o.total}</td>
                 <td>${new Date(o.date).toLocaleDateString()}</td>
-                <td><span style="padding:2px 8px; background:rgba(16, 185, 129, 0.2); color:#10b981; border-radius:4px; font-size:0.8rem">Received</span></td>
+                <td>${renderStatusSelect(o.id, o.status || 'Placed')}</td>
             `;
             ordersBody.appendChild(tr);
+
+            // Details Row
+            const detailsTr = document.createElement('tr');
+            detailsTr.id = detailsId;
+            detailsTr.className = 'expanded-row hidden';
+
+            let itemsHtml = '';
+            if (o.items && Array.isArray(o.items)) {
+                itemsHtml = o.items.map(itemStr => {
+                    const i = parseItemString(itemStr);
+
+                    // Image Logic
+                    // Image Logic
+                    let imgHtml = '';
+                    if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[i.sku]) {
+                        const driveId = window.DRIVE_MAPPING[i.sku];
+                        const imgSrc = `https://lh3.googleusercontent.com/d/${driveId}`;
+                        imgHtml = `<img src="${imgSrc}" class="item-image" loading="lazy">`;
+                    } else {
+                        // Fallback checking using helper function
+                        // Start with PNG
+                        imgHtml = `<img src="assets/products/${i.sku}.png" class="item-image" loading="lazy" onerror="handleAdminImageError(this, '${i.sku}')">`;
+                    }
+
+                    return `
+                        <div class="item-tile" data-sku="${i.sku}" title="Click for Details">
+                            ${imgHtml}
+                            <div class="item-info">
+                                <div class="item-header">
+                                    <span class="item-sku">${i.sku}</span>
+                                    <span class="item-qty">x${i.qty}</span>
+                                </div>
+                                <div class="item-name">${i.name}</div>
+                                <div class="item-details">
+                                    <span class="item-detail-badge" style="color:#94a3b8">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                                        ${i.color}
+                                    </span>
+                                    <span class="item-detail-badge" style="margin-left:auto; color:var(--success)">
+                                        ${i.price} JOD
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Extended Details Logic
+            const infoSection = `
+                <div class="order-info-grid">
+                    <div class="info-group">
+                        <label>Delivery Method</label>
+                        <span>${o.method === 'pickup' ? 'Pickup' : 'Delivery'}</span>
+                    </div>
+                    ${o.method !== 'pickup' ? `
+                    <div class="info-group">
+                        <label>Region & Company</label>
+                        <span>${o.selectedRegion || '-'} / ${o.selectedCompany || '-'}</span>
+                    </div>
+                    ` : ''}
+                    <div class="info-group">
+                        <label>Address</label>
+                        <span>${o.address || '-'}</span>
+                    </div>
+                     <div class="info-group">
+                        <label>Payment</label>
+                        <span>${o.paymentMethod || '-'}</span>
+                    </div>
+                     <div class="info-group">
+                        <label>Delivery Cost</label>
+                        <span>${o.deliveryCost || '0.00'} JOD</span>
+                    </div>
+                </div>
+            `;
+
+            detailsTr.innerHTML = `
+                <td colspan="6">
+                    <div class="expanded-container">
+                        <div class="items-grid">
+                            ${itemsHtml}
+                        </div>
+                        ${infoSection}
+                    </div>
+                </td>
+            `;
+            ordersBody.appendChild(detailsTr);
         });
 
         // 6. Item Analytics
@@ -450,10 +591,12 @@ function initDashboard(orders) {
                 let qty = 1;
 
                 if (item.includes('[') && item.includes(']')) {
-                    // Extract name before first dash? 
-                    // Example: "Minimalist Calendar - 45 - [ID] (Qty: 1)"
-                    const parts = item.split('-');
-                    if (parts.length > 0) name = parts[0].trim();
+                    // Extract SKU from brackets [SKU]
+                    // Format: "1. [TRND-1225-129] ..."
+                    const skuMatch = item.match(/\[(.*?)\]/);
+                    if (skuMatch) {
+                        name = skuMatch[1]; // Use SKU as the name/key
+                    }
                 }
 
                 // Extract Qty
@@ -475,7 +618,7 @@ function initDashboard(orders) {
         topProductsChartInstance = new Chart(ctxProd, {
             type: 'bar',
             data: {
-                labels: sortedProds.map(p => p[0].substring(0, 15) + (p[0].length > 15 ? '...' : '')),
+                labels: sortedProds.map(p => p[0]), // Show full SKU, no truncation
                 datasets: [{
                     label: 'Units Sold',
                     data: sortedProds.map(p => p[1]),
@@ -488,7 +631,14 @@ function initDashboard(orders) {
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                    y: { grid: { color: '#2d2d35' }, ticks: { color: '#94a3b8' } }
+                    y: {
+                        grid: { color: '#2d2d35' },
+                        ticks: {
+                            color: '#94a3b8',
+                            precision: 0,
+                            stepSize: 1
+                        }
+                    }
                 }
             }
         });
@@ -497,7 +647,18 @@ function initDashboard(orders) {
     // 5. Region Distribution
     const regionMap = {};
     orders.forEach(o => {
-        const reg = o.selectedRegion || 'Unknown';
+        let reg = o.selectedRegion;
+
+        // Handle Pickup
+        if (o.method === 'pickup') {
+            reg = 'Pickup';
+        }
+        // Handle missing/empty region
+        else if (!reg || reg.trim() === '') {
+            reg = 'Unknown';
+        }
+
+        reg = reg.trim();
         if (!regionMap[reg]) regionMap[reg] = 0;
         regionMap[reg]++;
     });
@@ -551,3 +712,352 @@ function initDashboard(orders) {
     }
 }
 
+
+// --- Order Status Logic ---
+function renderStatusSelect(id, currentStatus) {
+    const options = ['Placed', 'Preparing', 'Delivery', 'Not Paid', 'Closed', 'Canceled', 'Ignored'];
+    const colorMap = {
+        'Placed': '#3b82f6',     // Blue
+        'Preparing': '#f59e0b',  // Orange
+        'Delivery': '#8b5cf6',   // Purple
+        'Not Paid': '#ec4899',   // Pink
+        'Closed': '#10b981',     // Green
+        'Canceled': '#ef4444',   // Red
+        'Ignored': '#64748b'     // Gray
+    };
+
+    // Fallback for unknown status
+    const color = colorMap[currentStatus] || '#3b82f6';
+
+    let opts = options.map(opt => `<option value="${opt}" ${opt === currentStatus ? 'selected' : ''}>${opt}</option>`).join('');
+
+    return `<select onchange="window.updateOrderStatus('${id}', this.value)" 
+            style="background: ${color}20; color: ${color}; border: 1px solid ${color}; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: 500;">
+            ${opts}
+            </select>`;
+}
+
+
+window.updateOrderStatus = async function (id, newStatus) {
+    try {
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
+
+        if (GAS_URL) {
+            // Update via GAS
+            const payload = {
+                action: 'updateStatus',
+                orderId: id,
+                status: newStatus
+            };
+
+            await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { "Content-Type": "text/plain;charset=utf-8" }
+            });
+            // We assume success or it fails silently/logs error. GAS return is hard to read due to no-cors/redirects sometimes.
+            // But if we use redirect:follow, we might get it.
+
+            // Reload to verify
+            setTimeout(loadData, 1000);
+
+        } else {
+            // Fallback to local server
+            const res = await fetch('/api/update-order-status', {
+                method: 'POST',
+                body: JSON.stringify({ orderId: id, status: newStatus })
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                loadData();
+            } else {
+                alert("Failed to update status: " + (json.message || "Unknown error"));
+            }
+        }
+    } catch (e) {
+        console.error("Error updating status:", e);
+        alert("Error updating status");
+    }
+}
+
+function toggleDetails(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        if (el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            el.classList.add('fade-in-up');
+        } else {
+            el.classList.add('hidden');
+            el.classList.remove('fade-in-up');
+        }
+    }
+}
+
+function parseItemString(str) {
+    let sku = 'N/A';
+    let color = 'Default';
+    let price = '0.00';
+    let name = 'Item';
+    let qty = 1;
+
+    try {
+        // 1. Extract and remove Quantity: "(Qty: 5)"
+        const qtyMatch = str.match(/\(Qty:\s*(\d+)\)/);
+        if (qtyMatch) {
+            qty = qtyMatch[1];
+            str = str.replace(qtyMatch[0], '').trim();
+        }
+
+        // 2. Strict Regex for format: "Index. [SKU] (Color) - Price - Name"
+        // Escaped decimals for price, greedy match for name
+        const match = str.match(/^\d+\.\s*\[(.*?)\]\s*\((.*?)\)\s*-\s*([\d.]+)\s*-\s*(.*)$/);
+
+        if (match) {
+            sku = match[1];
+            color = match[2];
+            price = match[3]; // Capture price group
+            name = match[4];  // Capture name group (rest of string)
+        } else {
+            // Fallback: Use " - " (space dash space) as delimiter which is safer than "-"
+            const parts = str.split(' - ');
+            if (parts.length >= 3) {
+                // parts[0]: "1. [TRND...-...] (Color)"
+                // parts[1]: "13.08"
+                // parts[2]: "Name"
+                price = parts[1].trim();
+                name = parts.slice(2).join(' - ').trim(); // Rejoin if name had separators
+
+                // Extract SKU/Color from parts[0]
+                const skuM = parts[0].match(/\[(.*?)\]/);
+                if (skuM) sku = skuM[1];
+                const colM = parts[0].match(/\((.*?)\)/);
+                if (colM) color = colM[1];
+            }
+        }
+    } catch (e) {
+        console.warn("Error parsing item:", str, e);
+        name = str;
+    }
+
+    return { sku, color, price, name, qty };
+}
+
+function handleAdminImageError(img, sku) {
+    const currentSrc = img.src;
+
+    // Define the fallback chain
+    // 1. Initial load is PNG (set in HTML)
+    // 2. Fallback to JPG
+    // 3. Fallback to JPEG
+    // 4. Fallback to WEBP
+    // 5. Fallback to Placeholder
+
+    if (currentSrc.endsWith('.png')) {
+        img.src = `assets/products/${sku}.jpg`;
+    } else if (currentSrc.endsWith('.jpg')) {
+        img.src = `assets/products/${sku}.jpeg`;
+    } else if (currentSrc.endsWith('.jpeg')) {
+        img.src = `assets/products/${sku}.webp`;
+    } else {
+        // Final fallback: Placeholder
+        img.onerror = null; // Stop infinite loop
+        img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);">No Img</div>';
+    }
+}
+
+// --- PRODUCT MODAL LOGIC & HELPERS ---
+
+window.allProducts = [];
+const PRODUCT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+
+async function initProductData() {
+    if (window.allProducts && window.allProducts.length > 0) return; // Already loaded
+
+    try {
+        console.log("Fetching Product CSV from:", PRODUCT_CSV_URL);
+        // Use Papa Parse directly via URL if possible, or fetch text first
+        // Papa.parse supports remote files if 'download: true'
+        Papa.parse(PRODUCT_CSV_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                if (results.data) {
+                    window.allProducts = results.data;
+                    console.log("Products loaded:", window.allProducts.length);
+                }
+            },
+            error: (err) => {
+                console.error("Papa Parse Error:", err);
+            }
+        });
+    } catch (e) {
+        console.error("Failed to load products:", e);
+    }
+}
+
+function extractDriveId(url) {
+    if (!url) return null;
+    let match = url.match(/\/(?:file\/)?d\/([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+    match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+    if (url.length > 20 && /^[a-zA-Z0-9_-]+$/.test(url)) return url;
+    return null;
+}
+
+// Minimal Translation Stub for Admin (English default)
+const translations = {
+    en: {
+        retailPrice: "Retail Price",
+        priceLabel: "Price",
+        bulkSaving: "Wholesale Price (>10 pcs)",
+        oos: "Out of Stock",
+        inStock: "In Stock",
+        copy: "Copy",
+        viewDoc: "View Document",
+        categoryLabel: "Category",
+        collectionLabel: "Collection",
+        dimensionsLabel: "Dimensions",
+        targetMarketLabel: "Target Market",
+        descriptionLabel: "Description",
+        noDesc: "No description available.",
+        selectColor: "Available Colors"
+    }
+};
+
+window.openProductModal = function (sku) {
+    // Clean SKU
+    sku = String(sku).trim();
+    console.log("OpenModal called for SKU:", sku);
+
+    if (!window.allProducts || window.allProducts.length === 0) {
+        console.warn("Products not loaded yet. Calling init...");
+        // Try init and alert
+        initProductData();
+        alert("System is still downloading product data... Please try again in a few seconds.");
+        return;
+    }
+
+    console.log("Searching in catalog of size:", window.allProducts.length);
+
+    // Find product in CSV data
+    // We check various common column names for Item Number
+    const productRaw = window.allProducts.find(p => {
+        const no = p['No'] || p['Item Number'] || p['no'] || p['id'] || '';
+        // Loose comparison
+        return String(no).trim().toLowerCase() === sku.toLowerCase();
+    });
+
+    if (!productRaw) {
+        console.error("Product not found for SKU:", sku);
+        console.log("Sample Data:", window.allProducts[0]);
+        alert("Details not available for Item #" + sku + "\n(Code mismatch or custom item)");
+        return;
+    }
+
+    console.log("Product found:", productRaw);
+
+    // Normalize Product Data
+    const p = {
+        name: productRaw['Product Name'] || productRaw['product name'] || productRaw['Name'] || 'Unknown',
+        no: sku,
+        image: productRaw['Image'] || productRaw['image'] || productRaw['Photo'] || '',
+        link: productRaw['Document Link'] || productRaw['link'] || '',
+        price: productRaw['Price'] || productRaw['Retail Price'] || productRaw['Price < 25 QTY'] || '0',
+        bulkPrice: productRaw['Wholesale Price'] || productRaw['Price > 25 QTY'] || '',
+        category: productRaw['Category'] || productRaw['category'],
+        collection: productRaw['Collection'] || productRaw['collection'],
+        dimensions: productRaw['Dimensions'] || productRaw['Dimensions(mm) x y z'],
+        targetMarket: productRaw['Target Market'] || productRaw['target market'],
+        description: productRaw['Description'] || productRaw['description (80 word)'],
+        colors: (productRaw['Colors'] || '').split(',').map(c => c.trim()).filter(c => c),
+    };
+
+    renderProductModal(p);
+}
+
+function renderProductModal(product) {
+    const modal = document.getElementById('product-details-modal');
+    const content = document.getElementById('product-modal-content');
+    const t = translations.en;
+
+    // Image Logic
+    let imageSrc = `assets/products/${product.no}.jpg`;
+
+    // Cloud Fallbacks
+    let driveId = extractDriveId(product.image);
+    if (!driveId && product.link) driveId = extractDriveId(product.link);
+    if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
+
+    // We rely on handleAdminImageError to switch to cloud/placeholders if local fails
+    // But we can preemptively set it if we suspect local missing? No, stick to local first for speed.
+
+    content.innerHTML = `
+        <div class="expanded-info" style="padding: 2rem;">
+            <div class="expanded-image-container">
+               <img 
+                    src="${imageSrc}" 
+                    alt="${product.name}" 
+                    class="expanded-image"
+                    style="max-height: 500px; object-fit: contain; width: 100%; border-radius: 12px; display:block; margin: 0 auto;"
+                    onerror="handleAdminImageError(this, '${product.no}')"
+                >
+            </div>
+            
+            <div style="margin-top: 2rem;">
+                <div style="display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem;">
+                    <h2 class="expanded-title" style="font-size: 1.8rem; margin: 0; line-height: 1.2;">${product.name}</h2>
+                    <span class="card-number" style="font-size: 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border-radius: 8px; color: var(--text-primary); white-space: nowrap;">${product.no}</span>
+                </div>
+
+                <div class="expanded-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 1.5rem 0; gap: 1.5rem;">
+                    ${product.category ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.categoryLabel}</strong> <br><span>${product.category}</span></div>` : ''}
+                    ${product.collection ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.collectionLabel}</strong> <br><span>${product.collection}</span></div>` : ''}
+                    ${product.dimensions ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.dimensionsLabel}</strong> <br><span>${product.dimensions}</span></div>` : ''}
+                    ${product.targetMarket ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.targetMarketLabel}</strong> <br><span>${product.targetMarket}</span></div>` : ''}
+                </div>
+
+                <div class="expanded-description" style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                    <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-primary);">${t.descriptionLabel}</strong>
+                    <div style="line-height: 1.6; color: var(--text-secondary);">${product.description || t.noDesc}</div>
+                </div>
+                
+                ${product.colors && product.colors.length > 0 ? `
+                <div class="colors-section" style="margin: 2rem 0; padding: 1.5rem; background: #fff; border: 1px solid var(--border); border-radius: 12px;">
+                    <strong style="display:block; margin-bottom:1rem;">${t.selectColor}</strong>
+                    <div class="color-list" style="display: flex; flex-wrap: wrap; gap: 0.8rem;">
+                        ${product.colors.map(color => `
+                            <span style="padding: 6px 14px; background: #f1f5f9; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">${color}</span>
+                        `).join('')}
+                    </div>
+                </div>` : ''}
+
+                <div class="expanded-pricing">
+                    <div class="main-price">
+                        <div class="price-info-block">
+                            <span class="label">${t.retailPrice}</span>
+                            <span class="value">${product.price} JOD</span>
+                        </div>
+                    </div>
+                    ${product.bulkPrice ? `
+                    <div class="bulk-price" style="margin-top: 1rem;">
+                        <div class="price-info-block">
+                            <span class="label">${t.bulkSaving}</span>
+                            <span class="value">${product.bulkPrice} JOD</span>
+                        </div>
+                    </div>` : ''}
+                </div>
+
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+    // Re-init icons
+    if (window.lucide) lucide.createIcons();
+}
+
+window.closeProductModal = function () {
+    document.getElementById('product-details-modal').classList.add('hidden');
+}
