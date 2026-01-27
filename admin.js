@@ -1,4 +1,21 @@
 // Admin Portal Logic
+console.log("!!! ADMIN JS V3 LOADED !!!");
+document.title = "Admin Portal (Debug Mode V3)";
+
+// Global handler for item clicks to avoid inline JS issues
+window.handleItemClick = function (element, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const sku = element.getAttribute('data-sku');
+    console.log("handleItemClick called. SKU:", sku);
+    if (sku) {
+        window.openProductModal(sku);
+    } else {
+        console.error("handleItemClick: No SKU found on element", element);
+    }
+};
 
 let ADMIN_USERS = [];
 
@@ -279,6 +296,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error("Failed to load settings", e);
         }
     }
+
+    // Delegated Event Listener for Order Item Tiles
+    const ordersBody = document.getElementById('orders-table-body');
+    if (ordersBody) {
+        console.log("Attaching event listener to orders-table-body");
+        ordersBody.addEventListener('click', (e) => {
+            console.log("Click detected on orders body. Target:", e.target);
+            const tile = e.target.closest('.item-tile');
+            if (tile) {
+                // Prevent row toggle or other side effects
+                e.preventDefault();
+                e.stopPropagation();
+
+                const sku = tile.dataset.sku;
+                console.log("Delegated Click on Tile. SKU:", sku);
+
+                if (sku) {
+                    console.log("Attempting to open modal for:", sku);
+                    window.openProductModal(sku);
+                } else {
+                    console.warn("Tile clicked but no SKU found in dataset");
+                }
+            }
+        });
+    } else {
+        console.error("CRITICAL: orders-table-body not found during initialization");
+    }
 });
 
 function showLogin() {
@@ -419,8 +463,11 @@ async function loadData() {
                         imgHtml = `<img src="assets/products/${i.sku}.png" class="item-image" loading="lazy" onerror="handleAdminImageError(this, '${i.sku}')">`;
                     }
 
+                    // Sanitize SKU for HTML attribute
+                    const safeSku = i.sku.replace(/"/g, '&quot;');
+
                     return `
-                        <div class="item-tile" data-sku="${i.sku}" title="Click for Details">
+                        <div class="item-tile" data-sku="${safeSku}" title="Click for Details" onclick="window.handleItemClick(this, event)">
                             ${imgHtml}
                             <div class="item-info">
                                 <div class="item-header">
