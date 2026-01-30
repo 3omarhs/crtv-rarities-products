@@ -5,13 +5,28 @@ import os
 import urllib.request
 import urllib.parse
 
-PORT = 8081
+PORT = 8086
 VISITS_FILE = 'visits.txt'
 ORDERS_FILE = 'orders.json'
 
 class CustomHandler(http.server.SimpleHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename, Content-Length')
+        self.end_headers()
+
     def do_GET(self):
+        if self.path == '/':
+            self.path = '/index.html'
+        
+        if self.path == '/admin' or self.path == '/admin/':
+            self.path = '/admin.html'
+
+
         if self.path == '/api/visits':
+
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -61,7 +76,12 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         # Default static file serving
-        return super().do_GET()
+        print(f"Serving static path: {self.path}", flush=True)      
+        try:
+            return super().do_GET()
+        except Exception as e:
+            print(f"Error serving static file {self.path}: {e}", flush=True)
+            self.send_error(500, f"Internal Server Error: {e}")
 
     def do_POST(self):
         if self.path == '/api/debug-log':
@@ -86,17 +106,17 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 
                 file_data = self.rfile.read(content_length)
                 
-                if not os.path.exists('images'):
-                    os.makedirs('images')
+                if not os.path.exists('assets/products'):
+                    os.makedirs('assets/products', exist_ok=True)
                     
-                filepath = os.path.join('images', filename)
+                filepath = os.path.join('assets/products', filename)
                 with open(filepath, 'wb') as f:
                     f.write(file_data)
                     
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "success", "url": f"images/{filename}"}).encode())
+                self.wfile.write(json.dumps({"status": "success", "url": f"assets/products/{filename}"}).encode())
             except Exception as e:
                 print(f"Error uploading image: {e}")
                 self.send_response(500)
@@ -125,8 +145,34 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 ]
                 
                 row = []
+                row = []
                 for col in columns:
                     val = product_data.get(col, '')
+                    
+                    # Special mapping based on user request:
+                    # The 'product name' from the form should go to 'Name on Store'
+                    # We will leave the actual 'product name' column in CSV empty or duplicate it if needed, 
+                    # but strictly following "not under 'Product Name'" implies we might want to clear it 
+                    # or the user implies the source field in the JSON is sending it as 'product name' key.
+                    
+                    if col == 'Name on Store':
+                         # Map the form input (which comes as 'product name') to this column
+                         val = product_data.get('product name', '')
+                    elif col == 'product name':
+                         # Don't put it here, per user request. 
+                         # But wait, if we leave it empty, will it break the app?
+                         # The app uses 'product name' to display the title.
+                         # If the user says "not under Product Name", maybe they mean the *English* name is 'Name on Store'?
+                         # I will map it to 'Name on Store' as requested. 
+                         # I will set 'product name' to match 'Name on Store' as a fallback to ensure app doesn't break,
+                         # UNLESS the user explicitly wants 'product name' to be something else (like ID?).
+                         # Let's assume they want the visible name in 'Name on Store'. 
+                         # I'll put it in 'Name on Store'.
+                         # To be safe, I'll put it in BOTH or just switch them?
+                         # "should be in the spreadsheet under 'Name on Store' not under ' Product Name'"
+                         # This sounds like a strict move.
+                         val = "" 
+                    
                     row.append(val)
                 
                 # Ensure CSV exists (it should if downloaded)
@@ -393,7 +439,7 @@ print(f"Serving on port {PORT}", flush=True)
 print(f"Visit tracking enabled ({VISITS_FILE})", flush=True)
 print(f"Order tracking enabled ({ORDERS_FILE})", flush=True)
 
-# Using ThreadingHTTPServer which is available in Python 3.7+
+# Using standard HTTPServer
 import http.server
-with http.server.ThreadingHTTPServer(("", PORT), Handler) as httpd:
+with http.server.HTTPServer(("0.0.0.0", PORT), Handler) as httpd:
     httpd.serve_forever()

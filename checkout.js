@@ -670,7 +670,7 @@ function submitOrder() {
 
                 // --- GOOGLE SHEETS STORAGE (Recommended for Vercel) ---
                 // Replace the URL below with your Google Apps Script Web App URL
-                const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
+                const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
                 // OR fallback to loading from somewhere else if managed dynamically, for now we hardcode placeholder
 
                 // Construct the payload to match GAS expectations

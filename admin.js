@@ -1,21 +1,9 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V3 LOADED !!!");
-document.title = "Admin Portal (Debug Mode V3)";
+console.log("!!! ADMIN JS V3.5 LOADED !!!");
+document.title = "Admin Portal (Debug Mode V3.5)";
 
 // Global handler for item clicks to avoid inline JS issues
-window.handleItemClick = function (element, event) {
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    const sku = element.getAttribute('data-sku');
-    console.log("handleItemClick called. SKU:", sku);
-    if (sku) {
-        window.openProductModal(sku);
-    } else {
-        console.error("handleItemClick: No SKU found on element", element);
-    }
-};
+
 
 let ADMIN_USERS = [];
 
@@ -117,6 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
             document.getElementById('page-title').textContent = btn.textContent.trim();
+            if (btn.dataset.view === 'products') loadProducts();
         });
     });
 
@@ -125,6 +114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         sessionStorage.removeItem('admin_logged_in');
         window.location.reload();
     });
+
+    document.getElementById('refresh-products-btn')?.addEventListener('click', loadProducts);
 
     // Add Product Form Handler
     const addProductForm = document.getElementById('add-product-form');
@@ -155,14 +146,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerText;
+
             // Show loading
             const loading = document.getElementById('loading-modal');
             loading.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Processing...";
 
             // 2. Prepare Data for GAS
+            const action = document.getElementById('product-action').value || 'addProduct';
             const gasData = {
+                'action': action,
                 'No': no,
-                'product name': data['product name'],
+                'Name on Store': data['Name on Store'], // Input renamed to match column
+                // 'product name' key removed to prevent overwriting
                 'Arabic Name': data['Arabic Name'],
                 'category': data['category'],
                 'collection': data['collection'],
@@ -179,11 +178,42 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const file = fileInput.files[0];
                 const reader = new FileReader();
 
+                reader.onerror = function () {
+                    console.error("FileReader error");
+                    loading.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = originalBtnText;
+                    err.textContent = "Failed to read file";
+                    err.classList.remove('hidden');
+                };
+
                 reader.onload = async function (e) {
                     const base64 = e.target.result.split(',')[1]; // Remove data:image/...;base64,
                     gasData.image = base64;
-                    gasData.imageName = `${no}.${file.name.split('.').pop()}`; // Rename to ItemNo.ext
+                    const ext = file.name.split('.').pop();
+                    const newFileName = `${no}.${ext}`;
+                    gasData.imageName = newFileName; // Rename to ItemNo.ext
                     gasData.mimeType = file.type;
+
+                    // --- LOCAL UPLOAD ---
+                    try {
+                        console.log("Uploading image locally...");
+                        const localRes = await fetch('/api/upload-image', {
+                            method: 'POST',
+                            body: file, // Send raw part
+                            headers: {
+                                'X-Filename': newFileName
+                            }
+                        });
+                        if (localRes.ok) {
+                            console.log("Local upload success");
+                        } else {
+                            console.error("Local upload failed");
+                        }
+                    } catch (uploadErr) {
+                        console.error("Local upload error", uploadErr);
+                    }
+                    // --------------------
 
                     submitToGas(gasUrl, gasData);
                 };
@@ -193,6 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 submitToGas(gasUrl, gasData);
             }
 
+            window.submitToGas = submitToGas;
             async function submitToGas(url, payload) {
                 try {
                     // Use 'no-cors' if GAS doesn't return CORS headers, handle blindly?
@@ -205,6 +236,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // The best way is using `no-cors` for fire-and-forget OR fetch with `application/x-www-form-urlencoded` text/plain to avoid preflight?
                     // POSTing JSON usually triggers preflight which GAS doesn't support.
                     // So we must use `text/plain` for the body type to avoid preflight!
+
+                    console.log("[DEBUG] Submitting to GAS. URL:", url);
+                    console.log("[DEBUG] Payload:", JSON.stringify(payload, null, 2));
 
                     const res = await fetch(url, {
                         method: 'POST',
@@ -238,6 +272,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     err.classList.remove('hidden');
                 } finally {
                     loading.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = originalBtnText;
                 }
             }
         });
@@ -313,8 +349,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log("Delegated Click on Tile. SKU:", sku);
 
                 if (sku) {
-                    console.log("Attempting to open modal for:", sku);
-                    window.openProductModal(sku);
+                    console.log("Attempting to expand item:", sku);
+                    window.toggleItemExpansion(tile, sku);
                 } else {
                     console.warn("Tile clicked but no SKU found in dataset");
                 }
@@ -341,7 +377,7 @@ function showDashboard() {
 async function loadData() {
     try {
         // Get GAS URL
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
 
         // Populate the input if not already set, for product adds
         const urlInput = document.getElementById('google-script-url');
@@ -787,7 +823,7 @@ function renderStatusSelect(id, currentStatus) {
 
 window.updateOrderStatus = async function (id, newStatus) {
     try {
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbx6Lad0xVkirbozk1SPTC6zMjvJG9sZIu7AuynPU5_xvMurqofrqLEXDdX0d7zggQpoJA/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
 
         if (GAS_URL) {
             // Update via GAS
@@ -892,13 +928,17 @@ function parseItemString(str) {
 function handleAdminImageError(img, sku) {
     const currentSrc = img.src;
 
-    // Define the fallback chain
-    // 1. Initial load is PNG (set in HTML)
-    // 2. Fallback to JPG
-    // 3. Fallback to JPEG
-    // 4. Fallback to WEBP
-    // 5. Fallback to Placeholder
+    // Check if it's a Drive URL or valid standard URL
+    const isStandardAsset = currentSrc.includes('assets/products/');
 
+    if (!isStandardAsset) {
+        // If it was a Drive/Cloud URL and failed, fallback immediately to local PNG
+        // The local fallback chain (PNG->JPG->etc) will take over if PNG fails
+        img.src = `assets/products/${sku}.png`;
+        return;
+    }
+
+    // Standard Fallback Chain for Local Assets
     if (currentSrc.endsWith('.png')) {
         img.src = `assets/products/${sku}.jpg`;
     } else if (currentSrc.endsWith('.jpg')) {
@@ -973,39 +1013,80 @@ const translations = {
     }
 };
 
-window.openProductModal = function (sku) {
-    // Clean SKU
-    sku = String(sku).trim();
-    console.log("OpenModal called for SKU:", sku);
+window.getColorHex = function (name) {
+    const colors = {
+        'Black': '#1a1a1a',
+        'White': '#ffffff',
+        'Red': '#dc2626',
+        'Blue': '#2563eb',
+        'Green': '#16a34a',
+        'Yellow': '#ca8a04',
+        'Purple': '#9333ea',
+        'Orange': '#ea580c',
+        'Pink': '#db2777',
+        'Gray': '#4b5563',
+        'Brown': '#78350f',
+        'Beige': '#f5f5dc',
+        'Navy': '#1e3a8a',
+        'Gold': '#d4af37',
+        'Silver': '#94a3b8'
+    };
+    return colors[name] || '#e2e8f0';
+};
 
-    if (!window.allProducts || window.allProducts.length === 0) {
-        console.warn("Products not loaded yet. Calling init...");
-        // Try init and alert
-        initProductData();
-        alert("System is still downloading product data... Please try again in a few seconds.");
+window.handleItemClick = function (element, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const sku = element.getAttribute('data-sku');
+    console.log("handleItemClick called. SKU:", sku);
+    if (sku) {
+        window.toggleItemExpansion(element, sku);
+    } else {
+        console.error("handleItemClick: No SKU found on element", element);
+    }
+};
+
+window.toggleItemExpansion = function (element, sku) {
+    // Check if already expanded
+    if (element.classList.contains('expanded')) {
+        // Collapse
+        element.classList.remove('expanded');
+        const details = element.querySelector('.inline-details-container');
+        if (details) details.remove();
         return;
     }
 
-    console.log("Searching in catalog of size:", window.allProducts.length);
+    // Collapse other expanded items in the same container (Accordion style - optional but cleaner)
+    const siblings = element.parentNode.querySelectorAll('.item-tile.expanded');
+    siblings.forEach(sib => {
+        sib.classList.remove('expanded');
+        const d = sib.querySelector('.inline-details-container');
+        if (d) d.remove();
+    });
 
-    // Find product in CSV data
-    // We check various common column names for Item Number
+    // Expand
+    sku = String(sku).trim();
+    if (!window.allProducts || window.allProducts.length === 0) {
+        initProductData().then(() => {
+            // Retry once after load
+            window.toggleItemExpansion(element, sku);
+        });
+        return;
+    }
+
     const productRaw = window.allProducts.find(p => {
         const no = p['No'] || p['Item Number'] || p['no'] || p['id'] || '';
-        // Loose comparison
         return String(no).trim().toLowerCase() === sku.toLowerCase();
     });
 
     if (!productRaw) {
-        console.error("Product not found for SKU:", sku);
-        console.log("Sample Data:", window.allProducts[0]);
-        alert("Details not available for Item #" + sku + "\n(Code mismatch or custom item)");
+        alert("Details not available for Item #" + sku);
         return;
     }
 
-    console.log("Product found:", productRaw);
-
-    // Normalize Product Data
+    // Normalize Data
     const p = {
         name: productRaw['Product Name'] || productRaw['product name'] || productRaw['Name'] || 'Unknown',
         no: sku,
@@ -1021,90 +1102,209 @@ window.openProductModal = function (sku) {
         colors: (productRaw['Colors'] || '').split(',').map(c => c.trim()).filter(c => c),
     };
 
-    renderProductModal(p);
-}
-
-function renderProductModal(product) {
-    const modal = document.getElementById('product-details-modal');
-    const content = document.getElementById('product-modal-content');
+    // Render HTML
     const t = translations.en;
 
-    // Image Logic
-    let imageSrc = `assets/products/${product.no}.jpg`;
-
     // Cloud Fallbacks
-    let driveId = extractDriveId(product.image);
-    if (!driveId && product.link) driveId = extractDriveId(product.link);
-    if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
+    // PRIORITY FIX: Check DRIVE_MAPPING first (matches collapsed view logic)
+    let driveId = null;
+    if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[p.no]) {
+        driveId = window.DRIVE_MAPPING[p.no];
+    }
 
-    // We rely on handleAdminImageError to switch to cloud/placeholders if local fails
-    // But we can preemptively set it if we suspect local missing? No, stick to local first for speed.
+    // Then check extracted specific links if no global mapping
+    if (!driveId) driveId = extractDriveId(p.image);
+    if (!driveId && p.link) driveId = extractDriveId(p.link);
 
-    content.innerHTML = `
-        <div class="expanded-info" style="padding: 2rem;">
-            <div class="expanded-image-container">
-               <img 
-                    src="${imageSrc}" 
-                    alt="${product.name}" 
-                    class="expanded-image"
-                    style="max-height: 500px; object-fit: contain; width: 100%; border-radius: 12px; display:block; margin: 0 auto;"
-                    onerror="handleAdminImageError(this, '${product.no}')"
-                >
+    let imageSrc = `assets/products/${p.no}.png`; // Start with PNG to allow fallback chain to work
+    if (driveId) {
+        // Use the format that works in the collapsed card
+        imageSrc = `https://lh3.googleusercontent.com/d/${driveId}`;
+    }
+
+    // Add a new property 'available' to product 'p' based on 'Stock' or 'Availability'
+    p.available = productRaw['Stock'] || productRaw['Availability'] || 'Yes'; // Default to 'Yes' if not specified
+
+    const html = `
+        <div class="inline-details-container" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="premium-header">
+                 <div style="display:flex; align-items:center; gap:1rem;">
+                    <h1 class="premium-title">${p.name}</h1>
+                    ${p.available === 'No' ? '<span style="background:#fee2e2; color:#ef4444; padding:0.2rem 0.6rem; border-radius:4px; font-weight:600; font-size:0.75rem; letter-spacing:0.05em;">OUT OF STOCK</span>' : ''}
+                 </div>
+                 <span class="premium-sku-badge">#${p.no}</span>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="premium-grid">
+                <!-- Left: Image -->
+                <div class="premium-image-container">
+                    <img 
+                        src="${imageSrc}" 
+                        alt="${p.name}" 
+                        class="premium-image"
+                        onload="this.style.display='block'; this.onerror=null;"
+                        onerror="handleAdminImageError(this, '${p.no}')"
+                    >
+                </div>
+
+                <!-- Right: Details -->
+                <div class="premium-details">
+                    
+                    <div class="premium-data-grid">
+                         <div class="premium-data-item">
+                            <span class="premium-label">${t.categoryLabel}</span>
+                            <span class="premium-value">${p.category || '-'}</span>
+                         </div>
+                         <div class="premium-data-item">
+                            <span class="premium-label">${t.collectionLabel}</span>
+                            <span class="premium-value">${p.collection || '-'}</span>
+                         </div>
+                         <div class="premium-data-item">
+                            <span class="premium-label">${t.dimensionsLabel}</span>
+                            <span class="premium-value">${p.dimensions || '-'}</span>
+                         </div>
+                         <div class="premium-data-item">
+                            <span class="premium-label">${t.targetMarketLabel}</span>
+                            <span class="premium-value">${p.targetMarket || '-'}</span>
+                         </div>
+                    </div>
+
+                    <div class="premium-description">
+                        <strong style="display:block; margin-bottom:0.5rem; color:#1e1e24; font-weight:700;">${t.descriptionLabel}</strong>
+                        ${p.description || t.noDesc}
+                    </div>
+
+                    ${p.colors && p.colors.length > 0 ? `
+                        <div class="premium-colors">
+                            <div style="margin-bottom:0.5rem; font-size:0.75rem; text-transform:uppercase; color:#64748b; font-weight:600; letter-spacing:0.1em;">
+                                ${t.selectColor}
+                            </div>
+                            <div>
+                                ${p.colors.map(color => `
+                                    <span class="premium-color-tag">${color}</span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="premium-footer">
+                        <div class="premium-price-block">
+                             <span class="premium-price-label">${t.retailPrice}</span>
+                             <span class="premium-price-value">${p.price} JOD</span>
+                        </div>
+                        ${p.bulkPrice ? `
+                        <div class="premium-price-block">
+                             <span class="premium-price-label" style="color:#b45309;">${t.bulkSaving}</span>
+                             <span class="premium-price-value" style="color:#d97706;">${p.bulkPrice} JOD</span>
+                        </div>` : ''}
+                    </div>
+
+                </div>
             </div>
             
-            <div style="margin-top: 2rem;">
-                <div style="display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem;">
-                    <h2 class="expanded-title" style="font-size: 1.8rem; margin: 0; line-height: 1.2;">${product.name}</h2>
-                    <span class="card-number" style="font-size: 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border-radius: 8px; color: var(--text-primary); white-space: nowrap;">${product.no}</span>
-                </div>
-
-                <div class="expanded-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 1.5rem 0; gap: 1.5rem;">
-                    ${product.category ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.categoryLabel}</strong> <br><span>${product.category}</span></div>` : ''}
-                    ${product.collection ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.collectionLabel}</strong> <br><span>${product.collection}</span></div>` : ''}
-                    ${product.dimensions ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.dimensionsLabel}</strong> <br><span>${product.dimensions}</span></div>` : ''}
-                    ${product.targetMarket ? `<div class="expanded-meta"><strong style="color:var(--accent);">${t.targetMarketLabel}</strong> <br><span>${product.targetMarket}</span></div>` : ''}
-                </div>
-
-                <div class="expanded-description" style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
-                    <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-primary);">${t.descriptionLabel}</strong>
-                    <div style="line-height: 1.6; color: var(--text-secondary);">${product.description || t.noDesc}</div>
-                </div>
-                
-                ${product.colors && product.colors.length > 0 ? `
-                <div class="colors-section" style="margin: 2rem 0; padding: 1.5rem; background: #fff; border: 1px solid var(--border); border-radius: 12px;">
-                    <strong style="display:block; margin-bottom:1rem;">${t.selectColor}</strong>
-                    <div class="color-list" style="display: flex; flex-wrap: wrap; gap: 0.8rem;">
-                        ${product.colors.map(color => `
-                            <span style="padding: 6px 14px; background: #f1f5f9; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">${color}</span>
-                        `).join('')}
-                    </div>
-                </div>` : ''}
-
-                <div class="expanded-pricing">
-                    <div class="main-price">
-                        <div class="price-info-block">
-                            <span class="label">${t.retailPrice}</span>
-                            <span class="value">${product.price} JOD</span>
-                        </div>
-                    </div>
-                    ${product.bulkPrice ? `
-                    <div class="bulk-price" style="margin-top: 1rem;">
-                        <div class="price-info-block">
-                            <span class="label">${t.bulkSaving}</span>
-                            <span class="value">${product.bulkPrice} JOD</span>
-                        </div>
-                    </div>` : ''}
-                </div>
-
+            <!-- Bottom Close Bar -->
+            <div class="premium-close-bar" onclick="window.toggleItemExpansion(this.closest('.item-tile'), '${p.no}')">
+                Close Details
             </div>
         </div>
     `;
 
-    modal.classList.remove('hidden');
-    // Re-init icons
-    if (window.lucide) lucide.createIcons();
-}
+    element.insertAdjacentHTML('beforeend', html);
+    element.classList.add('expanded');
 
-window.closeProductModal = function () {
-    document.getElementById('product-details-modal').classList.add('hidden');
-}
+    // Re-init icons if any exist in the template (currently none, but good practice)
+    if (window.lucide) lucide.createIcons();
+};
+
+// --- Product List Logic ---
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+
+window.loadProducts = async function () {
+    console.log("Loading products...");
+    const tbody = document.getElementById('products-list-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+
+    try {
+        const res = await fetch(CSV_URL);
+        const text = await res.text();
+        Papa.parse(text, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function (results) {
+                window.currentProducts = results.data;
+                renderProductsTable(results.data);
+            }
+        });
+    } catch (e) {
+        console.error("Error loading CSV", e);
+        tbody.innerHTML = '<tr><td colspan="7">Error loading products. Check console.</td></tr>';
+    }
+};
+
+window.renderProductsTable = function (data) {
+    const tbody = document.getElementById('products-list-body');
+    tbody.innerHTML = '';
+
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">No products found.</td></tr>';
+        return;
+    }
+
+    data.forEach(row => {
+        if (!row['No']) return;
+
+        const tr = document.createElement('tr');
+        let imgHtml = `<img src="assets/products/${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:4px;">`;
+
+        tr.innerHTML = `
+            <td>${imgHtml}</td>
+            <td>${row['No']}</td>
+            <td>${row['Name on Store'] || row['product name'] || '-'}</td>
+            <td>${row['category']}</td>
+            <td>${row['Price < 25 QTY']}</td>
+            <td>${row['Available'] === 'TRUE' ? '<span style="color:green">Yes</span>' : '<span style="color:red">No</span>'}</td>
+            <td>
+                <button class="btn btn-sm" onclick="window.editProduct('${row['No']}')" style="background:#3b82f6; color:white;">Edit</button>
+                <button class="btn btn-sm" onclick="window.deleteProduct('${row['No']}')" style="margin-left:0.5rem; background:#ef4444; color:white;">Delete</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.editProduct = function (no) {
+    const product = window.currentProducts?.find(p => p['No'] === no);
+    if (!product) { alert("Product not found. Please refresh."); return; }
+
+    document.querySelector('.nav-item[data-view="add-product"]').click();
+
+    document.getElementById('page-title').textContent = `Editing ${no}`;
+    document.getElementById('product-action').value = 'updateProduct';
+    document.getElementById('edit-product-no').value = no;
+
+    const form = document.getElementById('add-product-form');
+    if (form.elements['No']) { form.elements['No'].value = product['No']; form.elements['No'].readOnly = true; }
+    if (form.elements['Name on Store']) form.elements['Name on Store'].value = product['Name on Store'] || product['product name'];
+    if (form.elements['Arabic Name']) form.elements['Arabic Name'].value = product['Arabic Name'];
+    if (form.elements['Price < 25 QTY']) form.elements['Price < 25 QTY'].value = product['Price < 25 QTY'];
+    if (form.elements['category']) form.elements['category'].value = product['category'];
+    if (form.elements['collection']) form.elements['collection'].value = product['collection'];
+    if (form.elements['description (80 word)']) form.elements['description (80 word)'].value = product['description (80 word)'];
+    if (form.elements['Colors']) form.elements['Colors'].value = product['Colors'];
+    if (form.elements['Dimensions(mm) x y z']) form.elements['Dimensions(mm) x y z'].value = product['Dimensions(mm) x y z'];
+
+    const btn = form.querySelector('button[type="submit"]');
+    btn.innerText = "Update Product";
+};
+
+window.deleteProduct = async function (no) {
+    if (!confirm(`Are you sure you want to delete ${no}?`)) return;
+    const url = document.getElementById('google-script-url').value;
+    if (!window.submitToGas) { alert("Function not ready."); return; }
+
+    await window.submitToGas(url, { action: 'deleteProduct', No: no });
+    setTimeout(loadProducts, 2000); // Refresh after delay
+};

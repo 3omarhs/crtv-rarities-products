@@ -11,6 +11,16 @@
     --card-bg: #25252e;
     --success: #10b981;
     --danger: #ef4444;
+
+    /* Premium Gold Palette */
+    --gold-100: #fbf5e6;
+    --gold-200: #f3e5b6;
+    --gold-300: #e8d086;
+    --gold-400: #ddbb56;
+    --gold-500: #d4af37;
+    --gold-600: #b49129;
+    --gold-700: #806921;
+    --gold-shadow: rgba(212, 175, 55, 0.25);
 }
 
 .admin-body {
@@ -643,4 +653,277 @@ input:checked+.slider:before {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+}
+
+
+
+/* --- Premium Gold Expansion Styles --- */
+
+.item-tile {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border);
+    position: relative;
+}
+
+/* Expanded State Container */
+.item-tile.expanded {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 600px;
+    background: #1e1e24;
+    /* Dark Background */
+    border: 1px solid var(--gold-500);
+    border-radius: 12px;
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--gold-shadow);
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+    overflow: hidden;
+    animation: tileExpand 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes tileExpand {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Top Gold Accent Bar */
+.item-tile.expanded::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--gold-300), var(--gold-500), var(--gold-300));
+    z-index: 10;
+}
+
+/* Hide original content in expanded mode */
+.item-tile.expanded>.item-image,
+.item-tile.expanded>.item-info,
+.item-tile.expanded>.item-header,
+.item-tile.expanded>.item-qty,
+.item-tile.expanded>.item-sku {
+    display: none !important;
+}
+
+/* Main Details Container */
+.inline-details-container {
+    padding: 3rem;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Outfit', sans-serif;
+    color: #e2e8f0;
+}
+
+/* Premium Header */
+.premium-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.premium-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+}
+
+.premium-sku-badge {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-400);
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--gold-600);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* 2-Column Grid Layout */
+.premium-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 4rem;
+    align-items: start;
+    flex: 1;
+}
+
+/* Image Section */
+.premium-image-container {
+    background: #151519;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+}
+
+.premium-image-container::after {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    pointer-events: none;
+}
+
+.premium-image {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    /* mix-blend-mode: multiply; Removed for dark mode */
+    transition: transform 0.3s ease;
+}
+
+.premium-image:hover {
+    transform: scale(1.02);
+}
+
+/* Details Section */
+.premium-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Data Grid */
+.premium-data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+}
+
+.premium-data-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-left: 2px solid var(--gold-400);
+    padding-left: 1rem;
+}
+
+.premium-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.premium-value {
+    font-size: 1.1rem;
+    color: #f1f5f9;
+    font-weight: 500;
+}
+
+/* Description Box */
+.premium-description {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    line-height: 1.7;
+    font-size: 1rem;
+}
+
+/* Colors */
+.premium-colors {
+    margin-top: 1rem;
+}
+
+.premium-color-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+    font-weight: 500;
+}
+
+/* Pricing Footer */
+.premium-footer {
+    margin-top: auto;
+    padding-top: 2rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 3rem;
+    align-items: center;
+}
+
+.premium-price-block {
+    text-align: right;
+}
+
+.premium-price-label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+}
+
+.premium-price-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--gold-600);
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Close Area */
+.premium-close-bar {
+    text-align: center;
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.2);
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s;
+}
+
+.premium-close-bar:hover {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--gold-400);
+}
+
+@media (max-width: 1024px) {
+    .premium-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .premium-image-container {
+        min-height: 300px;
+    }
 }
