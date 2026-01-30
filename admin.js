@@ -105,7 +105,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
             document.getElementById('page-title').textContent = btn.textContent.trim();
-            if (btn.dataset.view === 'products') loadProducts();
+            if (btn.dataset.view === 'products') {
+                loadProducts();
+            } else if (btn.dataset.view === 'add-product') {
+                prepareAddProductForm();
+            }
         });
     });
 
@@ -590,7 +594,9 @@ async function loadData() {
         analyticsBody.innerHTML = '';
         Object.values(itemMap).sort((a, b) => b.qty - a.qty).forEach(i => {
             const tr = document.createElement('tr');
+            let imgHtml = `<img src="assets/products/${i.id}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
             tr.innerHTML = `
+                <td>${imgHtml}</td>
                 <td style="font-family:monospace">${i.id}</td>
                 <td>${i.name}</td>
                 <td>${i.qty}</td>
@@ -1086,9 +1092,20 @@ window.toggleItemExpansion = function (element, sku) {
         return;
     }
 
+    const html = window.getProductDetailsHtml(productRaw, `window.toggleItemExpansion(this.closest('.item-tile'), '${p.no}')`);
+
+    element.insertAdjacentHTML('beforeend', html);
+    element.classList.add('expanded');
+
+    // Re-init icons if any exist in the template (currently none, but good practice)
+    if (window.lucide) lucide.createIcons();
+};
+
+window.getProductDetailsHtml = function (productRaw, closeJs) {
     // Normalize Data
+    const sku = productRaw['No'] || productRaw['Item Number'] || productRaw['no'] || productRaw['id'] || '';
     const p = {
-        name: productRaw['Product Name'] || productRaw['product name'] || productRaw['Name'] || 'Unknown',
+        name: productRaw['Name on Store'] || productRaw['Product Name'] || productRaw['product name'] || productRaw['Name'] || 'Unknown',
         no: sku,
         image: productRaw['Image'] || productRaw['image'] || productRaw['Photo'] || '',
         link: productRaw['Document Link'] || productRaw['link'] || '',
@@ -1102,31 +1119,17 @@ window.toggleItemExpansion = function (element, sku) {
         colors: (productRaw['Colors'] || '').split(',').map(c => c.trim()).filter(c => c),
     };
 
-    // Render HTML
     const t = translations.en;
 
-    // Cloud Fallbacks
-    // PRIORITY FIX: Check DRIVE_MAPPING first (matches collapsed view logic)
-    let driveId = null;
-    if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[p.no]) {
-        driveId = window.DRIVE_MAPPING[p.no];
-    }
+    // Force Local Assets Only as requested
+    // The handleAdminImageError function will handle extension fallback (png -> jpg -> etc)
+    let imageSrc = `assets/products/${p.no}.png`;
 
-    // Then check extracted specific links if no global mapping
-    if (!driveId) driveId = extractDriveId(p.image);
-    if (!driveId && p.link) driveId = extractDriveId(p.link);
+    // Add a new property 'available' based on 'Stock' or 'Availability'
+    p.available = productRaw['Stock'] || productRaw['Availability'] || 'Yes';
 
-    let imageSrc = `assets/products/${p.no}.png`; // Start with PNG to allow fallback chain to work
-    if (driveId) {
-        // Use the format that works in the collapsed card
-        imageSrc = `https://lh3.googleusercontent.com/d/${driveId}`;
-    }
-
-    // Add a new property 'available' to product 'p' based on 'Stock' or 'Availability'
-    p.available = productRaw['Stock'] || productRaw['Availability'] || 'Yes'; // Default to 'Yes' if not specified
-
-    const html = `
-        <div class="inline-details-container" onclick="event.stopPropagation()">
+    return `
+        <div class="inline-details-container" onclick="event.stopPropagation()" style="animation: fadeIn 0.3s ease-in-out;">
             <!-- Header -->
             <div class="premium-header">
                  <div style="display:flex; align-items:center; gap:1rem;">
@@ -1145,7 +1148,7 @@ window.toggleItemExpansion = function (element, sku) {
                         alt="${p.name}" 
                         class="premium-image"
                         onload="this.style.display='block'; this.onerror=null;"
-                        onerror="handleAdminImageError(this, '${p.no}')"
+                        onerror="if(window.handleAdminImageError) window.handleAdminImageError(this, '${p.no}')"
                     >
                 </div>
 
@@ -1172,7 +1175,7 @@ window.toggleItemExpansion = function (element, sku) {
                     </div>
 
                     <div class="premium-description">
-                        <strong style="display:block; margin-bottom:0.5rem; color:#1e1e24; font-weight:700;">${t.descriptionLabel}</strong>
+                        <strong style="display:block; margin-bottom:0.5rem; color:var(--text-secondary); font-weight:700;">${t.descriptionLabel}</strong>
                         ${p.description || t.noDesc}
                     </div>
 
@@ -1191,35 +1194,53 @@ window.toggleItemExpansion = function (element, sku) {
 
                     <div class="premium-footer">
                         <div class="premium-price-block">
-                             <span class="premium-price-label">${t.retailPrice}</span>
+                             <span class="premium-price-label">Price &lt; 25 QTY</span>
                              <span class="premium-price-value">${p.price} JOD</span>
                         </div>
-                        ${p.bulkPrice ? `
                         <div class="premium-price-block">
-                             <span class="premium-price-label" style="color:#b45309;">${t.bulkSaving}</span>
-                             <span class="premium-price-value" style="color:#d97706;">${p.bulkPrice} JOD</span>
-                        </div>` : ''}
+                             <span class="premium-price-label" style="color:#b45309;">Price >= 25 QTY</span>
+                             <span class="premium-price-value" style="color:#d97706;">${p.bulkPrice || '-'} JOD</span>
+                        </div>
                     </div>
 
                 </div>
             </div>
             
             <!-- Bottom Close Bar -->
-            <div class="premium-close-bar" onclick="window.toggleItemExpansion(this.closest('.item-tile'), '${p.no}')">
+            <div class="premium-close-bar" onclick="${closeJs}">
                 Close Details
             </div>
         </div>
     `;
-
-    element.insertAdjacentHTML('beforeend', html);
-    element.classList.add('expanded');
-
-    // Re-init icons if any exist in the template (currently none, but good practice)
-    if (window.lucide) lucide.createIcons();
 };
 
 // --- Product List Logic ---
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+
+window.fetchProductsData = async function () {
+    if (window.currentProducts && window.currentProducts.length > 0) {
+        return window.currentProducts;
+    }
+
+    try {
+        const res = await fetch(CSV_URL);
+        const text = await res.text();
+        return new Promise((resolve, reject) => {
+            Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    window.currentProducts = results.data;
+                    resolve(results.data);
+                },
+                error: (err) => reject(err)
+            });
+        });
+    } catch (e) {
+        console.error("Error fetching CSV", e);
+        return [];
+    }
+};
 
 window.loadProducts = async function () {
     console.log("Loading products...");
@@ -1228,20 +1249,75 @@ window.loadProducts = async function () {
     tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
 
     try {
-        const res = await fetch(CSV_URL);
-        const text = await res.text();
-        Papa.parse(text, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function (results) {
-                window.currentProducts = results.data;
-                renderProductsTable(results.data);
-            }
-        });
+        const data = await window.fetchProductsData();
+        renderProductsTable(data);
     } catch (e) {
-        console.error("Error loading CSV", e);
+        console.error("Error loading products", e);
         tbody.innerHTML = '<tr><td colspan="7">Error loading products. Check console.</td></tr>';
     }
+};
+
+window.prepareAddProductForm = async function () {
+    // Reset form to "Add" state
+    const form = document.getElementById('add-product-form');
+    if (!form) return;
+
+    form.reset();
+    document.getElementById('product-action').value = 'addProduct';
+    document.getElementById('edit-product-no').value = '';
+    document.getElementById('page-title').textContent = "Add Product";
+    if (form.elements['No']) form.elements['No'].readOnly = false;
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = "Add Product";
+
+    // Auto-increment logic
+    try {
+        const data = await window.fetchProductsData();
+        const nextNo = getNextItemNumber(data);
+        if (nextNo && form.elements['No']) {
+            form.elements['No'].value = nextNo;
+        }
+    } catch (e) {
+        console.error("Error auto-incrementing", e);
+    }
+};
+
+window.getNextItemNumber = function (products) {
+    if (!products || products.length === 0) return '';
+
+    // Filter for valid IDs and find the last one (assuming order in CSV matters, or sort?)
+    // Usually usage is sequential, so the last valid row with an ID is the latest.
+    // Let's look at the last few entries.
+
+    let lastId = '';
+    for (let i = products.length - 1; i >= 0; i--) {
+        if (products[i]['No'] && products[i]['No'].trim() !== '') {
+            lastId = products[i]['No'];
+            break;
+        }
+    }
+
+    if (!lastId) return '';
+
+    // Regex to separate prefix and number
+    // Supports: "ABC-123", "Item10", "A-B-C-005"
+    // Captures everything up to the last digit sequence as group 1, and the digits as group 2.
+    const match = lastId.match(/^(.*?)(\d+)$/);
+
+    if (match) {
+        const prefix = match[1];
+        const numberStr = match[2];
+        const number = parseInt(numberStr, 10);
+        const nextNumber = number + 1;
+
+        // Pad with leading zeros to match original length
+        const paddedNextNumber = String(nextNumber).padStart(numberStr.length, '0');
+
+        return prefix + paddedNextNumber;
+    }
+
+    return lastId; // Fallback if no digits found
 };
 
 window.renderProductsTable = function (data) {
@@ -1257,22 +1333,76 @@ window.renderProductsTable = function (data) {
         if (!row['No']) return;
 
         const tr = document.createElement('tr');
-        let imgHtml = `<img src="assets/products/${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:4px;">`;
+        let imgHtml = `<img src="assets/products/${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
+
+        const isActive = row['Available'] === 'TRUE';
+        const statusHtml = isActive
+            ? '<span class="status-badge status-active">Active</span>'
+            : '<span class="status-badge status-inactive">Hidden</span>';
+
+        tr.onclick = function () { window.toggleProductRowExpansion(this, row['No']); };
+        tr.style.cursor = 'pointer';
+        tr.className = 'product-row-item';
 
         tr.innerHTML = `
             <td>${imgHtml}</td>
-            <td>${row['No']}</td>
-            <td>${row['Name on Store'] || row['product name'] || '-'}</td>
-            <td>${row['category']}</td>
-            <td>${row['Price < 25 QTY']}</td>
-            <td>${row['Available'] === 'TRUE' ? '<span style="color:green">Yes</span>' : '<span style="color:red">No</span>'}</td>
-            <td>
-                <button class="btn btn-sm" onclick="window.editProduct('${row['No']}')" style="background:#3b82f6; color:white;">Edit</button>
-                <button class="btn btn-sm" onclick="window.deleteProduct('${row['No']}')" style="margin-left:0.5rem; background:#ef4444; color:white;">Delete</button>
+            <td style="font-family:monospace; font-weight:600; font-size:0.9rem;">${row['No']}</td>
+            <td style="font-weight:500;">${row['Name on Store'] || row['product name'] || '-'}</td>
+            <td style="opacity:0.8;">${row['category']}</td>
+            <td style="font-weight:700; color:#fff;">${row['Price < 25 QTY']}</td>
+            <td>${statusHtml}</td>
+            <td onclick="event.stopPropagation()">
+                <div class="action-buttons">
+                    <button class="btn-icon btn-edit" onclick="window.editProduct('${row['No']}')" title="Edit">
+                        <i data-lucide="edit-2" style="width:16px; height:16px;"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="window.deleteProduct('${row['No']}')" title="Delete">
+                        <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
     });
+
+    // Initialize new icons
+    if (window.lucide) lucide.createIcons();
+};
+
+window.toggleProductRowExpansion = function (tr, sku) {
+    const nextRow = tr.nextElementSibling;
+    if (nextRow && nextRow.classList.contains('product-expanded-row')) {
+        nextRow.remove();
+        tr.classList.remove('active-expanded');
+        return;
+    }
+
+    // Collapse other expanded rows
+    document.querySelectorAll('.product-expanded-row').forEach(row => row.remove());
+    document.querySelectorAll('.product-row-item').forEach(row => row.classList.remove('active-expanded'));
+
+    const product = window.currentProducts.find(p => p['No'] === sku);
+    if (!product) return;
+
+    tr.classList.add('active-expanded');
+
+    const expandedTr = document.createElement('tr');
+    expandedTr.className = 'product-expanded-row';
+
+    // Use the shared HTML generator
+    // The close action simply removes this row
+    const html = window.getProductDetailsHtml(product, "this.closest('tr').remove(); document.querySelector('.product-row-item.active-expanded')?.classList.remove('active-expanded');");
+
+    expandedTr.innerHTML = `
+        <td colspan="7" style="padding: 0; background: #1e1e24; border-bottom: 1px solid var(--gold-500); border-top: 1px solid transparent;">
+            ${html}
+        </td>
+    `;
+
+    tr.after(expandedTr);
+
+    // Animate
+    setTimeout(() => expandedTr.style.opacity = '1', 10);
 };
 
 window.editProduct = function (no) {
@@ -1307,4 +1437,112 @@ window.deleteProduct = async function (no) {
 
     await window.submitToGas(url, { action: 'deleteProduct', No: no });
     setTimeout(loadProducts, 2000); // Refresh after delay
+};
+
+// --- Initialization Logic for GAS URL ---
+window.checkGasUrlVisibility = function () {
+    const input = document.getElementById('google-script-url');
+    const container = document.getElementById('gas-url-container');
+
+    if (input && container) {
+        if (input.value && input.value.trim() !== '') {
+            container.style.display = 'none';
+        } else {
+            container.style.display = 'block';
+        }
+    }
+};
+
+// Run after a short delay to ensure value is populated if it comes from extensions/autofill
+setTimeout(window.checkGasUrlVisibility, 100);
+
+
+// --- Advanced Search & Sort Logic ---
+
+window.currentSearchTerm = '';
+window.currentSortColumn = '';
+window.currentSortDirection = 'asc';
+
+window.handleProductSearch = function (term) {
+    window.currentSearchTerm = term.toLowerCase();
+    window.filterAndRenderProducts();
+};
+
+window.handleSort = function (column) {
+    if (window.currentSortColumn === column) {
+        // Toggle direction
+        window.currentSortDirection = window.currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        window.currentSortColumn = column;
+        window.currentSortDirection = 'asc';
+    }
+    window.filterAndRenderProducts();
+};
+
+window.filterAndRenderProducts = function () {
+    let products = [...window.currentProducts]; // Clone original list
+
+    // 1. Filter
+    if (window.currentSearchTerm) {
+        products = products.filter(p => {
+            // Check ALL fields
+            return Object.values(p).some(val =>
+                String(val).toLowerCase().includes(window.currentSearchTerm)
+            );
+        });
+    }
+
+    // 2. Sort
+    if (window.currentSortColumn) {
+        products.sort((a, b) => {
+            let valA = a[window.currentSortColumn] || '';
+            let valB = b[window.currentSortColumn] || '';
+
+            // Smart numeric sort
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+
+            // If both are numbers, compare numerically
+            // "Price" fields usually are numbers
+            if (!isNaN(numA) && !isNaN(numB) && window.currentSortColumn.includes('Price')) {
+                return window.currentSortDirection === 'asc' ? numA - numB : numB - numA;
+            }
+
+            // String compare
+            valA = String(valA).toLowerCase();
+            valB = String(valB).toLowerCase();
+
+            if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // 3. Render
+    window.renderProductsTable(products);
+    window.updateSortIcons();
+};
+
+window.updateSortIcons = function () {
+    // Reset all headers
+    document.querySelectorAll('.sortable-header').forEach(th => {
+        th.classList.remove('asc', 'desc');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) {
+            // Reset icon (optional logic if we want to change icon type)
+            // lucide.createIcons() handles basic rendering, CSS handles rotation
+        }
+    });
+
+    // Set active header
+    if (window.currentSortColumn) {
+        // Find the header by onclick attribute to be safe or add data attributes
+        // Simple search by onclick text
+        const headers = Array.from(document.querySelectorAll('.sortable-header'));
+        const activeHeader = headers.find(th => th.getAttribute('onclick').includes(`'${window.currentSortColumn}'`));
+
+        if (activeHeader) {
+            activeHeader.classList.add(window.currentSortDirection);
+        }
+    }
 };

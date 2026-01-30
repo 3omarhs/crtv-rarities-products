@@ -201,6 +201,7 @@
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>Image</th>
                                 <th>Item No.</th>
                                 <th>Product Name</th>
                                 <th>Units Sold</th>
@@ -215,32 +216,44 @@
             </div>
 
             <div id="view-products" class="view-section hidden">
-                <h3>All Products</h3>
-                <div class="card" style="margin-top: 1rem;">
-                    <div class="card-header" style="justify-content:space-between; display:flex;">
-                        <h3>Product Catalog</h3>
-                        <button class="btn btn-sm" id="refresh-products-btn">Refresh</button>
+                <div class="section-header">
+                    <div style="display:flex; align-items:center; gap:1.5rem;">
+                        <h2 class="section-title">Product Catalog</h2>
+                        <div class="search-container">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="product-search-input"
+                                placeholder="Search all fields (Name, SKU, Desc...)"
+                                onkeyup="window.handleProductSearch(this.value)">
+                        </div>
                     </div>
-                    <div style="overflow-x: auto;">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Image</th>
-                                    <th>Ref No.</th>
-                                    <th>Name (Store)</th>
-                                    <th>Category</th>
-                                    <th>Price</th>
-                                    <th>Active</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="products-list-body">
-                                <tr>
-                                    <td colspan="7">Loading...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <button class="btn-refresh" id="refresh-products-btn" title="Refresh List">
+                        <i data-lucide="refresh-cw" style="width:20px; height:20px;"></i>
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th class="sortable-header" onclick="window.handleSort('No')">Ref No. <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Name on Store')">Name (Store) <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('category')">Category <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Price < 25 QTY')">Price <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Active')">Active <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-list-body">
+                            <tr>
+                                <td colspan="7">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -315,7 +328,7 @@
                         <small>Image will be uploaded to Google Drive automatically.</small>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="gas-url-container">
                         <label>Google Apps Script URL</label>
                         <input type="text" id="google-script-url"
                             value="https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec"
