@@ -503,7 +503,7 @@ function updateDeliveryCompanies() {
         // Store cost in value or handle by lookup. 
         // Simple way: value="Name|Cost"
         opt.value = `${comp.name}|${cost}`;
-        opt.textContent = `${comp.name} - ${cost.toFixed(2)} JOD`;
+        opt.textContent = `${comp.name} - ${window.formatPrice ? window.formatPrice(cost) : cost.toFixed(2) + ' JOD'}`;
         selectEl.appendChild(opt);
 
         // Auto select first one? User said "Choosing... then company", implying manual choice.
@@ -531,12 +531,26 @@ function selectCompanyFromDropdown(value) {
     updateCheckoutCalculations();
 }
 
+// Helper to get effective price
+function getEffectivePrice(item, productQuantities) {
+    const totalQty = productQuantities[item.no] || 0;
+    const isWholesale = totalQty >= 10;
+    const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
+    return parseFloat(String(priceString).replace(/[^\\d.]/g, '')) || 0;
+}
+
 function updateCheckoutCalculations() {
     // Recalculate cart total using global 'cart' logic
     let total = 0;
+
+    // First calculate product quantities to determine pricing (bulk vs retail)
+    const productQuantities = {};
     cart.forEach(item => {
-        let price = parseFloat(String(item.price).replace(/[^\d.]/g, ''));
-        if (isNaN(price)) price = 0;
+        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+    });
+
+    cart.forEach(item => {
+        const price = getEffectivePrice(item, productQuantities);
         total += price * item.quantity;
     });
 
@@ -558,9 +572,9 @@ function renderSummary() {
     // Calculations
     const total = checkoutState.cartTotal + checkoutState.deliveryCost;
 
-    subtotalEl.textContent = `${checkoutState.cartTotal.toFixed(3)} JOD`;
-    deliveryEl.textContent = `${checkoutState.deliveryCost.toFixed(3)} JOD`;
-    totalEl.textContent = `${total.toFixed(3)} JOD`;
+    subtotalEl.textContent = formatPrice(checkoutState.cartTotal);
+    deliveryEl.textContent = formatPrice(checkoutState.deliveryCost);
+    totalEl.textContent = formatPrice(total);
 
     const lang = localStorage.getItem('cr_lang') || 'en';
     const t = (window.translations && window.translations[lang]) ? window.translations[lang] : {
@@ -616,17 +630,24 @@ function submitOrder() {
     submitBtn.disabled = true;
     submitBtn.innerHTML = `<span class="spinner-sm" style="width: 20px; height: 20px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite; margin-right: 8px;"></span> Sending...`;
 
+    // Calculate effective prices for order details
+    const productQuantities = {};
+    cart.forEach(item => {
+        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+    });
+
     // Prepare Data
     const orderDetails = cart.map((item, index) => {
+        const effectivePrice = getEffectivePrice(item, productQuantities);
         // Requested format: Item No. then Color then Price and last thing the item name
-        return `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${item.price} - ${item.name} (Qty: ${item.quantity})`;
-    }).join('\n');
+        return `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${formatPrice(effectivePrice)} - ${item.name} (Qty: ${item.quantity})`;
+    }).join('\\n');
 
-    const deliveryCost = checkoutState.deliveryCost.toFixed(3) + " JOD";
-    const grandTotal = (checkoutState.cartTotal + checkoutState.deliveryCost).toFixed(3) + " JOD";
+    const deliveryCostFormatted = formatPrice(checkoutState.deliveryCost);
+    const grandTotalFormatted = formatPrice(checkoutState.cartTotal + checkoutState.deliveryCost);
 
     // Combine delivery and total for the email field
-    const totalDisplay = `Delivery: ${deliveryCost}\nTotal: ${grandTotal}`;
+    const totalDisplay = `Delivery: ${deliveryCostFormatted}\\nTotal: ${grandTotalFormatted}`;
 
     const templateParams = {
         to_email: 'Omarhj13702@yahoo.com',
@@ -637,8 +658,8 @@ function submitOrder() {
         region: checkoutState.selectedRegion || 'N/A',
         company: checkoutState.selectedCompany || 'N/A',
         order_details: orderDetails,
-        total_price: totalDisplay + `\nPayment: ${checkoutState.paymentMethod}`,
-        address: checkoutState.deliveryMethod === 'delivery' ? `${checkoutState.selectedRegion}, ${checkoutState.selectedCompany}\nDetails: ${checkoutState.address}` : 'Pickup'
+        total_price: totalDisplay + `\\nPayment: ${checkoutState.paymentMethod}`,
+        address: checkoutState.deliveryMethod === 'delivery' ? `${checkoutState.selectedRegion}, ${checkoutState.selectedCompany}\\nDetails: ${checkoutState.address}` : 'Pickup'
     };
 
     // Send Email
@@ -647,24 +668,22 @@ function submitOrder() {
             .then(function () {
                 // Success
 
-                // Success
-
-                // -----------------------------
-
-                // -----------------------------
-
                 const newOrder = {
                     id: Date.now().toString(),
                     date: new Date().toISOString(),
                     customerName: checkoutState.customerName,
                     customerPhone: checkoutState.customerPhone,
-                    items: cart.map((item, index) => `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${item.price} - ${item.name} (Qty: ${item.quantity})`),
-                    total: grandTotal, // e.g. "12.500 JOD"
+                    items: cart.map((item, index) => {
+                        const effectivePrice = getEffectivePrice(item, productQuantities);
+                        return `${index + 1}. [${item.no}] (${item.color || 'Default'}) - ${formatPrice(effectivePrice)} - ${item.name} (Qty: ${item.quantity})`;
+                    }),
+                    total: grandTotalFormatted, // e.g. "12.500 JOD" or "$17.65"
                     method: checkoutState.deliveryMethod,
                     selectedRegion: checkoutState.selectedRegion || '',
                     selectedCompany: checkoutState.selectedCompany || '',
                     address: checkoutState.address || '',
-                    deliveryCost: checkoutState.deliveryCost.toFixed(3),
+                    deliveryCost: deliveryCostFormatted, // Now formatted (e.g. "2.000 JOD" or "$2.82")
+                    currency: currentCurrency || 'JOD',
                     paymentMethod: checkoutState.paymentMethod
                 };
 

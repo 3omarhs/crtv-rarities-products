@@ -37,6 +37,11 @@
                         <i data-lucide="languages"></i>
                         <span id="lang-text">العربية</span>
                     </button>
+                    <button id="curr-switch" class="lang-switch-btn" onclick="toggleCurrency()"
+                        style="margin-left: 0.5rem;">
+                        <i data-lucide="coins"></i>
+                        <span id="curr-text">USD</span>
+                    </button>
                     <a href="https://wa.me/962795965910?text=Hi,%20I%20would%20Like%20to%20order.%20May%20I%20get%20your%20assestant."
                         target="_blank" class="whatsapp-btn" title="Order via WhatsApp" id="header-wa-btn">
                         <i data-lucide="message-circle"></i>
@@ -156,12 +161,12 @@
         </div>
     </div>
 
-    <!-- Language Selector Modal (First Visit) -->
+    <!-- Language & Currency Selector Modal (First Visit) -->
     <div id="lang-modal" class="modal-overlay">
         <div class="modal-container">
-            <button class="modal-close-btn" onclick="skipLanguage()" aria-label="Skip language selection">
+            <!-- <button class="modal-close-btn" onclick="skipLanguage()" aria-label="Skip language selection">
                 <i data-lucide="x"></i>
-            </button>
+            </button> -->
             <div class="modal-header">
                 <div class="modal-header-bg">
                     <svg viewBox="0 0 400 200" preserveAspectRatio="none">
@@ -170,19 +175,38 @@
                 </div>
                 <div class="modal-icon-wrapper">
                     <div class="modal-icon-container" style="background: var(--accent); color: white;">
-                        <i data-lucide="languages"></i>
+                        <i data-lucide="globe"></i>
                     </div>
                 </div>
             </div>
             <div class="modal-content">
-                <h3>Select Language / اختر اللغة</h3>
-                <p>Please choose your preferred language to continue.</p>
-                <p dir="rtl">يرجى اختيار لغتك المفضلة للمتابعة.</p>
+                <h3>Welcome / أهلاً بك</h3>
+                <p>Please select your preferences / يرجى اختيار تفضيلاتك</p>
+
+                <div class="pref-grid">
+                    <div class="pref-group">
+                        <label>Language / اللغة</label>
+                        <div class="pref-options">
+                            <button class="pref-btn active" data-type="lang" data-val="en"
+                                onclick="selectPref('lang', 'en', this)">English</button>
+                            <button class="pref-btn" data-type="lang" data-val="ar"
+                                onclick="selectPref('lang', 'ar', this)">العربية</button>
+                        </div>
+                    </div>
+                    <div class="pref-group">
+                        <label>Currency / العملة</label>
+                        <div class="pref-options">
+                            <button class="pref-btn active" data-type="curr" data-val="JOD"
+                                onclick="selectPref('curr', 'JOD', this)">JOD (JD)</button>
+                            <button class="pref-btn" data-type="curr" data-val="USD"
+                                onclick="selectPref('curr', 'USD', this)">USD ($)</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-footer" style="flex-direction: column; gap: 1rem;">
-                <button onclick="setLanguage('en')" class="modal-btn primary" style="width: 100%;">English</button>
-                <button onclick="setLanguage('ar')" class="modal-btn secondary"
-                    style="width: 100%; font-weight: 700;">العربية</button>
+            <div class="modal-footer">
+                <button onclick="confirmPreferences()" class="modal-btn primary" style="width: 100%;">Continue /
+                    متابعة</button>
             </div>
         </div>
     </div>

@@ -1,445 +1,152 @@
 import http.server
 import socketserver
-import json
 import os
-import urllib.request
-import urllib.parse
+import re
+import sys
+import json
 
-PORT = 8086
-VISITS_FILE = 'visits.txt'
-ORDERS_FILE = 'orders.json'
+PORT = 8000
+UPLOAD_DIR = os.path.join(os.getcwd(), 'assets', 'products')
 
-class CustomHandler(http.server.SimpleHTTPRequestHandler):
+# Ensure directory exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+class RequestHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        super().end_headers()
+
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename, Content-Length')
         self.end_headers()
 
-    def do_GET(self):
-        if self.path == '/':
-            self.path = '/index.html'
-        
-        if self.path == '/admin' or self.path == '/admin/':
-            self.path = '/admin.html'
-
-
-        if self.path == '/api/visits':
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            try:
-                if os.path.exists(VISITS_FILE):
-                    with open(VISITS_FILE, 'r') as f:
-                        count = f.read().strip()
-                        if not count: count = "0"
-                else:
-                    count = "0"
-            except:
-                count = "0"
-            self.wfile.write(json.dumps({"visits": int(count)}).encode())
-            return
-        
-        if self.path == '/api/orders':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            try:
-                if os.path.exists(ORDERS_FILE):
-                    with open(ORDERS_FILE, 'r', encoding='utf-8') as f:
-                        data = f.read()
-                        orders = json.loads(data) if data else []
-                else:
-                    orders = []
-            except Exception as e:
-                orders = []
-                print(f"Error reading orders: {e}")
-            self.wfile.write(json.dumps(orders).encode())
-            return
-
-
-        if self.path == '/api/settings':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            try:
-                if os.path.exists('email_config.json'):
-                    with open('email_config.json', 'r') as f:
-                        data = f.read()
-                        self.wfile.write(data.encode())
-                else:
-                    self.wfile.write(json.dumps({}).encode())
-            except:
-                self.wfile.write(json.dumps({}).encode())
-            return
-
-        # Default static file serving
-        print(f"Serving static path: {self.path}", flush=True)      
-        try:
-            return super().do_GET()
-        except Exception as e:
-            print(f"Error serving static file {self.path}: {e}", flush=True)
-            self.send_error(500, f"Internal Server Error: {e}")
-
     def do_POST(self):
-        if self.path == '/api/debug-log':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
-            self.send_response(200)
-            self.end_headers()
-            
-            try:
-                log_entry = json.loads(post_data.decode('utf-8'))
-                print(f"[CLIENT LOG] {log_entry.get('level', 'INFO')}: {log_entry.get('message')}")
-            except Exception as e:
-                print(f"Error logging: {e}")
-            return
-        
-        if self.path == '/api/upload-image':
-            try:
-                content_length = int(self.headers['Content-Length'])
-                filename = self.headers.get('X-Filename', 'uploaded_image.jpg')
-                filename = os.path.basename(filename) # Sanitize
-                
-                file_data = self.rfile.read(content_length)
-                
-                if not os.path.exists('assets/products'):
-                    os.makedirs('assets/products', exist_ok=True)
-                    
-                filepath = os.path.join('assets/products', filename)
-                with open(filepath, 'wb') as f:
-                    f.write(file_data)
-                    
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
+        if self.path == '/api/upload-images':
+            self.handle_upload()
+        else:
+            self.send_error(404, "Not Found")
+
+    def handle_upload(self):
+        try:
+            content_type = self.headers.get('Content-Type', '')
+            if 'multipart/form-data' not in content_type:
+                self.send_response(400)
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "success", "url": f"assets/products/{filename}"}).encode())
-            except Exception as e:
-                print(f"Error uploading image: {e}")
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
+                self.wfile.write(b'{"status":"error", "message":"Content-Type must be multipart/form-data"}')
+                return
 
-        if self.path == '/api/add-product':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            
             try:
-                import csv
-                product_data = json.loads(post_data.decode('utf-8'))
-                
-                # CSV Columns (Order matters!)
-                columns = [
-                    'product name', 'No', 'category', 'collection', 'target market', 
-                    'Calculate on Weight', 'Dimensions(mm) x y z', 'description (80 word)', 
-                    'Price < 25 QTY', 'Price >=25 QTY', 'discount cal', 'Document Link', 
-                    'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors'
-                ]
-                
-                row = []
-                row = []
-                for col in columns:
-                    val = product_data.get(col, '')
-                    
-                    # Special mapping based on user request:
-                    # The 'product name' from the form should go to 'Name on Store'
-                    # We will leave the actual 'product name' column in CSV empty or duplicate it if needed, 
-                    # but strictly following "not under 'Product Name'" implies we might want to clear it 
-                    # or the user implies the source field in the JSON is sending it as 'product name' key.
-                    
-                    if col == 'Name on Store':
-                         # Map the form input (which comes as 'product name') to this column
-                         val = product_data.get('product name', '')
-                    elif col == 'product name':
-                         # Don't put it here, per user request. 
-                         # But wait, if we leave it empty, will it break the app?
-                         # The app uses 'product name' to display the title.
-                         # If the user says "not under Product Name", maybe they mean the *English* name is 'Name on Store'?
-                         # I will map it to 'Name on Store' as requested. 
-                         # I will set 'product name' to match 'Name on Store' as a fallback to ensure app doesn't break,
-                         # UNLESS the user explicitly wants 'product name' to be something else (like ID?).
-                         # Let's assume they want the visible name in 'Name on Store'. 
-                         # I'll put it in 'Name on Store'.
-                         # To be safe, I'll put it in BOTH or just switch them?
-                         # "should be in the spreadsheet under 'Name on Store' not under ' Product Name'"
-                         # This sounds like a strict move.
-                         val = "" 
-                    
-                    row.append(val)
-                
-                # Ensure CSV exists (it should if downloaded)
-                if not os.path.exists('products.csv'):
-                    with open('products.csv', 'w', newline='', encoding='utf-8') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(columns)
+                boundary = content_type.split("boundary=")[1].encode()
+            except IndexError:
+                 self.send_response(400)
+                 self.end_headers()
+                 self.wfile.write(b'{"status":"error", "message":"Boundary missing in Content-Type"}')
+                 return
 
-                with open('products.csv', 'a', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(row)
-                
-                self.wfile.write(json.dumps({"status": "success"}).encode())
-            except Exception as e:
-                print(f"Error adding product: {e}")
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
-
-        if self.path == '/api/visits':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            try:
-                count = 0
-                if os.path.exists(VISITS_FILE):
-                    with open(VISITS_FILE, 'r') as f:
-                        c = f.read().strip()
-                        if c: count = int(c)
-                
-                count += 1
-                
-                with open(VISITS_FILE, 'w') as f:
-                    f.write(str(count))
-                    
-                self.wfile.write(json.dumps({"visits": count}).encode())
-            except Exception as e:
-                print(f"Error updating visits: {e}")
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
-
-        if self.path == '/api/orders':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
+            content_length = int(self.headers.get('Content-Length'))
+            body = self.rfile.read(content_length)
             
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
+            # Identify Separator
+            # Note: Boundary in body starts with --
+            separator = b'--' + boundary
             
-            try:
-                import time
-                new_order = json.loads(post_data.decode('utf-8'))
-                new_order['timestamp'] = time.time()
-                new_order['date'] = time.strftime('%Y-%m-%d %H:%M:%S')
+            # Split body
+            # The split list will have: [preamble, part1, part2, ..., epilogue]
+            parts = body.split(separator)
+            
+            product_no = None
+            saved_files = []
+
+            for part in parts:
+                if not part or part == b'--\r\n' or part == b'--': continue
                 
-                # Save Order
-                orders = []
-                if os.path.exists(ORDERS_FILE):
-                    with open(ORDERS_FILE, 'r', encoding='utf-8') as f:
-                        content = f.read()
-                        if content:
-                            orders = json.loads(content)
+                # Each part starts with \r\n (except the very first if preamble is empty, but usually multipart sends boundary first)
+                # Actually, split consumes the separator. 
+                # Request Body: --boundary\r\nHeaders\r\n\r\nContent\r\n--boundary...
+                # So parts[1] (first real part) will start with \r\nHeaders...
                 
-                orders.append(new_order)
+                # Trim leading \r\n if present
+                if part.startswith(b'\r\n'):
+                    part = part[2:]
                 
-                with open(ORDERS_FILE, 'w', encoding='utf-8') as f:
-                    json.dump(orders, f, indent=2, ensure_ascii=False)
+                # Locate headers end
+                headers_end = part.find(b'\r\n\r\n')
+                if headers_end == -1: continue # invalid part?
                 
-                # --- SEND TWILIO WHATSAPP MESSAGE (Sandbox) ---
-                try:
-                    if os.path.exists('twilio_config.json'):
-                        with open('twilio_config.json', 'r') as f:
-                            config = json.load(f)
-                            account_sid = config.get('account_sid')
-                            auth_token = config.get('auth_token')
-                            from_num = config.get('from_number')
-                            to_num = config.get('to_number')
+                headers_raw = part[:headers_end].decode('utf-8', errors='ignore')
+                content = part[headers_end+4:]
+                
+                # Remove trailing \r\n which belongs to the next boundary framing
+                if content.endswith(b'\r\n'):
+                    content = content[:-2]
+                
+                # Parse Headers to find Content-Disposition
+                # Look for name="productNo" or filename="..."
+                
+                if 'name="productNo"' in headers_raw:
+                     product_no = content.decode('utf-8').strip()
+                
+                elif 'filename="' in headers_raw:
+                    # Extract filename
+                    match = re.search(r'filename="(.+?)"', headers_raw)
+                    if match:
+                        original_filename = match.group(1)
+                        if not product_no:
+                            # If productNo hasn't been found yet, we can't name correctly!
+                            # Client MUST send productNo first.
+                            # We'll buffer this or imply error? 
+                            # If manual parsing order matters, FormData normally respects append order.
+                            pass
                             
-                            if account_sid and auth_token and "REPLACE" not in account_sid:
-                                # Construct Detailed Message
-                                items_str = ""
-                                if 'items' in new_order:
-                                    for item in new_order['items']:
-                                        if isinstance(item, str):
-                                            items_str += f"\n{item}"
-                                        else:
-                                            items_str += f"\n- {item.get('name')} (x{item.get('quantity')})"
-                                
-                                address_str = "Pickup"
-                                if new_order.get('method') == 'delivery':
-                                    address_str = f"{new_order.get('selectedRegion')}, {new_order.get('selectedCompany')}\n{new_order.get('address')}"
+                        # If we have productNo (or if we wait, but let's assume valid order for now)
+                        # Fallback: if product_no is missing, use 'unknown'
+                        p_no = product_no if product_no else "unknown"
+                        
+                        ext = os.path.splitext(original_filename)[1]
+                        if not ext: ext = '.jpg'
 
-                                msg_body = f"""New Order from {new_order.get('customerName')}
-Phone: {new_order.get('customerPhone')}
-Total: {new_order.get('total')}
-Payment: {new_order.get('paymentMethod', 'Cash on delivery')}
+                        # Uniquify
+                        index = 1
+                        while True:
+                            new_filename = f"{p_no}_{index}{ext}"
+                            file_path = os.path.join(UPLOAD_DIR, new_filename)
+                            if not os.path.exists(file_path):
+                                break
+                            index += 1
+                            if index > 1000: break
 
-Items:{items_str}
+                        with open(file_path, 'wb') as f:
+                            f.write(content)
+                        saved_files.append(new_filename)
 
-Delivery:
-{address_str}"""
-                                
-                                # Twilio API Endpoint
-                                url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-                                
-                                # Prepare Post Data
-                                data = urllib.parse.urlencode({
-                                    'To': to_num,
-                                    'From': from_num,
-                                    'Body': msg_body
-                                }).encode()
-                                
-                                # Prepare Request (Basic Auth)
-                                req = urllib.request.Request(url, data=data, method='POST')
-                                
-                                # Manual Basic Auth Header since we avoid extra libs
-                                import base64
-                                auth_str = f"{account_sid}:{auth_token}"
-                                b64_auth = base64.b64encode(auth_str.encode()).decode()
-                                req.add_header("Authorization", f"Basic {b64_auth}")
-                                req.add_header("Content-Type", "application/x-www-form-urlencoded")
-                                
-                                # Send Request
-                                try:
-                                    with urllib.request.urlopen(req, timeout=10) as response:
-                                        print(f"Twilio API Response Code: {response.getcode()}")
-                                        print(f"Twilio API Response: {response.read().decode('utf-8')}")
-                                        print("Twilio SMS notification sent")
-                                except urllib.error.HTTPError as e:
-                                    print(f"Twilio API Failed: {e.code} {e.reason}")
-                                    print(f"Twilio Error Body: {e.read().decode('utf-8')}")
-                            else:
-                                print(f"Twilio API Key not configured.")
-                except Exception as wa_e:
-                    print(f"Failed to send Twilio notification: {wa_e}")
-                # -----------------------------
+            if not product_no and not saved_files:
+                 # Nothing processed
+                 self.send_response(400)
+                 self.end_headers()
+                 self.wfile.write(b'{"status":"error", "message":"No product number or files found. Ensure keys are productNo and images."}')
+                 return
 
-                # -----------------------------
-                # SEND EMAIL NOTIFICATION
-                try:
-                    if os.path.exists('email_config.json'):
-                        with open('email_config.json', 'r') as f:
-                            email_config = json.load(f)
-                            
-                        if email_config.get('enabled'):
-                            import smtplib
-                            from email.mime.text import MIMEText
-                            from email.mime.multipart import MIMEMultipart
-
-                            sender_email = email_config.get('sender_email')
-                            sender_pass = email_config.get('sender_pass')
-                            receiver_email = email_config.get('receiver_email')
-                            
-                            if sender_email and sender_pass and receiver_email:
-                                msg = MIMEMultipart()
-                                msg['From'] = sender_email
-                                msg['To'] = receiver_email
-                                msg['Subject'] = f"New Order: {new_order.get('customerName')} - {new_order.get('total')}"
-
-                                body = f"""New Order Details:
-Customer: {new_order.get('customerName')}
-Phone: {new_order.get('customerPhone')}
-Total: {new_order.get('total')}
-Payment: {new_order.get('paymentMethod', 'Cash')}
-
-Items:
-"""
-                                if 'items' in new_order:
-                                    for item in new_order['items']:
-                                        if isinstance(item, str):
-                                            body += f"- {item}\n"
-                                        else:
-                                            body += f"- {item.get('name')} (x{item.get('quantity')})\n"
-                                            
-                                msg.attach(MIMEText(body, 'plain'))
-                                
-                                # Connect to Gmail SMTP (Standard)
-                                server = smtplib.SMTP('smtp.gmail.com', 587)
-                                server.starttls()
-                                server.login(sender_email, sender_pass)
-                                server.send_message(msg)
-                                server.quit()
-                                print("Email notification sent successfully")
-                except Exception as e_mail:
-                    print(f"Failed to send email: {e_mail}")
-                # -----------------------------
-
-                self.wfile.write(json.dumps({"status": "success"}).encode())
-            except Exception as e:
-                print(f"Error saving order: {e}")
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
-
-        if self.path == '/api/update-order-status':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
             self.send_response(200)
-            self.send_header('Content-type', 'application/json')
+            self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            
-            try:
-                payload = json.loads(post_data.decode('utf-8'))
-                order_id = payload.get('orderId')
-                new_status = payload.get('status')
-                
-                if os.path.exists(ORDERS_FILE):
-                    with open(ORDERS_FILE, 'r', encoding='utf-8') as f:
-                        orders = json.load(f)
-                    
-                    updated = False
-                    for order in orders:
-                        if order.get('id') == order_id:
-                            order['status'] = new_status
-                            updated = True
-                            break
-                    
-                    if updated:
-                        with open(ORDERS_FILE, 'w', encoding='utf-8') as f:
-                            json.dump(orders, f, indent=2, ensure_ascii=False)
-                        self.wfile.write(json.dumps({"status": "success"}).encode())
-                    else:
-                        self.wfile.write(json.dumps({"status": "error", "message": "Order not found"}).encode())
-                else:
-                    self.wfile.write(json.dumps({"status": "error", "message": "No orders file"}).encode())
-            except Exception as e:
-                print(f"Error updating status: {e}")
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
-            
-        if self.path == '/api/settings':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
+            response = json.dumps({"status": "success", "message": f"Uploaded {len(saved_files)} files for {product_no}.", "files": saved_files})
+            self.wfile.write(response.encode())
+
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+            self.send_response(500)
             self.end_headers()
-            
-            try:
-                config = json.loads(post_data.decode('utf-8'))
-                with open('email_config.json', 'w') as f:
-                    json.dump(config, f)
-                self.wfile.write(json.dumps({"status": "success"}).encode())
-            except Exception as e:
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
-            return
+            self.wfile.write(f'{{"status":"error", "message":"{str(e)}"}}'.encode())
 
-        self.send_error(501, "Unsupported method (%r)" % self.path)
-        return
+print(f"Starting server on http://localhost:{PORT}")
+print(f"Uploads will go to: {UPLOAD_DIR}")
 
-    def log_message(self, format, *args):
-        # Override to ensure flush
-        import sys
-        sys.stderr.write("%s - - [%s] %s\n" %
-                         (self.client_address[0],
-                          self.log_date_time_string(),
-                          format%args))
-        sys.stderr.flush()
-        
+# Reuse address
+socketserver.TCPServer.allow_reuse_address = True
 
-
-Handler = CustomHandler
-
-print(f"Serving on port {PORT}", flush=True)
-print(f"Visit tracking enabled ({VISITS_FILE})", flush=True)
-print(f"Order tracking enabled ({ORDERS_FILE})", flush=True)
-
-# Using standard HTTPServer
-import http.server
-with http.server.HTTPServer(("0.0.0.0", PORT), Handler) as httpd:
+with socketserver.TCPServer(("", PORT), RequestHandler) as httpd:
     httpd.serve_forever()

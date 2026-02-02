@@ -43,6 +43,62 @@ try {
 }
 let cart = window.cart; // Keep local reference for existing code compatibility
 let currentLang = localStorage.getItem('cr_lang') || null;
+let currentCurrency = localStorage.getItem('cr_currency') || 'JOD';
+let EXCHANGE_RATE = 1.41; // Default: 1 JOD = 1.41 USD (Updated dynamically)
+
+function formatPrice(amountJOD) {
+    if (amountJOD === null || amountJOD === undefined) return '';
+    const numericAmount = parseFloat(String(amountJOD).replace(/[^\d.]/g, ''));
+    if (isNaN(numericAmount)) return amountJOD;
+
+    if (currentCurrency === 'USD') {
+        return '$' + (numericAmount * EXCHANGE_RATE).toFixed(2);
+    }
+    return numericAmount.toFixed(2) + ' JOD'; // Ensure standard formatting
+}
+
+// Ensure global access
+window.formatPrice = formatPrice;
+window.currentCurrency = currentCurrency;
+
+function setCurrency(curr) {
+    currentCurrency = curr;
+    localStorage.setItem('cr_currency', curr);
+
+    // Update Toggle Button Text
+    const currText = document.getElementById('curr-text');
+    if (currText) currText.textContent = curr;
+
+    // Re-render
+    if (window.allProducts && window.allProducts.length > 0) {
+        renderProducts(window.currentProducts || window.allProducts);
+    }
+    setupCart(); // Refreshes cart UI with new prices
+
+    // If checkout is open/active, logic might be needed there too, 
+    // but usually user selects currency before checkout.
+}
+
+function toggleCurrency() {
+    setCurrency(currentCurrency === 'JOD' ? 'USD' : 'JOD');
+}
+
+// Modal Preference Handlers
+window.tempPrefs = { lang: 'en', curr: 'JOD' };
+
+function selectPref(type, val, btn) {
+    window.tempPrefs[type] = val;
+    // Update UI
+    const group = btn.closest('.pref-options');
+    group.querySelectorAll('.pref-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function confirmPreferences() {
+    setLanguage(window.tempPrefs.lang);
+    setCurrency(window.tempPrefs.curr);
+    document.getElementById('lang-modal').classList.remove('open');
+}
 
 const translations = {
     en: {
@@ -484,7 +540,30 @@ function translateValue(field, value) {
 }
 window.translateValue = translateValue;
 
+async function fetchCurrencyRate() {
+    try {
+        const response = await fetch('storedetails.txt?v=' + Date.now());
+        if (!response.ok) throw new Error('Failed to fetch store details');
+        const text = await response.text();
+        // Look for "Currency Rate: 1 USD = 0.75 JOD"
+        const match = text.match(/Currency Rate:\s*1\s*USD\s*=\s*([\d.]+)\s*JOD/i);
+        if (match && match[1]) {
+            const jodVal = parseFloat(match[1]);
+            if (!isNaN(jodVal) && jodVal > 0) {
+                EXCHANGE_RATE = 1 / jodVal;
+                // Update global reference just in case
+                window.EXCHANGE_RATE = EXCHANGE_RATE;
+                console.log(`Currency rate updated: 1 USD = ${jodVal} JOD. Exchange Rate (JOD->USD): ${EXCHANGE_RATE.toFixed(4)}`);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load dynamic currency rate, using default 1.41:', e);
+    }
+}
+
 async function init() {
+    await fetchCurrencyRate();
+
     if (!currentLang) {
         const langModal = document.getElementById('lang-modal');
         if (langModal) langModal.classList.add('open');
@@ -995,7 +1074,7 @@ function createCard(product, uiIndex) {
                 ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
             </div>
             <div class="card-footer">
-                ${product.price ? `<span class="card-price">${product.price} JOD</span>` : (product.bulkPrice ? `<span class="card-price">${product.bulkPrice} JOD</span>` : '')}
+                ${product.price ? `<span class="card-price">${formatPrice(product.price)}</span>` : (product.bulkPrice ? `<span class="card-price">${formatPrice(product.bulkPrice)}</span>` : '')}
                 ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}
@@ -1115,7 +1194,7 @@ function createCard(product, uiIndex) {
                         <div class="main-price">
                             <div class="price-info-block">
                                 <span class="label">${activePriceLabel}</span>
-                                <span class="value">${product.price ? `${product.price} JOD` : 'Price on request'}</span>
+                                <span class="value">${product.price ? formatPrice(product.price) : 'Price on request'}</span>
                             </div>
                         </div>
                     `;
@@ -1125,7 +1204,7 @@ function createCard(product, uiIndex) {
                             <div class="bulk-price">
                                 <div class="price-info-block">
                                     <span class="label">${t.bulkSaving}</span>
-                                    <span class="value">${product.bulkPrice} JOD</span>
+                                    <span class="value">${formatPrice(product.bulkPrice)}</span>
                                 </div>
                                 ${product.calculatedDiscount ? `
                                     <div class="discount-badge">
@@ -1631,7 +1710,7 @@ function updateCartUI() {
 
     if (cart.length === 0) {
         if (cartItemsContainer) cartItemsContainer.innerHTML = `<p id="cart-empty-msg" style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">${t.cartEmpty}</p>`;
-        if (cartTotalValue) cartTotalValue.textContent = '0.000 JOD';
+        if (cartTotalValue) cartTotalValue.textContent = formatPrice(0);
         return;
     }
 
@@ -1694,7 +1773,7 @@ function updateCartUI() {
                 <div class="cart-item-info">
                     <div class="cart-item-title">${displayName} ${displayColor ? `<small style="color: var(--text-secondary);">(${displayColor})</small>` : ''}</div>
                     <div class="cart-item-price">
-                        ${unitPrice.toFixed(3)} JOD 
+                        ${formatPrice(unitPrice)}  
                         ${hasPriceDifference ? (isWholesale && item.bulkPrice ? `<small style="display:block; font-size:0.7rem; color:#b45309;">${t.appliedBulk}</small>` : (item.price && !isWholesale ? `<small style="display:block; font-size:0.7rem; color:#059669;">${t.appliedRetail}</small>` : '')) : ''}
                     </div>
                     <div class="cart-item-controls">
@@ -1708,7 +1787,7 @@ function updateCartUI() {
         `;
     }).join('');
 
-    cartTotalValue.textContent = `${total.toFixed(3)} JOD`;
+    cartTotalValue.textContent = formatPrice(total);
     if (window.lucide) lucide.createIcons();
 }
 
@@ -1743,11 +1822,11 @@ function checkoutWhatsApp() {
 
         message += `*${item.name}*\n`;
         message += `ID: ${item.no} | ${t.color}: ${item.color || t.defaultColor}\n`;
-        message += `${t.qty}: ${item.quantity} ${t.pcs} x ${unitPrice.toFixed(3)} JOD = ${subtotal.toFixed(3)} JOD\n\n`;
+        message += `${t.qty}: ${item.quantity} ${t.pcs} x ${formatPrice(unitPrice)} = ${formatPrice(subtotal)}\n\n`;
     });
 
     message += `--------------------------\n`;
-    message += `*${t.waOrderTotal} ${total.toFixed(3)} JOD*`;
+    message += `*${t.waOrderTotal} ${formatPrice(total)}*`;
 
     const encodedMessage = encodeURIComponent(message);
 
@@ -1867,8 +1946,21 @@ window.closeLightbox = function () {
 
 // Initialize after all definitions
 // Initialize after all definitions
-init();
-setupCart(); // Ensure cart listeners are attached immediately
+
+// Expose currency utilities globally
+window.formatPrice = formatPrice;
+window.setCurrency = setCurrency;
+// We also need to ensure currentCurrency is up to date when accessed
+Object.defineProperty(window, 'currentCurrency', {
+    get: function () { return currentCurrency; },
+    set: function (val) { currentCurrency = val; }
+});
+window.EXCHANGE_RATE = EXCHANGE_RATE;
+
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+    setupCart(); // Ensure cart listeners are attached immediately
+});
 
 
 

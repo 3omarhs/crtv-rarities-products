@@ -79,9 +79,22 @@
                 <button class="nav-item" data-view="add-product">
                     <i data-lucide="plus-circle"></i> Add Product
                 </button>
-                <button class="nav-item" data-view="settings">
-                    <i data-lucide="settings"></i> Settings
-                </button>
+                <li class="nav-item" data-view="create-order">
+                    <i data-lucide="edit-3"></i>
+                    <span>Create Order</span>
+                </li>
+                <li class="nav-item" data-view="social-generator">
+                    <i data-lucide="share-2"></i>
+                    <span>Social Media</span>
+                </li>
+                <li class="nav-item" data-view="upload-images">
+                    <i data-lucide="image-plus"></i>
+                    <span>Extra Images</span>
+                </li>
+                <li class="nav-item" data-view="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </li>
             </nav>
             <div class="sidebar-footer">
                 <button id="logout-btn" class="nav-item logout">
@@ -113,6 +126,13 @@
                         </div>
                     </div>
                     <div class="stat-card">
+                        <div class="icon-box orange"><i data-lucide="activity"></i></div>
+                        <div class="stat-info">
+                            <h4>Visits Today</h4>
+                            <span id="stat-visits-today">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
                         <div class="icon-box green"><i data-lucide="shopping-cart"></i></div>
                         <div class="stat-info">
                             <h4>Total Orders</h4>
@@ -134,6 +154,11 @@
                         style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
                         <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Revenue Trend</h3>
                         <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Store Visits Trend</h3>
+                        <canvas id="visitsChart"></canvas>
                     </div>
                     <div class="chart-card"
                         style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
@@ -273,19 +298,23 @@
                             <input type="text" name="No" required placeholder="e.g. PTSTLS-1225-001">
                         </div>
                         <div class="form-group" style="flex:1">
-                            <label>Product Name (Name on Store)</label>
-                            <input type="text" name="Name on Store" required>
+                            <label>Product Name</label>
+                            <input type="text" name="product name" required placeholder="Internal/Generic Name">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Name on Store</label>
+                            <input type="text" name="Name on Store" required placeholder="Promotional Title">
                         </div>
                     </div>
 
                     <div class="form-row" style="display:flex; gap:1rem;">
                         <div class="form-group" style="flex:1">
                             <label>Arabic Name</label>
-                            <input type="text" name="Arabic Name">
+                            <input type="text" name="Arabic Name" placeholder=" ">
                         </div>
                         <div class="form-group" style="flex:1">
-                            <label>Price (JOD)</label>
-                            <input type="number" step="0.001" name="Price < 25 QTY" required>
+                            <label>Price < 25 QTY</label>
+                                    <input type="number" step="0.001" name="Price < 25 QTY" required placeholder=" ">
                         </div>
                     </div>
 
@@ -301,25 +330,61 @@
                         </div>
                         <div class="form-group" style="flex:1">
                             <label>Collection</label>
-                            <input type="text" name="collection">
+                            <input type="text" name="collection" placeholder=" ">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label>Description</label>
-                        <textarea name="description (80 word)" rows="5"
+                        <textarea name="description (80 word)" rows="5" placeholder=" "
                             style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white; font-family: inherit; box-sizing: border-box; resize: vertical;"></textarea>
                     </div>
 
                     <div class="form-row" style="display:flex; gap:1rem;">
                         <div class="form-group" style="flex:1">
                             <label>Dimensions</label>
-                            <input type="text" name="Dimensions(mm) x y z">
+                            <input type="text" name="Dimensions(mm) x y z" placeholder=" ">
                         </div>
                         <div class="form-group" style="flex:1">
                             <label>Colors (comma sep)</label>
                             <input type="text" name="Colors" placeholder="Black, White">
                         </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Target Market</label>
+                            <input type="text" name="target market" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Document Link</label>
+                            <input type="url" name="Document Link" placeholder="https://...">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Wholesale Price (>= 25 QTY)</label>
+                            <input type="number" step="0.001" name="Price >=25 QTY" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Calculate on Weight</label>
+                            <input type="number" step="any" name="Calculate on Weight" placeholder=" ">
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-row" style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem;">
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Available" checked> Available
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Hidden"> Hidden
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Active" checked> Active (System)
+                        </label>
                     </div>
 
                     <div class="form-group">
@@ -353,75 +418,378 @@
                 </form>
             </div>
 
-            <div id="view-settings" class="view-section hidden">
-                <h3>Email Notification Settings</h3>
-                <div class="admin-form" style="max-width: 600px;">
-                    <div class="form-group"
-                        style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-darker); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
-                        <div>
-                            <label style="margin-bottom: 0; color: white; font-weight: 500;">Enable Email
-                                Notifications</label>
-                            <small style="color: var(--text-secondary); display: block;">Receive an email whenever a new
-                                order is placed.</small>
+            <!-- Create Order View -->
+            <div id="view-create-order" class="view-section hidden">
+                <h3>Create Manual Order</h3>
+                <div class="admin-form" style="width: 100%; max-width: 100%;">
+
+                    <div
+                        style="display: grid; grid-template-columns: 320px 1fr 350px; gap: 1.5rem; height: calc(100vh - 140px);">
+
+                        <!-- Col 1: Customer & Search -->
+                        <div style="display:flex; flex-direction:column; gap:1rem; overflow-y:auto; padding-right:5px;">
+
+                            <!-- Customer Info -->
+                            <div class="card" style="padding:1.5rem;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Customer
+                                    Details</h4>
+                                <div class="form-group">
+                                    <label>Customer Name</label>
+                                    <input type="text" id="mo-name" placeholder="Full Name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="text" id="mo-phone" placeholder="07xxxxxxxx">
+                                </div>
+                                <div class="form-group">
+                                    <label>Address Details</label>
+                                    <textarea id="mo-address" rows="2"
+                                        placeholder="City, Street, Building..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Product Search -->
+                            <div class="card" style="padding:1.5rem; flex:1;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Add Products
+                                </h4>
+                                <div class="form-group">
+                                    <label>Search Product</label>
+                                    <div style="position:relative;">
+                                        <input type="text" id="mo-product-search" placeholder="Type to search..."
+                                            autocomplete="off">
+                                        <div id="mo-product-dropdown" class="custom-dropdown hidden"></div>
+                                    </div>
+                                    <style>
+                                        .custom-dropdown {
+                                            position: absolute;
+                                            top: 100%;
+                                            left: 0;
+                                            right: 0;
+                                            background: var(--bg-secondary);
+                                            border: 1px solid var(--border);
+                                            border-radius: 0.5rem;
+                                            max-height: 300px;
+                                            overflow-y: auto;
+                                            z-index: 1000;
+                                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                                        }
+
+                                        .dropdown-item {
+                                            display: grid;
+                                            grid-template-columns: 50px 1fr 100px 80px;
+                                            gap: 10px;
+                                            padding: 10px;
+                                            align-items: center;
+                                            cursor: pointer;
+                                            border-bottom: 1px solid var(--border);
+                                        }
+
+                                        .dropdown-item:hover {
+                                            background: var(--bg-hover);
+                                        }
+
+                                        .dropdown-item img {
+                                            width: 40px;
+                                            height: 40px;
+                                            object-fit: cover;
+                                            border-radius: 4px;
+                                            background: #000;
+                                        }
+
+                                        .dropdown-item .item-name {
+                                            font-weight: 500;
+                                            color: white;
+                                            white-space: nowrap;
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+
+                                        .dropdown-item .item-id {
+                                            font-family: monospace;
+                                            color: var(--accent);
+                                            font-size: 0.85rem;
+                                        }
+
+                                        .dropdown-item .item-price {
+                                            text-align: right;
+                                            color: var(--text-secondary);
+                                        }
+                                    </style>
+                                </div>
+                                <div class="form-row" style="display:flex; gap:1rem; align-items:flex-end;">
+                                    <div class="form-group" style="flex:1;">
+                                        <label>Quantity</label>
+                                        <input type="number" id="mo-qty" value="1" min="1">
+                                    </div>
+                                    <div class="form-group" style="flex:1;">
+                                        <button type="button" id="mo-add-btn" class="btn btn-secondary"
+                                            style="width:100%;">Add Item</button>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="email-enabled">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
 
-                    <div class="form-group">
-                        <label>Receiver Email</label>
-                        <input type="email" id="receiver-email"
-                            placeholder="Where to send notifications (e.g. your@email.com)">
-                    </div>
-
-                    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-                        <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Sender Configuration (Gmail SMTP)
-                        </h4>
-                        <div class="form-group">
-                            <label>Sender Email</label>
-                            <input type="email" id="sender-email" placeholder="Your Gmail address">
+                        <!-- Col 2: Cart Items (Middle) -->
+                        <div class="card" style="padding:1.5rem; display:flex; flex-direction:column; height:100%;">
+                            <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Order Items</h4>
+                            <div id="mo-cart-items"
+                                style="flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:0.5rem; margin-bottom:1rem; padding:0.5rem;">
+                                <p style="text-align:center; color:var(--text-secondary); margin-top:2rem;">No items
+                                    added.</p>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>App Password</label>
-                            <input type="password" id="sender-pass"
-                                placeholder="Your Google App Password (not login password)">
-                            <small style="color:var(--text-secondary)">
-                                Use a <a href="https://myaccount.google.com/apppasswords" target="_blank"
-                                    style="color:var(--accent)">Google App Password</a>.
-                            </small>
+
+                        <!-- Col 3: Delivery & Finalize -->
+                        <div style="display:flex; flex-direction:column; gap:1rem; overflow-y:auto; padding-right:5px;">
+
+                            <!-- Delivery Settings -->
+                            <div class="card" style="padding:1.5rem;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Delivery &
+                                    Payment</h4>
+
+                                <div class="form-group">
+                                    <label>Order Type</label>
+                                    <div
+                                        style="display:flex; gap:1rem; margin-bottom:1rem; background:var(--bg-darker); padding:0.5rem; border-radius:0.5rem; border:1px solid var(--border);">
+                                        <label
+                                            style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; flex:1; justify-content:center;">
+                                            <input type="radio" name="mo-method" value="delivery" checked
+                                                onchange="toggleManualDelivery(true)">
+                                            Delivery
+                                        </label>
+                                        <label
+                                            style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; flex:1; justify-content:center;">
+                                            <input type="radio" name="mo-method" value="pickup"
+                                                onchange="toggleManualDelivery(false)">
+                                            Pickup
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div id="mo-delivery-group">
+                                    <div class="form-group">
+                                        <label>Region</label>
+                                        <select id="mo-region" onchange="updateManualDeliveryOptions()">
+                                            <option value="">-- Select Region --</option>
+                                            <!-- Populated via JS -->
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Delivery Company</label>
+                                        <div id="mo-delivery-list" class="delivery-list-container">
+                                            <div style="text-align:center; color:var(--text-secondary); padding:1rem;">
+                                                Select a region first</div>
+                                        </div>
+                                        <input type="hidden" id="mo-company-input" value="">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Payment Method</label>
+                                    <select id="mo-payment">
+                                        <option value="Cash on delivery">Cash on delivery</option>
+                                        <option value="CliQ payment on delivery">CliQ payment on delivery</option>
+                                        <option value="E-Wallets on delivery">E-Wallets on delivery</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Totals & Action -->
+                            <div class="card" style="padding:1.5rem;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                    <span>Subtotal:</span>
+                                    <span id="mo-subtotal">0.000 JOD</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                    <span>Delivery:</span>
+                                    <span id="mo-delivery">0.000 JOD</span>
+                                </div>
+                                <div
+                                    style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.2rem; color:var(--accent); margin-bottom:1rem; padding-top:0.5rem; border-top:1px solid var(--border);">
+                                    <span>Total:</span>
+                                    <span id="mo-total">0.000 JOD</span>
+                                </div>
+
+                                <button type="button" id="mo-create-btn" class="btn btn-primary"
+                                    style="width:100%; padding: 1rem;">Create Order</button>
+                                <p id="mo-msg" class="success-msg hidden" style="margin-top:10px; text-align:center;">
+                                </p>
+                                <p id="mo-error" class="error-msg hidden" style="margin-top:10px; text-align:center;">
+                                </p>
+                            </div>
+
                         </div>
                     </div>
-
-                    <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
-                    <p id="settings-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
-                    <div id="loading" class="modal-overlay hidden">
-                        <div class="spinner"></div>
-                    </div>
-
-                </div> <!-- End admin-form -->
-            </div> <!-- End view-settings -->
-
-            <!-- Product Details Modal -->
-            <div id="product-details-modal" class="modal-overlay hidden">
-                <div class="modal-container"
-                    style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 0;">
-                    <div id="product-modal-content" class="expanded-content" style="box-shadow: none; border: none;">
-                        <!-- Content will be injected here -->
-                    </div>
-                    <button class="modal-close-btn" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;"
-                        onclick="closeProductModal()">
-                        <i data-lucide="x"></i>
-                    </button>
                 </div>
             </div>
 
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-            <script src="drive-images.js"></script>
-            <script src="admin.js?v=3.5"></script>
-            <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.5
+            <!-- Social Media Generator View -->
+            <!-- Social Media Generator View -->
+            <div id="view-social-generator" class="view-section hidden">
+                <div class="card"
+                    style="max-width: 800px; margin: 2rem auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+
+                    <div style="text-align: center; margin-bottom: 2.5rem;">
+                        <h2 class="section-title"
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            Social Media Magic ✨</h2>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Generate engagement-ready captions
+                            in seconds.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Product</label>
+                        <div style="position: relative;">
+                            <select id="social-product-select"
+                                style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 0.75rem; color: white; appearance: none; font-size: 1rem; transition: all 0.3s ease; cursor: pointer;">
+                                <option value="">-- Choose a Product --</option>
+                            </select>
+                            <div
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary);">
+                                <i data-lucide="chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="generate-social-btn" class="btn-primary"
+                        style="width: 100%; padding: 1.2rem; margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%); border: none; border-radius: 0.75rem; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+                        <span>Generate Caption with AI</span>
+                        <i data-lucide="sparkles"></i>
+                    </button>
+
+                    <div class="form-group">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Generated
+                            Caption</label>
+                        <textarea id="social-post-output" rows="12" placeholder="AI magic will appear here..." dir="rtl"
+                            style="width: 100%; padding: 1.5rem; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border); border-radius: 1rem; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.8; font-size: 1.1rem; resize: vertical; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);"></textarea>
+                    </div>
+                </div>
             </div>
+
+            <!-- Upload Extra Images View -->
+            <div id="view-upload-images" class="view-section hidden">
+                <div class="card"
+                    style="max-width: 800px; margin: 2rem auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+
+                    <div style="text-align: center; margin-bottom: 2.5rem;">
+                        <h2 class="section-title"
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            Upload Gallery Images 📸</h2>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Add multiple images to a
+                            product's gallery.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Product</label>
+                        <div style="position: relative;">
+                            <select id="upload-product-select"
+                                style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 0.75rem; color: white; appearance: none; font-size: 1rem; transition: all 0.3s ease; cursor: pointer;">
+                                <option value="">-- Choose a Product --</option>
+                            </select>
+                            <div
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary);">
+                                <i data-lucide="chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Images</label>
+                        <input type="file" id="extra-images-input" multiple accept="image/*"
+                            style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border); border-radius: 0.75rem; color: var(--text-secondary); cursor: pointer;">
+                        <small style="display:block; margin-top:0.5rem; color:var(--text-secondary);">Files will be
+                            renamed to: SKU_1.jpg, SKU_2.jpg, etc.</small>
+                    </div>
+
+                    <button id="upload-images-btn" class="btn-primary"
+                        style="width: 100%; padding: 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 0.75rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+                        <span>Upload Images</span>
+                        <i data-lucide="upload-cloud"></i>
+                    </button>
+
+                    <p id="upload-status" style="text-align:center; min-height:1.5rem;"></p>
+
+                </div>
+            </div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="view-settings" class="view-section hidden">
+        <h3>Email Notification Settings</h3>
+        <div class="admin-form" style="max-width: 600px;">
+            <div class="form-group"
+                style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-darker); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                <div>
+                    <label style="margin-bottom: 0; color: white; font-weight: 500;">Enable Email
+                        Notifications</label>
+                    <small style="color: var(--text-secondary); display: block;">Receive an email whenever a new
+                        order is placed.</small>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="email-enabled">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Receiver Email</label>
+                <input type="email" id="receiver-email" placeholder="Where to send notifications (e.g. your@email.com)">
+            </div>
+
+            <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Sender Configuration (Gmail SMTP)
+                </h4>
+                <div class="form-group">
+                    <label>Sender Email</label>
+                    <input type="email" id="sender-email" placeholder="Your Gmail address">
+                </div>
+                <div class="form-group">
+                    <label>App Password</label>
+                    <input type="password" id="sender-pass" placeholder="Your Google App Password (not login password)">
+                    <small style="color:var(--text-secondary)">
+                        Use a <a href="https://myaccount.google.com/apppasswords" target="_blank"
+                            style="color:var(--accent)">Google App Password</a>.
+                    </small>
+                </div>
+            </div>
+
+            <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+            <p id="settings-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
+            <div id="loading" class="modal-overlay hidden">
+                <div class="spinner"></div>
+            </div>
+
+        </div> <!-- End admin-form -->
+    </div> <!-- End view-settings -->
+
+    <!-- Product Details Modal -->
+    <div id="product-details-modal" class="modal-overlay hidden">
+        <div class="modal-container"
+            style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 0;">
+            <div id="product-modal-content" class="expanded-content" style="box-shadow: none; border: none;">
+                <!-- Content will be injected here -->
+            </div>
+            <button class="modal-close-btn" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;"
+                onclick="closeProductModal()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="drive-images.js"></script>
+    <script src="admin.js?v=3.7"></script>
+    <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.7
+    </div>
 </body>
 
 </html>
