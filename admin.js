@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V3.5 LOADED !!!");
-document.title = "Admin Portal (Debug Mode V3.5)";
+console.log("!!! ADMIN JS V3.9 LOADED (Fix Form Handlers) !!!");
+document.title = "Admin Portal (V3.9)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -250,6 +250,55 @@ async function loadCredentials() {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Attach Login Listener Immediately (Fix Vercel Race Condition)
+    const loginForm = document.getElementById('login-form');
+    const loginBtn = document.querySelector('.btn-primary');
+
+    const handleLogin = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        if (ADMIN_USERS.length === 0) {
+            alert("System initializing... please wait.");
+            return;
+        }
+
+        const emailInput = document.getElementById('admin-email');
+        const passInput = document.getElementById('admin-password');
+        if (!emailInput || !passInput) return;
+
+        const email = emailInput.value;
+        const pass = passInput.value;
+        const err = document.getElementById('login-error');
+
+        const validUser = ADMIN_USERS.find(u =>
+            u.email === email.trim().toLowerCase() && u.pass === pass.trim()
+        );
+
+        if (validUser) {
+            sessionStorage.setItem('admin_logged_in', 'true');
+            if (err) err.classList.add('hidden');
+            showDashboard();
+        } else {
+            console.warn("Admin: Login Failed");
+            if (err) err.classList.remove('hidden');
+        }
+    };
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+    if (loginBtn) {
+        // Double safety for Vercel race conditions / structural issues
+        loginBtn.addEventListener('click', (e) => {
+            // Only if it's not a submit button (which it is) but preventing default just in case
+            // actually if it is submit, the form submit fires.
+            // But if form is broken, catching click helps.
+            if (loginBtn.type !== 'submit') handleLogin(e);
+        });
+    }
     await loadCredentials();
     await loadGeminiCredentials();
 
@@ -275,37 +324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Check Session
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
 
-            if (ADMIN_USERS.length === 0) {
-                alert("System Error: No admin users loaded. Check console.");
-                return;
-            }
-
-            const email = document.getElementById('admin-email').value;
-            const pass = document.getElementById('admin-password').value;
-            const err = document.getElementById('login-error');
-
-            console.log("Admin: Login Attempt:", { email });
-
-            const validUser = ADMIN_USERS.find(u =>
-                u.email === email.trim().toLowerCase() && u.pass === pass.trim()
-            );
-
-            if (validUser) {
-                sessionStorage.setItem('admin_logged_in', 'true');
-                if (err) err.classList.add('hidden');
-                showDashboard();
-            } else {
-                console.warn("Admin: Login Failed");
-                if (err) err.classList.remove('hidden');
-            }
-        });
-    }
 
     // Navigation Handler
     document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
