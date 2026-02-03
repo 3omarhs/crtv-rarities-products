@@ -11,6 +11,17 @@ UPLOAD_DIR = os.path.join(os.getcwd(), 'assets', 'products')
 # Ensure directory exists
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Explicit MIME type map to avoid registry dependency issues on Windows
+import mimetypes
+mimetypes.init()
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('image/svg+xml', '.svg')
+mimetypes.add_type('image/png', '.png')
+mimetypes.add_type('image/jpeg', '.jpg')
+mimetypes.add_type('text/plain', '.txt')
+mimetypes.add_type('text/html', '.html')
+
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -21,6 +32,12 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
+
+    def do_GET(self):
+        # Handle /admin with or without query params
+        if self.path == '/admin' or self.path.startswith('/admin?') or self.path == '/admin/':
+            self.path = '/admin.html'
+        super().do_GET()
 
     def do_POST(self):
         if self.path == '/api/upload-images':

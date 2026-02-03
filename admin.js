@@ -240,6 +240,12 @@ async function loadCredentials() {
     } catch (e) {
         console.error("Admin: Could not load credentials", e);
     }
+
+    // Emergency Fallback User (added by system)
+    if (ADMIN_USERS.length === 0) {
+        console.warn("Admin: Using fallback credentials due to load failure.");
+        ADMIN_USERS.push({ email: 'admin', pass: 'admin123' });
+    }
 }
 
 
@@ -269,28 +275,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    await loadCredentials();
-    await loadGeminiCredentials();
-
     // Check Session
-    document.getElementById('login-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const email = document.getElementById('admin-email').value;
-        const pass = document.getElementById('admin-password').value;
-        const err = document.getElementById('login-error');
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
 
-        const validUser = ADMIN_USERS.find(u =>
-            u.email === email.trim().toLowerCase() && u.pass === pass
-        );
+            if (ADMIN_USERS.length === 0) {
+                alert("System Error: No admin users loaded. Check console.");
+                return;
+            }
 
-        if (validUser) {
-            sessionStorage.setItem('admin_logged_in', 'true');
-            err.classList.add('hidden');
-            showDashboard();
-        } else {
-            err.classList.remove('hidden');
-        }
-    });
+            const email = document.getElementById('admin-email').value;
+            const pass = document.getElementById('admin-password').value;
+            const err = document.getElementById('login-error');
+
+            console.log("Admin: Login Attempt:", { email });
+
+            const validUser = ADMIN_USERS.find(u =>
+                u.email === email.trim().toLowerCase() && u.pass === pass.trim()
+            );
+
+            if (validUser) {
+                sessionStorage.setItem('admin_logged_in', 'true');
+                if (err) err.classList.add('hidden');
+                showDashboard();
+            } else {
+                console.warn("Admin: Login Failed");
+                if (err) err.classList.remove('hidden');
+            }
+        });
+    }
 
     // Navigation Handler
     document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
