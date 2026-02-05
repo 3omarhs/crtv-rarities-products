@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V3.9 LOADED (Fix Form Handlers) !!!");
-document.title = "Admin Portal (V3.9)";
+console.log("!!! ADMIN JS V4.0 LOADED (Fix Total Crash) !!!");
+document.title = "Admin Portal (V4.0)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -190,20 +190,47 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
     }
 }
 async function loadCredentials() {
+    ADMIN_USERS = [];
+    console.log("Admin: Starting loadCredentials...");
+
+    let apiSuccess = false;
+    let fileSuccess = false;
+
     try {
-        // Add cache busting to ensure we get the latest file content
-        const response = await fetch('adminCredentials.txt?v=' + new Date().getTime());
-        if (!response.ok) throw new Error("Failed to load credentials");
+        console.log("Admin: Fetching /api/admins...");
+        const response = await fetch('/api/admins');
+        if (response.ok) {
+            const users = await response.json();
+            console.log("Admin: API Response:", users);
+            if (Array.isArray(users)) {
+                ADMIN_USERS = users.map(u => ({
+                    email: u.username.toLowerCase(),
+                    pass: u.password
+                }));
+                console.log(`Admin: Loaded ${ADMIN_USERS.length} users from API.`);
+                apiSuccess = true;
+                return;
+            }
+        } else {
+            console.warn("Admin: API response not OK:", response.status);
+        }
+    } catch (e) {
+        console.warn("Admin: API load failed (server possibly down or CORS issue)", e);
+    }
+
+    // Fallback: Legacy Text File
+    try {
+        console.log("Admin: Fetching adminCredentials.txt...");
+        const response = await fetch('adminCredentials.txt?v=' + Date.now());
+        if (!response.ok) throw new Error("Failed to load credentials file");
         const text = await response.text();
+        console.log("Admin: File Content Preview:", text.substring(0, 50));
+
         const lines = text.split(/\r?\n/);
-
-        ADMIN_USERS = []; // Clear existing
         let currentUser = {};
-
         for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) {
-                // Empty line acts as delimiter/commit for previous user
                 if (currentUser.email && currentUser.pass) {
                     ADMIN_USERS.push(currentUser);
                     currentUser = {};
@@ -211,15 +238,13 @@ async function loadCredentials() {
                 continue;
             }
 
-            // Robust parsing: Split only on first colon to support passwords with colons
             const firstColon = line.indexOf(':');
             if (firstColon === -1) continue;
 
-            const key = line.substring(0, firstColon).trim().toLowerCase(); // Normalize key
+            const key = line.substring(0, firstColon).trim().toLowerCase();
             const value = line.substring(firstColon + 1).trim();
 
             if (key === 'username') {
-                // If starting a new user block without an empty line separator
                 if (currentUser.email && currentUser.pass) {
                     ADMIN_USERS.push(currentUser);
                     currentUser = {};
@@ -229,28 +254,80 @@ async function loadCredentials() {
                 currentUser.pass = value;
             }
         }
-
-        // Push the final user if exists
         if (currentUser.email && currentUser.pass) {
             ADMIN_USERS.push(currentUser);
         }
-
-        console.log(`Admin: Loaded ${ADMIN_USERS.length} users.`);
-
+        console.log(`Admin: Loaded ${ADMIN_USERS.length} users from file.`);
+        fileSuccess = true;
     } catch (e) {
-        console.error("Admin: Could not load credentials", e);
+        console.error("Admin: Both API and File load failed", e);
     }
 
-    // Emergency Fallback User (added by system)
+    // Emergency Default
     if (ADMIN_USERS.length === 0) {
-        console.warn("Admin: Using fallback credentials due to load failure.");
+        console.warn("Admin: using fallback credentials.");
+        // If both failed, it's likely a server/file access issue.
+        if (!apiSuccess && !fileSuccess) {
+            // Check if protocols match expectations
+            if (window.location.protocol === 'file:') {
+                alert("CRITICAL: You are opening this file directly. Please START THE SERVER (node server.js) and open http://localhost:3000/admin.html to log in.");
+            }
+        }
+
+        // Still add default so logic doesn't crash, but it won't match user's custom creds
         ADMIN_USERS.push({ email: 'admin', pass: 'admin123' });
     }
+
+    console.log("Admin: Final User List:", ADMIN_USERS);
 }
 
+// Ensure handleLogin logs as well
+const handleLogin = (e) => {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Attach Login Listener Immediately (Fix Vercel Race Condition)
+    console.log("Admin: handleLogin called. Users loaded:", ADMIN_USERS.length);
+    if (ADMIN_USERS.length === 0) {
+        alert("System initializing... please wait.");
+        return;
+    }
+
+    const emailInput = document.getElementById('admin-email');
+    const passInput = document.getElementById('admin-password');
+    if (!emailInput || !passInput) return;
+
+    const email = emailInput.value.trim().toLowerCase();
+    const pass = passInput.value.trim();
+    const err = document.getElementById('login-error');
+
+    console.log(`Admin: Attempting login for '${email}' with password length ${pass.length}`);
+
+    const validUser = ADMIN_USERS.find(u => {
+        const match = u.email === email && u.pass === pass;
+        if (!match && u.email === email) console.log("Admin: User found but password mismatch.");
+        return match;
+    });
+
+    if (validUser) {
+        console.log("Admin: Login Success!");
+        sessionStorage.setItem('admin_logged_in', 'true');
+        if (err) err.classList.add('hidden');
+        showDashboard();
+    } else {
+        console.warn("Admin: Login Failed for", email);
+        console.log("Admin: Available Users:", ADMIN_USERS.map(u => u.email));
+        if (err) err.classList.remove('hidden');
+    }
+};
+
+
+// Main Initialization Logic
+async function initAdmin() {
+    console.log("Admin: Initializing...");
+
+    // 1. Attach Login Listener Immediately
     const loginForm = document.getElementById('login-form');
     const loginBtn = document.querySelector('.btn-primary');
 
@@ -288,17 +365,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
+        // Remove existing listeners to avoid duplicates if re-init
+        const newForm = loginForm.cloneNode(true);
+        loginForm.parentNode.replaceChild(newForm, loginForm);
+        newForm.addEventListener('submit', handleLogin);
     }
-    if (loginBtn) {
-        // Double safety for Vercel race conditions / structural issues
-        loginBtn.addEventListener('click', (e) => {
-            // Only if it's not a submit button (which it is) but preventing default just in case
-            // actually if it is submit, the form submit fires.
-            // But if form is broken, catching click helps.
-            if (loginBtn.type !== 'submit') handleLogin(e);
+
+    // Manual bind for button just in case
+    if (loginBtn && loginForm) {
+        const newBtn = loginBtn.cloneNode(true);
+        loginBtn.parentNode.replaceChild(newBtn, loginBtn);
+        newBtn.addEventListener('click', (e) => {
+            if (newBtn.type !== 'submit') handleLogin(e);
         });
     }
+
     await loadCredentials();
     await loadGeminiCredentials();
 
@@ -316,7 +397,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const imgInput = document.getElementById('product-image-upload');
     if (imgInput) {
         console.log("Admin: Event listener attached to #product-image-upload");
-        imgInput.addEventListener('change', async (e) => {
+        const newInput = imgInput.cloneNode(true);
+        imgInput.parentNode.replaceChild(newInput, imgInput);
+        newInput.addEventListener('change', async (e) => {
             console.log("Admin: Image file selected/changed");
             if (e.target.files && e.target.files[0]) {
                 await analyzeImageWithGemini(e.target.files[0]);
@@ -324,291 +407,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Navigation Handler (Event Delegation)
+    const sidebarNav = document.querySelector('.sidebar-nav');
+    if (sidebarNav) {
+        // Clone sidebar nav to clear old listeners if any (clean slate)
+        const newSidebarNav = sidebarNav.cloneNode(true);
+        sidebarNav.parentNode.replaceChild(newSidebarNav, sidebarNav);
 
+        newSidebarNav.addEventListener('click', (e) => {
+            const navItem = e.target.closest('.nav-item[data-view]');
+            if (!navItem) return;
 
-    // Navigation Handler
-    document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
-        btn.addEventListener('click', () => {
+            console.log("Navigating to:", navItem.dataset.view);
+
             // Update Active State
-            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            // Note: We need to query from the newSidebarNav now since we replaced it
+            newSidebarNav.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            navItem.classList.add('active');
 
             // Show View
-            const viewId = `view-${btn.dataset.view}`;
-            document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
-            document.getElementById(viewId).classList.remove('hidden');
-            document.getElementById('page-title').textContent = btn.textContent.trim();
-            if (btn.dataset.view === 'products') {
-                loadProducts();
-            } else if (btn.dataset.view === 'add-product') {
-                prepareAddProductForm();
-            } else if (btn.dataset.view === 'create-order') {
-                initCreateOrder();
-            } else if (btn.dataset.view === 'social-generator') {
-                initSocialGenerator();
-            } else if (btn.dataset.view === 'upload-images') {
-                initUploadImages();
+            const viewId = `view-${navItem.dataset.view}`;
+
+            // Force hide all sections
+            document.querySelectorAll('.view-section').forEach(v => {
+                v.classList.add('hidden');
+                v.style.display = 'none';
+            });
+
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                targetView.style.display = 'block';
+
+                // Update header title
+                const titleEl = document.getElementById('page-title');
+                if (titleEl) {
+                    // Handle text content carefully to ignore icon text if any
+                    // Actually navItem.textContent is fine usually
+                    titleEl.textContent = navItem.innerText.trim();
+                }
+
+                // View specific init
+                const viewName = navItem.dataset.view;
+                if (viewName === 'products') {
+                    if (window.loadProducts) window.loadProducts();
+                } else if (viewName === 'add-product') {
+                    if (window.prepareAddProductForm) window.prepareAddProductForm();
+                } else if (viewName === 'create-order') {
+                    if (window.initCreateOrder) window.initCreateOrder();
+                } else if (viewName === 'social-generator') {
+                    if (window.initSocialGenerator) window.initSocialGenerator();
+                } else if (viewName === 'upload-images') {
+                    if (window.initUploadImages) window.initUploadImages();
+                } else if (viewName === 'settings') {
+                    // Ensure settings are loaded when viewed
+                    if (window.loadSettings) window.loadSettings();
+                }
+            } else {
+                console.error("Target view not found:", viewId);
             }
         });
-    });
+    }
 
     // Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        sessionStorage.removeItem('admin_logged_in');
-        window.location.reload();
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        const newLogout = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newLogout, logoutBtn);
+        newLogout.addEventListener('click', () => {
+            sessionStorage.removeItem('admin_logged_in');
+            window.location.reload();
+        });
+    }
 
-    document.getElementById('refresh-products-btn')?.addEventListener('click', loadProducts);
+    const refreshBtn = document.getElementById('refresh-products-btn');
+    if (refreshBtn) {
+        const newRefresh = refreshBtn.cloneNode(true);
+        refreshBtn.parentNode.replaceChild(newRefresh, refreshBtn);
+        newRefresh.addEventListener('click', loadProducts);
+    }
 
     // Add Product Form Handler
     const addProductForm = document.getElementById('add-product-form');
     if (addProductForm) {
-        addProductForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const msg = document.getElementById('add-product-msg');
-            const err = document.getElementById('add-product-error');
-            msg.classList.add('hidden');
-            err.classList.add('hidden');
+        // Clone to clear listeners
+        const newForm = addProductForm.cloneNode(true);
+        addProductForm.parentNode.replaceChild(newForm, addProductForm);
 
-            const form = e.target;
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-
-            const no = data['No'].trim();
-            if (!no) {
-                err.textContent = "Item Number is required";
-                err.classList.remove('hidden');
-                return;
-            }
-
-            // 1. Validate GAS URL
-            const gasUrl = document.getElementById('google-script-url').value.trim();
-            if (!gasUrl) {
-                err.textContent = "Please provide the Google Apps Script URL.";
-                err.classList.remove('hidden');
-                return;
-            }
-
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.innerText;
-
-            // Show loading
-            const loading = document.getElementById('loading-modal');
-            loading.classList.remove('hidden');
-            submitBtn.disabled = true;
-            submitBtn.innerText = "Processing...";
-
-            // 2. Prepare Data for GAS
-            const action = document.getElementById('product-action').value || 'addProduct';
-            const gasData = {
-                'action': action,
-                'No': no,
-                'Name on Store': data['Name on Store'],
-                'product name': data['product name'],
-                'Arabic Name': data['Arabic Name'],
-                'category': data['category'],
-                'collection': data['collection'],
-                'description (80 word)': data['description (80 word)'],
-                'Dimensions(mm) x y z': data['Dimensions(mm) x y z'],
-                'Colors': data['Colors'],
-                'Price < 25 QTY': data['Price < 25 QTY'],
-                'target market': data['target market'],
-                'Document Link': data['Document Link'],
-                'Calculate on Weight': data['Calculate on Weight'],
-                'Price >= 25 QTY': data['Price >=25 QTY'], // Standardize key to "Price >= 25 QTY" (with spaces)
-
-                'Available': form.querySelector('[name="Available"]').checked ? "TRUE" : "FALSE",
-                'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
-                'Active': form.querySelector('[name="Active"]').checked ? "TRUE" : "FALSE",
-            };
-
-            // 3. Handle Image (Convert to Base64)
-            const fileInput = document.getElementById('product-image-upload');
-            if (fileInput && fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-
-                reader.onerror = function () {
-                    console.error("FileReader error");
-                    loading.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtn.innerText = originalBtnText;
-                    err.textContent = "Failed to read file";
-                    err.classList.remove('hidden');
-                };
-
-                reader.onload = async function (e) {
-                    const base64 = e.target.result.split(',')[1]; // Remove data:image/...;base64,
-                    gasData.image = base64;
-                    const ext = file.name.split('.').pop();
-                    const newFileName = `${no}.${ext}`;
-                    gasData.imageName = newFileName; // Rename to ItemNo.ext
-                    gasData.mimeType = file.type;
-
-                    // --- LOCAL UPLOAD ---
-                    try {
-                        console.log("Uploading image locally...");
-                        const localRes = await fetch('/api/upload-image', {
-                            method: 'POST',
-                            body: file, // Send raw part
-                            headers: {
-                                'X-Filename': newFileName
-                            }
-                        });
-                        if (localRes.ok) {
-                            console.log("Local upload success");
-                        } else {
-                            console.error("Local upload failed");
-                        }
-                    } catch (uploadErr) {
-                        console.error("Local upload error", uploadErr);
-                    }
-                    // --------------------
-
-                    submitToGas(gasUrl, gasData);
-                };
-
-                reader.readAsDataURL(file);
-            } else {
-                submitToGas(gasUrl, gasData);
-            }
-
-            window.submitToGas = submitToGas;
-            async function submitToGas(url, payload) {
-                try {
-                    // Use 'no-cors' if GAS doesn't return CORS headers, handle blindly?
-                    // GAS Web Apps usually return simple JSON if configured right.
-                    // But standard fetch might fail CORS if not handled in GAS with `ContentService`.
-                    // My GAS code uses `ContentService` which generally works with redirects.
-
-                    // Actually, Fetching GAS Web App often requires `redirect: 'follow'`.
-                    // But doing it from browser often hits CORS.
-                    // The best way is using `no-cors` for fire-and-forget OR fetch with `application/x-www-form-urlencoded` text/plain to avoid preflight?
-                    // POSTing JSON usually triggers preflight which GAS doesn't support.
-                    // So we must use `text/plain` for the body type to avoid preflight!
-
-                    console.log("[DEBUG] Submitting to GAS. URL:", url);
-                    console.log("[DEBUG] Payload:", JSON.stringify(payload, null, 2));
-
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        body: JSON.stringify(payload),
-                        headers: {
-                            "Content-Type": "text/plain;charset=utf-8", // Hacks to avoid preflight
-                        },
-                    });
-
-                    const text = await res.text();
-                    let json = {};
-                    try {
-                        json = JSON.parse(text);
-                    } catch (e) {
-                        // If opaque, assume success?
-                        console.warn("Could not parse GAS response", text);
-                    }
-
-                    if (json.result === 'success') {
-                        msg.textContent = "Product sent! Redirecting to Social Generator... 🚀";
-                        msg.classList.remove('hidden');
-
-                        // Wait a moment for UX
-                        setTimeout(async () => {
-                            form.reset();
-                            msg.classList.add('hidden');
-
-                            // 1. Switch View
-                            document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
-                            document.getElementById('view-social-generator').classList.remove('hidden');
-
-                            // 2. Update Nav
-                            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-                            document.querySelector('.nav-item[data-view="social-generator"]')?.classList.add('active');
-
-                            // 3. Init Generator (ensure dropdown is ready if needed, though we bypass selection)
-                            if (window.initSocialGenerator) await window.initSocialGenerator();
-
-                            // 4. Update Dropdown to match new item (Visual only)
-                            const select = document.getElementById('social-product-select');
-                            if (select) {
-                                // Add option if not exists (Optimistic update)
-                                const exists = [...select.options].some(o => o.value === payload.No);
-                                if (!exists) {
-                                    const opt = document.createElement('option');
-                                    opt.value = payload.No;
-                                    opt.textContent = `${payload.No} - ${payload['product name'] || payload['Name on Store'] || 'New Product'}`;
-                                    select.appendChild(opt);
-                                }
-                                select.value = payload.No;
-                            }
-
-                            // 5. Trigger Generation
-                            // Map payload keys to what generateSocialPost expects if needed, or just pass payload
-                            // payload keys: 'Name on Store', 'product name', 'Dimensions(mm) x y z', 'Price < 25 QTY', 'Document Link'
-                            // generateSocialPost keys: check function
-                            if (typeof generateSocialPost === 'function') {
-                                await generateSocialPost(payload);
-                            }
-
-                        }, 1000);
-
-                    } else {
-                        throw new Error(json.error || ("Request failed (Status: " + res.status + "). Check permissions (Should be 'Anyone')."));
-                    }
-                } catch (ex) {
-                    console.error(ex);
-                    err.textContent = "Failed to sync with Google Sheet: " + ex.message;
-                    err.classList.remove('hidden');
-                } finally {
-                    loading.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtn.innerText = originalBtnText;
-                }
-            }
+        newForm.addEventListener('submit', async (e) => {
+            // ... existing logic ...
+            // Re-implementing the submit logic essentially means copying the whole block or refactoring it out.
+            // To be safe and concise, I will call a separate function handler.
+            handleProductSubmit(e);
         });
 
-        // Price Calculation Logic
-        const weightInput = addProductForm.querySelector('input[name="Calculate on Weight"]');
+        // Re-attach weight listener
+        const weightInput = newForm.querySelector('input[name="Calculate on Weight"]');
         if (weightInput) {
-            weightInput.addEventListener('blur', (e) => {
-                const weight = parseFloat(e.target.value);
-                if (isNaN(weight)) return;
-
-                // Price < 25 QTY Logic
-                // =IF(Weight<35, Weight*0.075, IF(Weight<60, Weight*0.06, IF(Weight<150, Weight*0.05, Weight*0.04)))
-                let priceSmall = 0;
-                if (weight < 35) priceSmall = weight * 0.075;
-                else if (weight < 60) priceSmall = weight * 0.06;
-                else if (weight < 150) priceSmall = weight * 0.05;
-                else priceSmall = weight * 0.04;
-
-                // Wholesale Price (>= 25 QTY) Logic
-                // =IF(Weight<35, Weight*0.06, IF(Weight<150, Weight*0.05, Weight*0.04))
-                let priceWholesale = 0;
-                if (weight < 35) priceWholesale = weight * 0.06;
-                else if (weight < 150) priceWholesale = weight * 0.05;
-                else priceWholesale = weight * 0.04;
-
-                // Update Fields (rounding to 3 decimals)
-                const priceSmallInput = addProductForm.querySelector('input[name="Price < 25 QTY"]');
-                const priceWholesaleInput = addProductForm.querySelector('input[name="Price >=25 QTY"]');
-
-                if (priceSmallInput) priceSmallInput.value = priceSmall.toFixed(3);
-                if (priceWholesaleInput) priceWholesaleInput.value = priceWholesale.toFixed(3);
-
-                console.log(`Calculated Prices for Weight ${weight}: <25=${priceSmall}, >=25=${priceWholesale}`);
-            });
+            weightInput.addEventListener('blur', handleWeightCalculation);
         }
     }
-
-
 
     // Settings Handler
     const saveSettingsBtn = document.getElementById('save-settings-btn');
     if (saveSettingsBtn) {
-        // Load initial settings
         loadSettings();
+        const newBtn = saveSettingsBtn.cloneNode(true);
+        saveSettingsBtn.parentNode.replaceChild(newBtn, saveSettingsBtn);
 
-        saveSettingsBtn.addEventListener('click', async () => {
+        newBtn.addEventListener('click', async () => {
             const enabled = document.getElementById('email-enabled').checked;
             const receiver = document.getElementById('receiver-email').value.trim();
             const sender = document.getElementById('sender-email').value.trim();
@@ -640,48 +547,258 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    async function loadSettings() {
-        try {
-            const res = await fetch('/api/settings');
-            const config = await res.json();
-            if (config.enabled !== undefined) {
-                document.getElementById('email-enabled').checked = config.enabled;
-                document.getElementById('receiver-email').value = config.receiver_email || '';
-                document.getElementById('sender-email').value = config.sender_email || '';
-                document.getElementById('sender-pass').value = config.sender_pass || '';
-            }
-        } catch (e) {
-            console.error("Failed to load settings", e);
-        }
-    }
-
     // Delegated Event Listener for Order Item Tiles
     const ordersBody = document.getElementById('orders-table-body');
     if (ordersBody) {
-        console.log("Attaching event listener to orders-table-body");
-        ordersBody.addEventListener('click', (e) => {
-            console.log("Click detected on orders body. Target:", e.target);
+        const newBody = ordersBody.cloneNode(true);
+        ordersBody.parentNode.replaceChild(newBody, ordersBody);
+
+        newBody.addEventListener('click', (e) => {
             const tile = e.target.closest('.item-tile');
             if (tile) {
-                // Prevent row toggle or other side effects
                 e.preventDefault();
                 e.stopPropagation();
-
                 const sku = tile.dataset.sku;
-                console.log("Delegated Click on Tile. SKU:", sku);
-
                 if (sku) {
-                    console.log("Attempting to expand item:", sku);
                     window.toggleItemExpansion(tile, sku);
-                } else {
-                    console.warn("Tile clicked but no SKU found in dataset");
                 }
             }
         });
-    } else {
-        console.error("CRITICAL: orders-table-body not found during initialization");
     }
-});
+}
+
+// Separate handlers to keep init clean
+// Separate handlers to keep init clean
+async function handleProductSubmit(e) {
+    e.preventDefault();
+    const msg = document.getElementById('add-product-msg');
+    const err = document.getElementById('add-product-error');
+    if (msg) msg.classList.add('hidden');
+    if (err) err.classList.add('hidden');
+
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    const no = data['No'].trim();
+    if (!no) {
+        if (err) {
+            err.textContent = "Item Number is required";
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    // 1. Validate GAS URL
+    const gasUrl = document.getElementById('google-script-url').value.trim();
+    if (!gasUrl) {
+        if (err) {
+            err.textContent = "Please provide the Google Apps Script URL.";
+            err.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerText;
+
+    // Show loading
+    const loading = document.getElementById('loading-modal');
+    if (loading) loading.classList.remove('hidden');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Processing...";
+
+    // 2. Prepare Data for GAS
+    const action = document.getElementById('product-action').value || 'addProduct';
+    const gasData = {
+        'action': action,
+        'No': no,
+        'Name on Store': data['Name on Store'],
+        'product name': data['product name'],
+        'Arabic Name': data['Arabic Name'],
+        'category': data['category'],
+        'collection': data['collection'],
+        'description (80 word)': data['description (80 word)'],
+        'Dimensions(mm) x y z': data['Dimensions(mm) x y z'],
+        'Colors': data['Colors'],
+        'Price < 25 QTY': data['Price < 25 QTY'],
+        'target market': data['target market'],
+        'Document Link': data['Document Link'],
+        'Calculate on Weight': data['Calculate on Weight'],
+        'Price >= 25 QTY': data['Price >=25 QTY'],
+
+        'Available': form.querySelector('[name="Available"]').checked ? "TRUE" : "FALSE",
+        'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
+        'Active': form.querySelector('[name="Active"]').checked ? "TRUE" : "FALSE",
+    };
+
+    // 3. Handle Image (Convert to Base64)
+    const fileInput = document.getElementById('product-image-upload');
+    if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onerror = function () {
+            console.error("FileReader error");
+            if (loading) loading.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalBtnText;
+            if (err) {
+                err.textContent = "Failed to read file";
+                err.classList.remove('hidden');
+            }
+        };
+
+        reader.onload = async function (e) {
+            const base64 = e.target.result.split(',')[1];
+            gasData.image = base64;
+            const ext = file.name.split('.').pop();
+            const newFileName = `${no}.${ext}`;
+            gasData.imageName = newFileName;
+            gasData.mimeType = file.type;
+
+            try {
+                const localRes = await fetch('/api/upload-image', {
+                    method: 'POST',
+                    body: file,
+                    headers: { 'X-Filename': newFileName }
+                });
+            } catch (uploadErr) {
+                console.error("Local upload error", uploadErr);
+            }
+
+            submitToGas(gasUrl, gasData);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        submitToGas(gasUrl, gasData);
+    }
+
+    async function submitToGas(url, payload) {
+        try {
+            console.log("[DEBUG] Submitting to GAS.");
+            const res = await fetch(url, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+            });
+
+            const text = await res.text();
+            let json = {};
+            try { json = JSON.parse(text); } catch (e) { }
+
+            if (json.result === 'success') {
+                if (msg) {
+                    msg.textContent = "Product sent! Redirecting... 🚀";
+                    msg.classList.remove('hidden');
+                }
+
+                setTimeout(async () => {
+                    form.reset();
+                    if (msg) msg.classList.add('hidden');
+
+                    // Switch View using global helper (if we had one) or manual
+                    document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+                    const socialView = document.getElementById('view-social-generator');
+                    if (socialView) {
+                        socialView.classList.remove('hidden');
+                        socialView.style.display = 'block';
+                    }
+
+                    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                    document.querySelector('.nav-item[data-view="social-generator"]')?.classList.add('active');
+
+                    if (window.initSocialGenerator) await window.initSocialGenerator();
+
+                    const select = document.getElementById('social-product-select');
+                    if (select) {
+                        const exists = [...select.options].some(o => o.value === payload.No);
+                        if (!exists) {
+                            const opt = document.createElement('option');
+                            opt.value = payload.No;
+                            opt.textContent = `${payload.No} - ${payload['product name'] || payload['Name on Store']}`;
+                            select.appendChild(opt);
+                        }
+                        select.value = payload.No;
+                    }
+
+                    if (typeof generateSocialPost === 'function') {
+                        await generateSocialPost(payload);
+                    }
+                }, 1000);
+
+            } else {
+                throw new Error("GAS Error: " + (json.error || res.status));
+            }
+        } catch (ex) {
+            console.error(ex);
+            if (err) {
+                err.textContent = "Sync Failed: " + ex.message;
+                err.classList.remove('hidden');
+            }
+        } finally {
+            if (loading) loading.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.innerText = originalBtnText;
+        }
+    }
+}
+
+function handleWeightCalculation(e) {
+    const form = document.getElementById('add-product-form');
+    if (!form) return;
+
+    const weight = parseFloat(e.target.value);
+    if (isNaN(weight)) return;
+
+    let priceSmall = 0;
+    if (weight < 35) priceSmall = weight * 0.075;
+    else if (weight < 60) priceSmall = weight * 0.06;
+    else if (weight < 150) priceSmall = weight * 0.05;
+    else priceSmall = weight * 0.04;
+
+    let priceWholesale = 0;
+    if (weight < 35) priceWholesale = weight * 0.06;
+    else if (weight < 150) priceWholesale = weight * 0.05;
+    else priceWholesale = weight * 0.04;
+
+    const priceSmallInput = form.querySelector('input[name="Price < 25 QTY"]');
+    const priceWholesaleInput = form.querySelector('input[name="Price >=25 QTY"]');
+
+    if (priceSmallInput) priceSmallInput.value = priceSmall.toFixed(3);
+    if (priceWholesaleInput) priceWholesaleInput.value = priceWholesale.toFixed(3);
+    console.log(`Calculated Prices: <25=${priceSmall.toFixed(3)}, >=25=${priceWholesale.toFixed(3)}`);
+}
+
+async function loadSettings() {
+    console.log("Loading settings...");
+    try {
+        const res = await fetch('/api/settings');
+        if (!res.ok) throw new Error("Failed to fetch settings");
+        const data = await res.json();
+
+        const enabled = document.getElementById('email-enabled');
+        const receiver = document.getElementById('receiver-email');
+        const sender = document.getElementById('sender-email');
+        const pass = document.getElementById('sender-pass');
+
+        if (enabled) enabled.checked = !!data.enabled;
+        if (receiver) receiver.value = data.receiver_email || '';
+        if (sender) sender.value = data.sender_email || '';
+        if (pass) pass.value = data.sender_pass || '';
+
+    } catch (e) {
+        console.error("Error loading settings:", e);
+    }
+}
+
+// Execute Init
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdmin);
+} else {
+    // Already ready, run immediately
+    initAdmin();
+}
 
 
 // --- Social Media Generator ---
@@ -860,33 +977,56 @@ window.initUploadImages = async function () {
 
         newBtn.disabled = true;
         newBtn.innerHTML = '<span>Uploading... ⏳</span>';
-        status.textContent = "";
+        status.textContent = "Starting upload...";
         status.style.color = "var(--text-secondary)";
 
-        const formData = new FormData();
-        formData.append('productNo', productNo);
-        for (let i = 0; i < files.length; i++) {
-            formData.append('images', files[i]);
-        }
+        let successCount = 0;
+        let errors = [];
 
         try {
-            // Handle file deployment vs server deployment
             const isLocalFile = window.location.protocol === 'file:';
             const apiBase = isLocalFile ? 'http://localhost:8000' : '';
 
-            const res = await fetch(`${apiBase}/api/upload-images`, {
-                method: 'POST',
-                body: formData
-            });
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                // Naming Convention: SKU_1.jpg, SKU_2.jpg ... 
+                // We don't know existing offset, so just using batch index 1-based for now.
+                // Or maybe use timestamp to be safe? The prompt said SKU_1.jpg
+                // Let's use numeric index + timestamp to avoid easy collisions or just index if that's the strict requirement.
+                // The prompt example "SKU_1.jpg" implies simple indexing.
+                // To avoid overwriting existing "SKU_1.jpg" if we upload again, we might want a random suffix or timestamp.
+                // BUT, to keep it simple and consistent with user request:
+                const ext = file.name.split('.').pop() || 'jpg';
+                const newFileName = `${productNo}_${i + 1}_${Date.now().toString().slice(-4)}.${ext}`; // Added timestamp suffix for safety
 
-            const json = await res.json();
+                status.textContent = `Uploading ${i + 1}/${files.length}...`;
 
-            if (res.ok && json.status === 'success') {
-                status.textContent = "✅ " + json.message;
+                const res = await fetch(`${apiBase}/api/upload-image`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Filename': newFileName,
+                        'Content-Type': file.type
+                    },
+                    body: file // Raw binary
+                });
+
+                if (res.ok) {
+                    successCount++;
+                } else {
+                    const json = await res.json().catch(() => ({}));
+                    errors.push(json.error || res.statusText);
+                }
+            }
+
+            if (successCount === files.length) {
+                status.textContent = `✅ All ${files.length} images uploaded!`;
                 status.style.color = "#34d399";
                 input.value = ""; // Clear selection
+            } else if (successCount > 0) {
+                status.textContent = `⚠️ Uploaded ${successCount}/${files.length}. Errors: ${errors.join(', ')}`;
+                status.style.color = "#f59e0b";
             } else {
-                throw new Error(json.message || "Upload failed");
+                throw new Error(errors.join(', ') || "All uploads failed");
             }
 
         } catch (e) {
@@ -948,13 +1088,37 @@ async function loadData() {
         }
 
         // 1. Visits
-        let visitsData = { visits: 0, today: 0, history: {} };
+        let visitsData = { total: 0, daily: {} };
         try {
+            // Try fetching visits.json directly (since no API server)
             const visitsRes = await fetch('/api/visits');
-            visitsData = await visitsRes.json();
-            document.getElementById('stat-visits').textContent = visitsData.visits || 0;
-            document.getElementById('stat-visits-today').textContent = visitsData.today || 0;
+            if (visitsRes.ok) {
+                visitsData = await visitsRes.json();
+            } else {
+                throw new Error("visits.json not found");
+            }
+
+            // Calculate Today's Visits
+            // Use local date to match server
+            const now = new Date();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+            console.log("DEBUG VISITS: Now=", now.toString(), "TodayStr=", todayStr, "Data=", JSON.stringify(visitsData));
+
+            let todayVisits = 0;
+            if (visitsData.daily) {
+                const match = Object.entries(visitsData.daily).find(([k, v]) => k.trim() === todayStr);
+                if (match) {
+                    console.log("MATCH FOUND:", match);
+                    todayVisits = match[1];
+                } else {
+                    console.log("NO MATCH for", todayStr, "in", Object.keys(visitsData.daily));
+                }
+            }
+
+            document.getElementById('stat-visits').textContent = visitsData.total || 0;
+            document.getElementById('stat-visits-today').textContent = todayVisits;
         } catch (e) {
+            console.warn("Could not load visits.json", e);
             document.getElementById('stat-visits').textContent = '-';
             document.getElementById('stat-visits-today').textContent = '-';
         }
@@ -968,7 +1132,7 @@ async function loadData() {
         let revenue = 0;
         orders.forEach(o => {
             if (o.status === 'Closed') {
-                const amt = parseFloat(o.total.replace(/[^\d.]/g, ''));
+                const amt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, ''));
                 if (!isNaN(amt)) revenue += amt;
             }
         });
@@ -1169,16 +1333,37 @@ function initDashboard(orders, visitsData) {
         }
 
         // Clean Amount
-        const amt = parseFloat(o.total.replace(/[^\d.]/g, ''));
+        const amt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, ''));
         if (!isNaN(amt)) {
             if (!dateMap[dateStr]) dateMap[dateStr] = 0;
             dateMap[dateStr] += amt;
         }
     });
 
-    // Visits Data Preparation
-    const visitDates = Object.keys(visitsData?.history || {}).sort((a, b) => new Date(a) - new Date(b));
-    const visitCounts = visitDates.map(d => visitsData.history[d]);
+    // Visits Data Preparation - Fix for key mismatch
+    // Check for 'daily' (visits.json format) or fallback to 'history'
+    const dailyVisits = visitsData?.daily || visitsData?.history || {};
+    const visitDates = Object.keys(dailyVisits).sort((a, b) => new Date(a) - new Date(b));
+    const visitCounts = visitDates.map(d => dailyVisits[d]);
+
+    // Calculate Totals for Stat Cards
+    if (visitsData && visitsData.total !== undefined) {
+        const totalVisitsEl = document.getElementById('stat-visits');
+        if (totalVisitsEl) totalVisitsEl.textContent = visitsData.total;
+    }
+
+    // Calculate Today's Visits
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+
+    // Robust match for today
+    let visitsToday = 0;
+    const match = Object.entries(dailyVisits).find(([k, v]) => k.trim() === todayStr);
+    if (match) visitsToday = match[1];
+
+    const visitsTodayEl = document.getElementById('stat-visits-today');
+    if (visitsTodayEl) visitsTodayEl.textContent = visitsToday;
+
 
     if (visitDates.length > 0) {
         // Render Visits Chart
@@ -1768,11 +1953,11 @@ window.getProductDetailsHtml = function (productRaw, closeJs) {
                     <div class="premium-footer">
                         <div class="premium-price-block">
                              <span class="premium-price-label">Price &lt; 25 QTY</span>
-                             <span class="premium-price-value">${p.price} JOD</span>
+                             <span class="premium-price-value">${parseFloat(p.price || 0).toFixed(3)} JOD</span>
                         </div>
                         <div class="premium-price-block">
                              <span class="premium-price-label" style="color:#b45309;">Price >= 25 QTY</span>
-                             <span class="premium-price-value" style="color:#d97706;">${p.bulkPrice || '-'} JOD</span>
+                             <span class="premium-price-value" style="color:#d97706;">${parseFloat(p.bulkPrice || 0).toFixed(3)} JOD</span>
                         </div>
                     </div>
 
@@ -1922,7 +2107,7 @@ window.renderProductsTable = function (data) {
             <td style="font-family:monospace; font-weight:600; font-size:0.9rem;">${row['No']}</td>
             <td style="font-weight:500;">${row['Name on Store'] || row['product name'] || '-'}</td>
             <td style="opacity:0.8;">${row['category']}</td>
-            <td style="font-weight:700; color:#fff;">${row['Price < 25 QTY']}</td>
+            <td style="font-weight:700; color:#fff;">${parseFloat(row['Price < 25 QTY'] || 0).toFixed(3)}</td>
             <td>${statusHtml}</td>
             <td onclick="event.stopPropagation()">
                 <div class="action-buttons">
@@ -2177,6 +2362,147 @@ let manualCart = [];
 let manualProducts = [];
 let deliveryRegionsCache = {}; // { RegionName: { CompanyName: Price, ... } }
 
+// Product Search Logic for Manual Order
+// Product Search Logic for Manual Order
+window.handleManualProductSearch = function (e) {
+    const term = e.target.value.toLowerCase().trim();
+    const dropdown = document.getElementById('mo-product-dropdown');
+
+    // If empty, show first 50 items (or all if small list)
+    let matches = [];
+    if (!term) {
+        matches = manualProducts.slice(0, 50);
+    } else {
+        // Filter using manualProducts
+        matches = manualProducts.filter(p => {
+            const id = String(p.id).toLowerCase();
+            const name = String(p.name).toLowerCase();
+            return id.includes(term) || name.includes(term);
+        }).slice(0, 50); // Limit to 50
+    }
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = '<div class="dropdown-item" style="cursor:default">No matches found</div>';
+        dropdown.classList.remove('hidden');
+        return;
+    }
+
+    dropdown.innerHTML = matches.map(p => `
+        <div class="dropdown-item" onclick="window.selectManualProduct('${p.id}')">
+            <img src="assets/products/${p.id}.jpg" onerror="this.src='assets/products/${p.id}.png'; this.onerror=null;">
+            <div style="overflow:hidden;">
+                <div class="item-name">${p.name}</div>
+                <div class="item-id">${p.id}</div>
+            </div>
+            <div class="item-price">${p.price.toFixed(3)}</div>
+        </div>
+    `).join('');
+
+    dropdown.classList.remove('hidden');
+};
+
+window.selectManualProduct = function (id) {
+    const input = document.getElementById('mo-product-search');
+    const dropdown = document.getElementById('mo-product-dropdown');
+    input.value = id;
+    dropdown.classList.add('hidden');
+    // Optional: Auto-focus quantity or just let user continue
+    document.getElementById('mo-qty').focus();
+};
+
+window.addToManualCart = function () {
+    const searchInput = document.getElementById('mo-product-search');
+    const qtyInput = document.getElementById('mo-qty');
+    const msgEl = document.getElementById('mo-msg');
+    const errEl = document.getElementById('mo-error');
+
+    msgEl.classList.add('hidden');
+    errEl.classList.add('hidden');
+
+    const id = searchInput.value.trim();
+    const qty = parseInt(qtyInput.value);
+
+    if (!id) {
+        errEl.textContent = "Please select a product.";
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    if (!qty || qty < 1) {
+        errEl.textContent = "Invalid quantity.";
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    // Find product
+    const product = manualProducts.find(p => p.id === id);
+    if (!product) {
+        errEl.textContent = "Product not found. Please select from the list.";
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    // Check if already in cart? Merge or add new?
+    // Let's add new line to allow different customizations if needed, but here simple merge
+    const existing = manualCart.find(item => item.id === id);
+    if (existing) {
+        existing.qty += qty;
+    } else {
+        manualCart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            qty: qty
+        });
+    }
+
+    // Reset inputs
+    searchInput.value = '';
+    qtyInput.value = 1;
+    document.getElementById('mo-product-dropdown').classList.add('hidden');
+
+    renderManualCart();
+    updateManualTotal();
+};
+
+window.removeFromManualCart = function (index) {
+    manualCart.splice(index, 1);
+    renderManualCart();
+    updateManualTotal();
+};
+
+window.renderManualCart = function () {
+    const list = document.getElementById('mo-cart-items');
+    if (!list) return;
+
+    if (manualCart.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:var(--text-secondary); margin-top:2rem;">No items added.</p>';
+        return;
+    }
+
+    list.innerHTML = manualCart.map((item, idx) => `
+        <div style="display:flex; gap:10px; align-items:center; background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border);">
+            <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000;">
+                <img src="assets/products/${item.id}.jpg" onerror="this.src='assets/products/${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:600; font-size:0.9rem;">${item.name}</div>
+                <div style="font-size:0.8rem; color:var(--text-secondary);">#${item.id}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-weight:bold;">${(item.price * item.qty).toFixed(3)}</div>
+                <div style="font-size:0.8rem; color:var(--text-secondary);">${item.qty} x ${item.price.toFixed(3)}</div>
+            </div>
+            <button onclick="window.removeFromManualCart(${idx})" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:5px;">
+                <i data-lucide="x-circle" style="width:20px; height:20px;"></i>
+            </button>
+        </div>
+    `).join('');
+
+    if (window.lucide) lucide.createIcons();
+};
+
 async function initCreateOrder() {
     console.log("Initializing Manual Order View...");
     manualCart = [];
@@ -2191,7 +2517,26 @@ async function initCreateOrder() {
     await loadDeliveryDetails();
 
     // 3. Listeners
-    document.getElementById('mo-product-search').addEventListener('input', handleProductSearch);
+    const searchInput = document.getElementById('mo-product-search');
+    // Remove old listener if any (anonymous functions hard to remove, but cloning helps or just overwriting oninput)
+    // Actually replaceWith cloning is safest if we want to remove ALL listeners
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+    newSearchInput.addEventListener('input', window.handleManualProductSearch);
+    newSearchInput.addEventListener('focus', window.handleManualProductSearch); // Show on focus too if value exists
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function (e) {
+        const dropdown = document.getElementById('mo-product-dropdown');
+        const searchInput = document.getElementById('mo-product-search');
+        if (dropdown && !dropdown.classList.contains('hidden')) {
+            if (!dropdown.contains(e.target) && e.target !== searchInput) {
+                dropdown.classList.add('hidden');
+            }
+        }
+    });
+
     document.getElementById('mo-add-btn').onclick = addToManualCart;
     document.getElementById('mo-create-btn').onclick = submitManualOrder;
     document.getElementById('mo-region').onchange = updateManualDeliveryOptions;
@@ -2293,7 +2638,7 @@ function updateManualDeliveryOptions() {
 
         card.innerHTML = `
             <span class="delivery-company-name">${comp}</span>
-            <span class="delivery-company-price">${price.toFixed(2)} JOD</span>
+            <span class="delivery-company-price">${price.toFixed(3)} JOD</span>
         `;
 
         card.onclick = () => {
@@ -2397,35 +2742,249 @@ async function submitManualOrder() {
     };
 
     try {
-        const res = await fetch('/api/orders', {
-            method: 'POST',
-            body: JSON.stringify(order)
-        });
-        const json = await res.json();
+        let success = false;
+        // Try GAS if configured
+        const GAS_URL = document.getElementById('google-script-url') ? document.getElementById('google-script-url').value : null;
 
-        if (json.status === 'success') {
-            msgEl.textContent = "Order created successfully!";
-            msgEl.classList.remove('hidden');
-            // Clear Form
-            manualCart = [];
-            document.getElementById('mo-name').value = '';
-            document.getElementById('mo-phone').value = '';
-            document.getElementById('mo-address').value = '';
-            document.getElementById('mo-company-input').value = '';
-            const listContainer = document.getElementById('mo-delivery-list');
-            if (listContainer) listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">Select a region first</div>';
-
-            renderManualCart();
-            // Redirect after 1s
-            setTimeout(() => {
-                document.querySelector('.nav-item[data-view="orders"]').click();
-                loadData();
-            }, 1000);
-        } else {
-            throw new Error(json.error || "Unknown error");
+        if (GAS_URL && window.submitToGas) {
+            try {
+                // Adjust payload for GAS
+                // GAS usually expects a specific action
+                await window.submitToGas(GAS_URL, {
+                    action: 'placeOrder',
+                    order: order // Pass object directly, submitToGas handles stringify
+                });
+                success = true;
+            } catch (e) {
+                console.warn("GAS submission failed, trying local API...", e);
+            }
         }
+
+        if (!success) {
+            // Fallback to local API
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(order)
+            });
+            if (!res.ok) throw new Error("Server error, status: " + res.status);
+            const json = await res.json();
+            if (json.status !== 'success') throw new Error(json.error || "Unknown error");
+        }
+
+        msgEl.textContent = "Order created successfully!";
+        msgEl.classList.remove('hidden');
+        // Clear Form
+        manualCart = [];
+        document.getElementById('mo-name').value = '';
+        document.getElementById('mo-phone').value = '';
+        document.getElementById('mo-address').value = '';
+        document.getElementById('mo-company-input').value = '';
+        const listContainer = document.getElementById('mo-delivery-list');
+        if (listContainer) listContainer.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:1rem;">Select a region first</div>';
+
+        renderManualCart();
+        // Redirect after 1s
+        setTimeout(() => {
+            document.querySelector('.nav-item[data-view="orders"]').click();
+            loadData();
+        }, 1000);
+
     } catch (e) {
         errEl.textContent = "Error creating order: " + e.message;
         errEl.classList.remove('hidden');
     }
 }
+
+// --- SHARED UTILS ---
+
+window.submitToGas = async function (url, data) {
+    // GAS Web App submission
+    // Uses no-cors mode, so we can't read response. 
+    // We assume success if no network error.
+
+    // Most GAS scripts expect JSON in body if parsing e.postData.contents
+    const payload = JSON.stringify(data);
+
+    try {
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: payload
+        });
+
+        // Since we can't read the response in no-cors, we return a mock success
+        // If the GAS script fails internally, we won't know here, but that's a limitation of no-cors GAS.
+        // If the GAS script setup allows CORS (e.g. correct headers), we could use 'cors'.
+        // But 'no-cors' is safest default for GAS.
+        return { result: "success" };
+
+    } catch (e) {
+        console.error("GAS Fetch Error:", e);
+        throw e;
+    }
+};
+
+// --- ADMIN MANAGEMENT & THEME LOGIC ---
+
+// Theme Logic
+window.initTheme = function () {
+    const savedTheme = localStorage.getItem('theme');
+    const toggle = document.getElementById('theme-toggle');
+    if (savedTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        if (toggle) toggle.checked = true;
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        if (toggle) toggle.checked = false;
+    }
+};
+
+window.toggleTheme = function () {
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle.checked) {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'dark');
+    }
+};
+
+// Call initTheme immediately
+window.initTheme();
+
+
+// Admin Management Logic
+
+window.loadAdminsForManagement = async function () {
+    try {
+        const res = await fetch('/api/admins');
+        const admins = await res.json();
+        const tbody = document.getElementById('admin-list-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = admins.map(admin => `
+            <tr>
+                <td style="font-weight:600;">${admin.username}</td>
+                <td><span class="status-badge status-active">Active</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon btn-edit" title="Change Password" onclick="window.openChangePassModal('${admin.username}')">
+                            <i data-lucide="key" style="width:16px; height:16px;"></i>
+                        </button>
+                        <button class="btn-icon btn-delete" title="Remove Admin" onclick="window.handleRemoveAdmin('${admin.username}')">
+                            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
+    } catch (e) {
+        console.error("Failed to load admins:", e);
+    }
+};
+
+window.showAddAdminModal = function () {
+    document.getElementById('new-admin-username').value = '';
+    document.getElementById('new-admin-password').value = '';
+    document.getElementById('add-admin-modal').classList.remove('hidden');
+};
+
+window.handleAddAdmin = async function () {
+    const username = document.getElementById('new-admin-username').value.trim();
+    const password = document.getElementById('new-admin-password').value.trim();
+
+    if (!username || !password) {
+        alert("Please enter username and password.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+
+        alert("Admin added successfully.");
+        document.getElementById('add-admin-modal').classList.add('hidden');
+        window.loadAdminsForManagement();
+        // Reload global creds without refreshing page if we want immediate login effect
+        loadCredentials();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+};
+
+window.handleRemoveAdmin = async function (username) {
+    if (!confirm(`Are you sure you want to remove admin access for ${username}?`)) return;
+
+    try {
+        const res = await fetch('/api/admins', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+
+        window.loadAdminsForManagement();
+        loadCredentials();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+};
+
+window.openChangePassModal = function (username) {
+    document.getElementById('edit-admin-username').value = username;
+    document.getElementById('edit-admin-display').textContent = `Updating password for: ${username}`;
+    document.getElementById('new-admin-pass-update').value = '';
+    document.getElementById('change-pass-modal').classList.remove('hidden');
+};
+
+window.handleUpdateAdmin = async function () {
+    const username = document.getElementById('edit-admin-username').value;
+    const newPassword = document.getElementById('new-admin-pass-update').value.trim();
+
+    if (!newPassword) {
+        alert("Please enter a new password.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admins', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, newPassword })
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+
+        alert("Password updated successfully.");
+        document.getElementById('change-pass-modal').classList.add('hidden');
+        loadCredentials();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+};
+
+// Hook into showDashboard to refresh admin list when Settings is opened? 
+// Or better: add a click listener to the Settings nav item.
+document.addEventListener('DOMContentLoaded', () => {
+    const settingsNav = document.querySelector('.nav-item[data-view="settings"]');
+    if (settingsNav) {
+        settingsNav.addEventListener('click', () => {
+            if (sessionStorage.getItem('admin_logged_in') === 'true') {
+                window.loadAdminsForManagement();
+            }
+        });
+    }
+});

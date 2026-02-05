@@ -1,94 +1,209 @@
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
 const app = express();
-const PORT = 8000;
+const PORT = 3000;
 
-// Middleware
-app.use(express.json());
-app.use(express.static(__dirname)); // Serve current directory files
+// --- DATABASE LOGIC (JSON) ---
+const DB_FILE = path.join(__dirname, 'data.json');
+const ADMIN_FILE = path.join(__dirname, 'adminCredentials.txt');
+const VISITS_FILE = path.join(__dirname, 'visits.json');
+const UPLOAD_DIR = path.join(__dirname, 'assets', 'products');
 
-// Ensure assets/products exists
-const uploadDir = path.join(__dirname, 'assets', 'products');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+// Ensure Upload Dir
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const productNo = req.body.productNo;
-        if (!productNo) {
-            return cb(new Error("Product Number is missing"));
-        }
+// Initialize DB (Auto-Migration)
+function initDB() {
+    if (!fs.existsSync(DB_FILE)) {
+        console.log("Initializing database...");
+        const initialData = {
+            admins: [],
+            visits: { total: 0, daily: {} },
+            settings: {}
+        };
 
-        // Find next index
-        // Pattern: ProductNo_1.jpg, ProductNo_2.png, etc.
-        let index = 1;
-        while (true) {
-            // Check broadly for extensions (jpg, png, jpeg, etc)
-            // But simpler: just check if ANY file with this prefix_index exists?
-            // Actually, extensions matter. Let's just find the first available index.
-            const ext = path.extname(file.originalname);
-            const candidateName = `${productNo}_${index}${ext}`;
-            const candidatePath = path.join(uploadDir, candidateName);
-
-            if (!fs.existsSync(candidatePath)) {
-                // Also check other extensions to be safe? 
-                // The prompt implies we just append, so presumably checking exact filename is enough.
-                // But better logic: Count existing files starting with productNo + "_"
-                // This 'while' loop does exactly that: finds the first gap or end.
-                cb(null, candidateName);
-                break;
+        // Migrate Admins
+        if (fs.existsSync(ADMIN_FILE)) {
+            try {
+                const text = fs.readFileSync(ADMIN_FILE, 'utf-8');
+                const lines = text.split(/\r?\n/);
+                for (let i = 0; i < lines.length; i += 2) {
+                    if (lines[i] && lines[i + 1]) {
+                        const userLine = lines[i].trim();
+                        const passLine = lines[i + 1].trim();
+                        if (userLine.startsWith('Username:') && passLine.startsWith('Password:')) {
+                            initialData.admins.push({
+                                username: userLine.replace('Username:', '').trim(),
+                                password: passLine.replace('Password:', '').trim()
+                            });
+                        }
+                    }
+                }
+                console.log(`Migrated ${initialData.admins.length} admins.`);
+            } catch (e) {
+                console.error("Migration Error (Admins):", e);
             }
-            index++;
-
-            // Safety break
-            if (index > 100) break;
+        } else {
+            // Default admin if no file
+            initialData.admins.push({ username: 'admin', password: 'admin123' });
         }
+
+        // Migrate Visits
+        if (fs.existsSync(VISITS_FILE)) {
+            try {
+                const visitsData = JSON.parse(fs.readFileSync(VISITS_FILE, 'utf-8'));
+                if (visitsData) {
+                    // Normalize structure
+                    initialData.visits.total = visitsData.total || 0;
+                    initialData.visits.daily = visitsData.daily || {};
+                    // If visitsData had 'history' instead of 'daily' (legacy check)
+                    if (visitsData.history) initialData.visits.daily = { ...initialData.visits.daily, ...visitsData.history };
+                }
+                console.log("Migrated visits data.");
+            } catch (e) {
+                console.error("Migration Error (Visits):", e);
+            }
+        }
+
+        fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2));
+        console.log("Database initialized at " + DB_FILE);
     }
-});
+}
 
-const upload = multer({ storage: storage });
-
-// API Endpoint
-app.post('/api/upload-images', upload.array('images', 10), (req, res) => {
+function readDB() {
     try {
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ status: 'error', message: 'No files uploaded' });
-        }
-        res.json({
-            status: 'success',
-            message: `Uploaded ${req.files.length} images successfully.`,
-            files: req.files.map(f => f.filename)
-        });
+        if (!fs.existsSync(DB_FILE)) initDB();
+        return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
     } catch (e) {
-        console.error("Upload error:", e);
-        res.status(500).json({ status: 'error', message: e.message });
+        console.error("Database Read Error:", e);
+        return { admins: [], visits: { total: 0, daily: {} }, settings: {} };
     }
+}
+
+function writeDB(data) {
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error("Database Write Error:", e);
+    }
+}
+
+initDB(); // Run on startup
+
+// --- MIDDLEWARE ---
+app.use(express.static(__dirname)); // Serve static files
+app.use(express.json()); // Parse JSON bodies
+
+// --- API ENDPOINTS ---
+
+// 1. Admin Management
+app.get('/api/admins', (req, res) => {
+    const db = readDB();
+    res.json(db.admins);
 });
 
-// App Settings Endpoint (re-implementing existing logic from admin.js expectations)
-// Simple mock for now as admin.js uses /api/settings
-const settingsFile = path.join(__dirname, 'settings.json');
-app.get('/api/settings', (req, res) => {
-    if (fs.existsSync(settingsFile)) {
-        res.sendFile(settingsFile);
-    } else {
-        res.json({});
-    }
-});
+app.post('/api/admins', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Missing fields" });
 
-app.post('/api/settings', (req, res) => {
-    fs.writeFileSync(settingsFile, JSON.stringify(req.body, null, 2));
+    const db = readDB();
+    if (db.admins.find(a => a.username === username)) {
+        return res.status(400).json({ error: "Admin already exists" });
+    }
+
+    db.admins.push({ username, password });
+    writeDB(db);
     res.json({ status: 'success' });
+});
+
+app.put('/api/admins', (req, res) => {
+    const { username, newPassword } = req.body;
+    const db = readDB();
+    const admin = db.admins.find(a => a.username === username);
+    if (!admin) return res.status(404).json({ error: "Admin not found" });
+
+    admin.password = newPassword;
+    writeDB(db);
+    res.json({ status: 'success' });
+});
+
+app.delete('/api/admins', (req, res) => {
+    const { username } = req.body;
+    let db = readDB();
+    const initialLen = db.admins.length;
+    db.admins = db.admins.filter(a => a.username !== username);
+
+    if (db.admins.length === initialLen) return res.status(404).json({ error: "Admin not found" });
+
+    writeDB(db);
+    res.json({ status: 'success' });
+});
+
+// 2. Visits Tracking
+app.get('/api/visits', (req, res) => {
+    const db = readDB();
+    res.json(db.visits);
+});
+
+app.post('/api/visits', (req, res) => {
+    const db = readDB();
+    const today = new Date().toISOString().split('T')[0];
+
+    db.visits.total = (db.visits.total || 0) + 1;
+    if (!db.visits.daily) db.visits.daily = {};
+    db.visits.daily[today] = (db.visits.daily[today] || 0) + 1;
+
+    writeDB(db);
+    res.json({ visits: db.visits.total, today: db.visits.daily[today] });
+});
+
+// 3. Settings (DB + Legacy Sync)
+app.post('/api/settings', (req, res) => {
+    const db = readDB();
+    db.settings = { ...db.settings, ...req.body };
+    writeDB(db);
+
+    // Legacy write for compatibility if needed
+    try {
+        fs.writeFileSync(path.join(__dirname, 'storedetails.txt'), JSON.stringify(req.body, null, 2));
+    } catch (e) { console.error("Legacy settings write failed", e); }
+
+    res.json({ status: 'success' });
+});
+
+app.get('/api/settings', (req, res) => {
+    const db = readDB();
+    res.json(db.settings || {});
+});
+
+// 4. Image Upload (Binary Stream Support)
+app.post('/api/upload-image', (req, res) => {
+    const filename = req.headers['x-filename'];
+    if (!filename) {
+        return res.status(400).json({ error: "X-Filename header missing" });
+    }
+
+    const filePath = path.join(UPLOAD_DIR, filename);
+    const writeStream = fs.createWriteStream(filePath);
+
+    req.pipe(writeStream);
+
+    writeStream.on('error', (err) => {
+        console.error("Upload Error:", err);
+        res.status(500).json({ error: "File upload failed" });
+    });
+
+    writeStream.on('finish', () => {
+        console.log(`File uploaded: ${filename}`);
+        res.json({ status: 'success', filename: filename });
+    });
 });
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`Assets directory: ${uploadDir}`);
+    console.log(`Database File: ${DB_FILE}`);
 });

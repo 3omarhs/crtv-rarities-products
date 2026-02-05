@@ -54,7 +54,7 @@ function formatPrice(amountJOD) {
     if (currentCurrency === 'USD') {
         return '$' + (numericAmount * EXCHANGE_RATE).toFixed(2);
     }
-    return numericAmount.toFixed(2) + ' JOD'; // Ensure standard formatting
+    return numericAmount.toFixed(3) + ' JOD'; // Ensure standard formatting
 }
 
 // Ensure global access

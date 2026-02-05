@@ -21,6 +21,27 @@
     --gold-600: #b49129;
     --gold-700: #806921;
     --gold-shadow: rgba(212, 175, 55, 0.25);
+
+    --bg-secondary: #2d2d35;
+    --bg-hover: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] {
+    --bg-dark: #f1f5f9;
+    --bg-darker: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --card-bg: #ffffff;
+    --border: #e2e8f0;
+    --bg-secondary: #f8fafc;
+    --bg-hover: rgba(0, 0, 0, 0.05);
+
+    /* Keep accent and gold keys mostly same, or adjust for contrast */
+    --gold-100: #715a13;
+    /* Invert golds for visibility if needed, or keep as highlights */
+
+    /* Overrides for specific elements that assume dark mode transparency */
+    --modal-overlay: rgba(255, 255, 255, 0.85);
 }
 
 .admin-body {
@@ -32,9 +53,24 @@
 }
 
 /* Utilities */
+/* Utilities */
 .hidden {
     display: none !important;
 }
+
+/* Ensure views stack correctly and clear previous content */
+.view-section {
+    display: block;
+    width: 100%;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Force specific view styling if needed */
+#view-settings {
+    /* Ensure it doesn't get pushed down by floats or misaligned flex items */
+    clear: both;
+}
+
 
 /* Loading Modal */
 .modal-overlay {
@@ -136,7 +172,10 @@
     color: var(--text-secondary);
 }
 
-.form-group input {
+/* Base styling for text inputs, selects, and textareas */
+.form-group input:not([type="radio"]):not([type="checkbox"]),
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.75rem;
     background: var(--bg-darker);
@@ -145,9 +184,23 @@
     color: white;
     font-family: inherit;
     box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
 }
 
-.form-group input:focus {
+/* Remove custom arrow from inputs and textareas (it's mainly for select) */
+.form-group input:not([type="radio"]):not([type="checkbox"]),
+.form-group textarea {
+    background-image: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: var(--accent);
 }
