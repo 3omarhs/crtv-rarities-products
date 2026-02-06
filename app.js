@@ -542,9 +542,10 @@ window.translateValue = translateValue;
 
 async function fetchCurrencyRate() {
     try {
-        const response = await fetch('storedetails.txt?v=' + Date.now());
-        if (!response.ok) throw new Error('Failed to fetch store details');
-        const text = await response.text();
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        const settings = await response.json();
+        const text = settings.store_details_raw || "";
         // Look for "Currency Rate: 1 USD = 0.75 JOD"
         const match = text.match(/Currency Rate:\s*1\s*USD\s*=\s*([\d.]+)\s*JOD/i);
         if (match && match[1]) {
@@ -717,28 +718,13 @@ function applyLanguage() {
 
 async function fetchSheetData() {
     try {
-        console.log("Fetching CSV data...");
-        const response = await fetch(CSV_URL);
+        console.log("Fetching Product data from DB...");
+        const response = await fetch('/api/products');
         if (!response.ok) {
-            throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
         }
-        const csvText = await response.text();
-
-        return new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    if (results.errors.length) {
-                        console.warn('Parse errors:', results.errors);
-                    }
-                    resolve(results.data);
-                },
-                error: (err) => {
-                    reject(new Error(`Failed to parse CSV: ${err.message}`));
-                }
-            });
-        });
+        const data = await response.json();
+        return data;
     } catch (error) {
         console.error("Fetch Data Error:", error);
         throw error;

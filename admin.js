@@ -10,9 +10,10 @@ let GEMINI_API_KEYS = []; // Array for rotation
 
 async function loadGeminiCredentials() {
     try {
-        const response = await fetch('geminiCredintials.txt?v=' + Date.now());
+        const response = await fetch('/api/settings');
         if (!response.ok) throw new Error("Failed to load Gemini credentials");
-        const text = await response.text();
+        const settings = await response.json();
+        const text = settings.gemini_credentials_raw || "";
         const lines = text.split(/\r?\n/);
 
         GEMINI_API_KEYS = []; // Reset

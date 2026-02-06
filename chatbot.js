@@ -60,9 +60,10 @@ window.setChatbotProducts = function (products) {
 // Load store details from the file
 async function loadStoreDetails() {
     try {
-        const response = await fetch('storedetails.txt');
-        if (!response.ok) throw new Error("Could not load storedetails.txt");
-        storeInfo = await response.text();
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error("Could not load settings");
+        const settings = await response.json();
+        storeInfo = settings.store_details_raw || "";
     } catch (error) {
         console.error("Error loading store details:", error);
         // Fallback info if file is missing
@@ -74,9 +75,10 @@ async function loadStoreDetails() {
 async function loadCredentials() {
     try {
         console.log("Chatbot: Fetching credentials...");
-        const response = await fetch('geminiCredintials.txt?t=' + Date.now());
-        if (!response.ok) throw new Error("Could not load geminiCredintials.txt");
-        const text = await response.text();
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error("Could not load settings");
+        const settings = await response.json();
+        const text = settings.gemini_credentials_raw || "";
 
         // Parse the text
         const lines = text.split(/\r?\n/);

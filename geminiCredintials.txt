@@ -1,7 +1,0 @@
-Name: Nawaderna
-Project name: projects/555621941595
-Project number: 555621941595
-Project id: gen-lang-client-0862090640
-Gemini API Key: AIzaSyAIv34d4iImXiblMIAB4Wvx67xNU4wywrE
-Gemini API Key: AIzaSyDXLVuupVQmIsWVSyxq_dNF9kvYYp4IiY0
-Gemini API Key: AIzaSyCSY3_VK3u4buDsNfDdZtN0jGt1HuXNCk4

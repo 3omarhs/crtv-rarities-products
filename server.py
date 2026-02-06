@@ -151,6 +151,36 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                  settings = {row['key']: row['value'] for row in rows}
                  self.send_json(settings)
                  return
+
+            if path == '/api/products':
+                # Map DB columns back to CSV headers for frontend compatibility
+                query = '''
+                    SELECT 
+                        item_no as "No",
+                        name as "Product Name",
+                        category,
+                        collection,
+                        target_market as "target market",
+                        weight_calc as "Calculate on Weight",
+                        dimensions as "Dimensions(mm) x y z",
+                        description as "description (80 word)",
+                        price_low_qty as "Price < 25 QTY",
+                        price_high_qty as "Price >=25 QTY",
+                        discount_cal as "discount cal",
+                        document_link as "Document Link",
+                        discount_percent as "Discount %",
+                        calc_val as "calc",
+                        store_name as "Name on Store",
+                        arabic_name as "Arabic Name",
+                        available as "Available",
+                        hidden as "Hidden",
+                        colors as "Colors"
+                    FROM products
+                '''
+                products = execute_query(query, fetch=True)
+                self.send_json(products)
+                return
+
                  
             # Router for HTML
             if path == '/admin' or path == '/admin/':
