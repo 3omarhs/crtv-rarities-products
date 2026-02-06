@@ -59,10 +59,19 @@ function parseDeliveryDetails(text) {
 
 async function initCheckout() {
     try {
-        const response = await fetch('deliveryCompaniesDetails.txt?v=' + Date.now());
+        const response = await fetch('deliveryCompanies.json?v=' + Date.now());
         if (!response.ok) throw new Error("Failed to load delivery details");
-        const text = await response.text();
-        checkoutState.deliveryData = parseDeliveryDetails(text);
+        const companies = await response.json();
+
+        // Transform JSON structure to match what the rest of the code expects if needed
+        // The existing code expects an array of objects with { name: "Name", regions: { "Region": Cost } }
+        // deliveryCompanies.json seems to have { "Name": "...", "Regions": { ... } } (Capitalized keys)
+
+        checkoutState.deliveryData = companies.map(c => ({
+            name: c.Name,
+            regions: c.Regions
+        }));
+
         console.log("Checkout: Loaded delivery details", checkoutState.deliveryData);
     } catch (e) {
         console.warn("Checkout: Could not load delivery details. Defaulting to standard delivery.", e);
@@ -536,7 +545,21 @@ function getEffectivePrice(item, productQuantities) {
     const totalQty = productQuantities[item.no] || 0;
     const isWholesale = totalQty >= 10;
     const priceString = isWholesale && item.bulkPrice ? item.bulkPrice : item.price;
-    return parseFloat(String(priceString).replace(/[^\\d.]/g, '')) || 0;
+
+    // Safety check
+    if (priceString === undefined || priceString === null) return 0;
+
+    // If already number
+    if (typeof priceString === 'number') return priceString;
+
+    // If string, clean it
+    // Handle cases like "12.500 JOD", "JD 12.5", "12,500"
+    let cleanString = String(priceString).replace(/[^\d.]/g, '');
+    // If multiple dots, keep only the first one (simple heuristic)
+    if ((cleanString.match(/\./g) || []).length > 1) {
+        // logic to handle multiple dots if necessary, but usually standard replace works for simple currency
+    }
+    return parseFloat(cleanString) || 0;
 }
 
 function updateCheckoutCalculations() {
@@ -545,20 +568,21 @@ function updateCheckoutCalculations() {
 
     // First calculate product quantities to determine pricing (bulk vs retail)
     const productQuantities = {};
-    cart.forEach(item => {
-        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
-    });
+    if (typeof cart !== 'undefined' && Array.isArray(cart)) {
+        cart.forEach(item => {
+            productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+        });
 
-    cart.forEach(item => {
-        const price = getEffectivePrice(item, productQuantities);
-        total += price * item.quantity;
-    });
+        cart.forEach(item => {
+            const price = getEffectivePrice(item, productQuantities);
+            total += price * item.quantity;
+        });
+    }
 
     checkoutState.cartTotal = total;
-
-    // Update summary text if visible
-    // (Will be done in renderSummary)
+    console.log("Checkout: Cart Total Calculated:", total);
 }
+
 
 function renderSummary() {
     const subtotalEl = document.getElementById('summary-subtotal');
@@ -632,9 +656,11 @@ function submitOrder() {
 
     // Calculate effective prices for order details
     const productQuantities = {};
-    cart.forEach(item => {
-        productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
-    });
+    if (typeof cart !== 'undefined' && Array.isArray(cart)) {
+        cart.forEach(item => {
+            productQuantities[item.no] = (productQuantities[item.no] || 0) + item.quantity;
+        });
+    }
 
     // Prepare Data
     const orderDetails = cart.map((item, index) => {
@@ -683,7 +709,7 @@ function submitOrder() {
                     selectedCompany: checkoutState.selectedCompany || '',
                     address: checkoutState.address || '',
                     deliveryCost: deliveryCostFormatted, // Now formatted (e.g. "2.000 JOD" or "$2.82")
-                    currency: currentCurrency || 'JOD',
+                    currency: window.currentCurrency || 'JOD',
                     paymentMethod: checkoutState.paymentMethod
                 };
 

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Portal - Creative Rarities</title>
-    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="icon" type="image/png" href="logo_dark.png">
     <link rel="stylesheet" href="style.css?v=fixed_v3"> <!-- Base styles -->
     <link rel="stylesheet" href="admin.css"> <!-- Admin specific styles -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -795,6 +795,39 @@
 
             <!-- Settings View -->
             <div id="view-settings" class="view-section hidden">
+
+                <!-- Admin Management Section -->
+                <div
+                    style="margin-bottom: 3rem; background: rgba(30, 41, 59, 0.4); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem;">
+                            <span
+                                style="width: 4px; height: 1.25rem; background: var(--accent); display: inline-block; border-radius: 2px;"></span>
+                            Admin Management
+                        </h3>
+                        <button class="btn-primary btn-sm"
+                            onclick="document.getElementById('add-admin-modal').classList.remove('hidden')">
+                            <i data-lucide="user-plus"></i> Add Admin
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="color: var(--accent);">USERNAME</th>
+                                    <th style="color: var(--accent);">STATUS</th>
+                                    <th style="color: var(--accent);">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-list-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <h3>Email Notification Settings</h3>
                 <div class="admin-form" style="max-width: 600px;">
                     <div class="form-group"

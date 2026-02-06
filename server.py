@@ -3,14 +3,14 @@ import socketserver
 import os
 import json
 import mimetypes
-import time
+import sqlite3
+import pyodbc
 from datetime import datetime
 
 PORT = 8000
 BASE_DIR = os.getcwd()
-DB_FILE = os.path.join(BASE_DIR, 'data.json')
-AD_FILE = os.path.join(BASE_DIR, 'adminCredentials.txt')
-VISITS_FILE = os.path.join(BASE_DIR, 'visits.json')
+DB_FILE = os.path.join(BASE_DIR, 'database.db')
+CONFIG_FILE = os.path.join(BASE_DIR, 'db_config.json')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'assets', 'products')
 
 # Ensure directories
@@ -26,70 +26,91 @@ mimetypes.add_type('image/jpeg', '.jpg')
 mimetypes.add_type('text/plain', '.txt')
 mimetypes.add_type('application/json', '.json')
 
-# --- DATABASE LOGIC ---
+# --- DATABASE ABSTRACTION ---
+
+def get_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    return {"use_sql_server": False}
+
+def get_db_connection():
+    config = get_config()
+    
+    if config.get("use_sql_server", False):
+        # MSSQL Connection
+        conn_str = config.get("connection_string", "")
+        if not conn_str:
+            raise ValueError("MSSQL enabled but connection_string is empty in db_config.json")
+        try:
+            conn = pyodbc.connect(conn_str)
+            return conn, "mssql"
+        except Exception as e:
+            print(f"Error connecting to SQL Server: {e}")
+            raise
+    else:
+        # SQLite Connection
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row
+        return conn, "sqlite"
+
+def execute_query(query, params=(), fetch=False, commit=False):
+    conn, db_type = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Adjust placeholders if needed
+    # SQLite uses ?, pyodbc uses ? usually. 
+    # T-SQL parameters are standard ? in pyodbc.
+    
+    # Handle reserved word escaping for different DBs if necessary
+    # Assuming simple queries for now.
+    
+    try:
+        cursor.execute(query, params)
+        if commit:
+            conn.commit()
+        
+        result = None
+        if fetch:
+            columns = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+            # Convert to list of dicts for consistency
+            result = [dict(zip(columns, row)) for row in rows]
+            
+        return result
+    finally:
+        conn.close()
 
 def init_db():
-    if not os.path.exists(DB_FILE):
-        print("Initializing data.json...")
-        initial_data = {
-            "admins": [],
-            "visits": {"total": 0, "daily": {}},
-            "settings": {}
-        }
+    config = get_config()
+    if config.get("use_sql_server", False):
+        print("Using SQL Server. Assuming schema exists (Use db_schema.sql to create it).")
+        return # Skip auto-init for MSSQL, usually handled by DBA/Script
 
-        # Migrate Admins
-        if os.path.exists(AD_FILE):
-            try:
-                with open(AD_FILE, 'r', encoding='utf-8') as f:
-                    lines = f.read().splitlines()
-                
-                # Parse in pairs or blocks
-                # Simple parser assuming Username/Password lines
-                current_user = {}
-                for line in lines:
-                    line = line.strip()
-                    if not line: continue
-                    if ':' in line:
-                        key, val = line.split(':', 1)
-                        key = key.strip().lower()
-                        val = val.strip()
-                        if key == 'username':
-                            if 'username' in current_user and 'password' in current_user:
-                                initial_data["admins"].append(current_user)
-                                current_user = {}
-                            current_user['username'] = val
-                        elif key == 'password':
-                            current_user['password'] = val
-                
-                if 'username' in current_user and 'password' in current_user:
-                     initial_data["admins"].append(current_user)
-                print(f"Migrated {len(initial_data['admins'])} admins.")
-            except Exception as e:
-                print(f"Migration Error (Admins): {e}")
-        else:
-             initial_data["admins"].append({"username": "admin", "password": "admin123"})
-
-        # Migrate Visits
-        if os.path.exists(VISITS_FILE):
-            try:
-                with open(VISITS_FILE, 'r', encoding='utf-8') as f:
-                    vdata = json.load(f)
-                    initial_data["visits"]["total"] = vdata.get("total", 0)
-                    initial_data["visits"]["daily"] = vdata.get("daily", vdata.get("history", {}))
-                print("Migrated visits.")
-            except Exception as e:
-                print(f"Migration Error (Visits): {e}")
-
-        save_db(initial_data)
-
-def load_db():
-    if not os.path.exists(DB_FILE): init_db()
-    with open(DB_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def save_db(data):
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
+    # Local SQLite Init
+    print("Using Local SQLite.")
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS admins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS visits (
+        date TEXT PRIMARY KEY,
+        count INTEGER DEFAULT 0
+    )''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )''')
+    
+    conn.commit()
+    conn.close()
 
 # --- SERVER ---
 
@@ -108,28 +129,42 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split('?')[0]
         
-        if path == '/api/admins':
-            self.send_json(load_db().get('admins', []))
-            return
-            
-        if path == '/api/visits':
-            self.send_json(load_db().get('visits', {}))
-            return
+        try:
+            if path == '/api/admins':
+                admins = execute_query('SELECT username, password FROM admins', fetch=True)
+                self.send_json(admins)
+                return
+                
+            if path == '/api/visits':
+                # Generic SQL should work for both
+                total_res = execute_query('SELECT SUM(count) as t FROM visits', fetch=True)
+                total = total_res[0]['t'] if total_res and total_res[0]['t'] else 0
+                
+                daily_res = execute_query('SELECT date, count FROM visits', fetch=True)
+                daily = {row['date']: row['count'] for row in daily_res}
+                
+                self.send_json({"visits": {"total": total, "daily": daily}})
+                return
 
-        if path == '/api/settings':
-             self.send_json(load_db().get('settings', {}))
-             return
-             
-        # Router for HTML
-        if path == '/admin' or path == '/admin/':
-            self.path = '/admin.html'
-        
-        super().do_GET()
+            if path == '/api/settings':
+                 rows = execute_query('SELECT key, value FROM settings', fetch=True)
+                 settings = {row['key']: row['value'] for row in rows}
+                 self.send_json(settings)
+                 return
+                 
+            # Router for HTML
+            if path == '/admin' or path == '/admin/':
+                self.path = '/admin.html'
+            
+            super().do_GET()
+        except Exception as e:
+            print(f"Server Error: {e}")
+            self.send_error_json(500, str(e))
 
     def do_POST(self):
         path = self.path.split('?')[0]
         
-        if path == '/api/upload-image': # Matches admin.js fetch
+        if path == '/api/upload-image': 
             self.handle_upload()
             return
 
@@ -144,33 +179,84 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             data = {}
 
-        if path == '/api/admins':
-            db = load_db()
-            if any(a['username'] == data.get('username') for a in db['admins']):
-                self.send_error_json(400, "Admin exists")
+        try:
+            if path == '/api/admins':
+                username = data.get('username')
+                password = data.get('password')
+                if not username or not password:
+                    self.send_error_json(400, "Missing credentials")
+                    return
+                    
+                # Check exist
+                existing = execute_query('SELECT username FROM admins WHERE username = ?', (username,), fetch=True)
+                if existing:
+                    self.send_error_json(400, "Admin exists")
+                    return
+
+                execute_query('INSERT INTO admins (username, password) VALUES (?, ?)', (username, password), commit=True)
+                self.send_json({"status": "success"})
                 return
-            db['admins'].append({"username": data['username'], "password": data['password']})
-            save_db(db)
-            self.send_json({"status": "success"})
 
-        elif path == '/api/visits':
-            db = load_db()
-            today = datetime.now().strftime('%Y-%m-%d')
-            db['visits']['total'] = db['visits'].get('total', 0) + 1
-            if 'daily' not in db['visits']: db['visits']['daily'] = {}
-            db['visits']['daily'][today] = db['visits']['daily'].get(today, 0) + 1
-            save_db(db)
-            self.send_json({"visits": db['visits']['total'], "today": db['visits']['daily'][today]})
+            elif path == '/api/visits':
+                today = datetime.now().strftime('%Y-%m-%d')
+                
+                conn, db_type = get_db_connection()
+                try:
+                    if db_type == 'sqlite':
+                        conn.execute('''
+                            INSERT INTO visits (date, count) VALUES (?, 1)
+                            ON CONFLICT(date) DO UPDATE SET count = count + 1
+                        ''', (today,))
+                    else:
+                        # MSSQL Upsert (Merge or check exist)
+                        # Simplest reliable way for MSSQL < 2016 without MERGE complexity
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE visits SET count = count + 1 WHERE date = ?", (today,))
+                        if cursor.rowcount == 0:
+                            cursor.execute("INSERT INTO visits (date, count) VALUES (?, 1)", (today,))
+                            
+                    conn.commit()
+                finally:
+                    conn.close()
+                
+                # Fetch response
+                total_res = execute_query('SELECT SUM(count) as t FROM visits', fetch=True)
+                total = total_res[0]['t'] if total_res and total_res[0]['t'] else 0
+                
+                today_res = execute_query('SELECT count FROM visits WHERE date = ?', (today,), fetch=True)
+                today_count = today_res[0]['count'] if today_res else 0
+                
+                self.send_json({"visits": total, "today": today_count})
+                return
 
-        elif path == '/api/settings':
-            db = load_db()
-            db['settings'].update(data)
-            save_db(db)
-            # Legacy sync (optional)
-            self.send_json({"status": "success"})
-            
-        else:
-            self.send_error(404, "Not Found")
+            elif path == '/api/settings':
+                # Upsert settings
+                conn, db_type = get_db_connection()
+                try:
+                    cursor = conn.cursor()
+                    for k, v in data.items():
+                        # Using string conversion for value
+                        val_str = str(v)
+                        
+                        if db_type == 'sqlite':
+                            cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (k, val_str))
+                        else:
+                            # MSSQL Upsert
+                            cursor.execute("UPDATE settings SET value = ? WHERE [key] = ?", (val_str, k))
+                            if cursor.rowcount == 0:
+                                cursor.execute("INSERT INTO settings ([key], value) VALUES (?, ?)", (k, val_str))
+                    conn.commit()
+                finally:
+                    conn.close()
+                    
+                self.send_json({"status": "success"})
+                return
+                
+            else:
+                self.send_error(404, "Not Found")
+        except Exception as e:
+            print(f"Server Error (POST): {e}")
+            self.send_error_json(500, str(e))
 
     def do_PUT(self):
         path = self.path.split('?')[0]
@@ -179,14 +265,12 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         data = json.loads(body)
 
         if path == '/api/admins':
-            db = load_db()
-            for admin in db['admins']:
-                if admin['username'] == data.get('username'):
-                    admin['password'] = data.get('newPassword')
-                    save_db(db)
-                    self.send_json({"status": "success"})
-                    return
-            self.send_error_json(404, "Admin not found")
+            username = data.get('username')
+            new_password = data.get('newPassword')
+            
+            execute_query('UPDATE admins SET password = ? WHERE username = ?', (new_password, username), commit=True)
+            self.send_json({"status": "success"})
+            return
         else:
              self.send_error(404)
 
@@ -197,15 +281,10 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         data = json.loads(body)
         
         if path == '/api/admins':
-            db = load_db()
-            initial_len = len(db['admins'])
-            db['admins'] = [a for a in db['admins'] if a['username'] != data.get('username')]
-            
-            if len(db['admins']) == initial_len:
-                self.send_error_json(404, "Admin not found")
-            else:
-                save_db(db)
-                self.send_json({"status": "success"})
+            username = data.get('username')
+            execute_query('DELETE FROM admins WHERE username = ?', (username,), commit=True)
+            self.send_json({"status": "success"})
+            return
         else:
             self.send_error(404)
 
@@ -223,30 +302,25 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps({"error": message}).encode('utf-8'))
 
     def handle_upload(self):
-         # Expecting raw binary or multipart. admin.js does `body: file` (raw binary).
-         # Header X-Filename contains name.
-         
          filename = self.headers.get('X-Filename')
          length = int(self.headers.get('Content-Length', 0))
          
          if filename:
-             # Raw binary upload
              path = os.path.join(UPLOAD_DIR, filename)
              with open(path, 'wb') as f:
                  f.write(self.rfile.read(length))
              self.send_json({"status": "success", "filename": filename})
          else:
-             # Fallback or Multipart (Complex)
-             self.send_error_json(400, "X-Filename header missing (Binary upload required)")
+             self.send_error_json(400, "X-Filename header missing")
 
 # Start
 init_db()
 
-# Allow reuse of port to avoid "Address already in use"
+# Allow reuse of port
 socketserver.TCPServer.allow_reuse_address = True
 
 print(f"Starting Python server on http://localhost:{PORT}")
-print(f"Database: {DB_FILE}")
+print("Config: db_config.json")
 
 with socketserver.TCPServer(("", PORT), RequestHandler) as httpd:
     httpd.serve_forever()

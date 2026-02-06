@@ -1,0 +1,6 @@
+{
+    "use_sql_server": true,
+    "connection_string_example": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=YOUR_SERVER_NAME;DATABASE=ProductPromoDB;Trusted_Connection=yes",
+    "connection_string": "DRIVER={ODBC Driver 17 for SQL Server};SERVER=localhost;DATABASE=ProductPromoDB;Trusted_Connection=yes;Encrypt=no",
+    "note": "If 'localhost' does not work, try '.\SQLEXPRESS' or your computer name. Ensure the database 'ProductPromoDB' exists."
+}

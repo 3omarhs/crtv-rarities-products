@@ -327,7 +327,65 @@ const handleLogin = (e) => {
 async function initAdmin() {
     console.log("Admin: Initializing...");
 
-    // 1. Attach Login Listener Immediately
+    // 1. Navigation Handler (Event Delegation) - Attach FIRST
+    const sidebarNav = document.querySelector('.sidebar-nav');
+    if (sidebarNav) {
+        // Clone sidebar nav to clear old listeners if any (clean slate)
+        const newSidebarNav = sidebarNav.cloneNode(true);
+        sidebarNav.parentNode.replaceChild(newSidebarNav, sidebarNav);
+
+        newSidebarNav.addEventListener('click', (e) => {
+            const navItem = e.target.closest('.nav-item[data-view]');
+            if (!navItem) return;
+
+            console.log("Navigating to:", navItem.dataset.view);
+
+            // Update Active State
+            // Note: We need to query from the newSidebarNav now since we replaced it
+            newSidebarNav.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            navItem.classList.add('active');
+
+            // Show View
+            const viewId = `view-${navItem.dataset.view}`;
+
+            // Force hide all sections
+            document.querySelectorAll('.view-section').forEach(v => {
+                v.classList.add('hidden');
+                v.style.display = 'none';
+            });
+
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                targetView.style.display = 'block';
+
+                // Update header title
+                const titleEl = document.getElementById('page-title');
+                if (titleEl) {
+                    // Handle text content carefully to ignore icon text if any
+                    // Actually navItem.textContent is fine usually
+                    titleEl.textContent = navItem.innerText.trim();
+                }
+
+                // View specific init
+                const viewName = navItem.dataset.view;
+                if (viewName === 'products') {
+                    if (window.loadProducts) window.loadProducts();
+                } else if (viewName === 'add-product') {
+                    if (window.prepareAddProductForm) window.prepareAddProductForm();
+                } else if (viewName === 'create-order') {
+                    if (window.renderManualCart) window.renderManualCart();
+                } else if (viewName === 'settings') {
+                    if (window.loadSettings) window.loadSettings();
+                }
+            } else {
+                console.error("Target view not found:", viewId);
+            }
+        });
+        console.log("Admin: Navigation listeners attached.");
+    }
+
+    // 2. Attach Login Listener immediately
     const loginForm = document.getElementById('login-form');
     const loginBtn = document.querySelector('.btn-primary');
 
@@ -380,20 +438,9 @@ async function initAdmin() {
         });
     }
 
-    await loadCredentials();
-    await loadGeminiCredentials();
-
-    // Check Session
-    if (sessionStorage.getItem('admin_logged_in') === 'true') {
-        showDashboard();
-    } else {
-        showLogin();
-    }
-
-    // Initialize Icons
+    // 3. Initialize Icons & Image Upload (Non-blocking)
     if (window.lucide) lucide.createIcons();
 
-    // Attach Image Upload Analysis Listener
     const imgInput = document.getElementById('product-image-upload');
     if (imgInput) {
         console.log("Admin: Event listener attached to #product-image-upload");
@@ -407,69 +454,26 @@ async function initAdmin() {
         });
     }
 
-    // Navigation Handler (Event Delegation)
-    const sidebarNav = document.querySelector('.sidebar-nav');
-    if (sidebarNav) {
-        // Clone sidebar nav to clear old listeners if any (clean slate)
-        const newSidebarNav = sidebarNav.cloneNode(true);
-        sidebarNav.parentNode.replaceChild(newSidebarNav, sidebarNav);
+    // 4. Delegated Event Listener for Order Item Tiles
+    const ordersBody = document.getElementById('orders-table-body');
+    if (ordersBody) {
+        const newBody = ordersBody.cloneNode(true);
+        ordersBody.parentNode.replaceChild(newBody, ordersBody);
 
-        newSidebarNav.addEventListener('click', (e) => {
-            const navItem = e.target.closest('.nav-item[data-view]');
-            if (!navItem) return;
-
-            console.log("Navigating to:", navItem.dataset.view);
-
-            // Update Active State
-            // Note: We need to query from the newSidebarNav now since we replaced it
-            newSidebarNav.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-            navItem.classList.add('active');
-
-            // Show View
-            const viewId = `view-${navItem.dataset.view}`;
-
-            // Force hide all sections
-            document.querySelectorAll('.view-section').forEach(v => {
-                v.classList.add('hidden');
-                v.style.display = 'none';
-            });
-
-            const targetView = document.getElementById(viewId);
-            if (targetView) {
-                targetView.classList.remove('hidden');
-                targetView.style.display = 'block';
-
-                // Update header title
-                const titleEl = document.getElementById('page-title');
-                if (titleEl) {
-                    // Handle text content carefully to ignore icon text if any
-                    // Actually navItem.textContent is fine usually
-                    titleEl.textContent = navItem.innerText.trim();
+        newBody.addEventListener('click', (e) => {
+            const tile = e.target.closest('.item-tile');
+            if (tile) {
+                e.preventDefault();
+                e.stopPropagation();
+                const sku = tile.dataset.sku;
+                if (sku) {
+                    window.toggleItemExpansion(tile, sku);
                 }
-
-                // View specific init
-                const viewName = navItem.dataset.view;
-                if (viewName === 'products') {
-                    if (window.loadProducts) window.loadProducts();
-                } else if (viewName === 'add-product') {
-                    if (window.prepareAddProductForm) window.prepareAddProductForm();
-                } else if (viewName === 'create-order') {
-                    if (window.initCreateOrder) window.initCreateOrder();
-                } else if (viewName === 'social-generator') {
-                    if (window.initSocialGenerator) window.initSocialGenerator();
-                } else if (viewName === 'upload-images') {
-                    if (window.initUploadImages) window.initUploadImages();
-                } else if (viewName === 'settings') {
-                    // Ensure settings are loaded when viewed
-                    if (window.loadSettings) window.loadSettings();
-                }
-            } else {
-                console.error("Target view not found:", viewId);
             }
         });
     }
 
-    // Logout
+    // 5. Other Handlers (Logout, Refresh, Add Product, Settings)
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         const newLogout = logoutBtn.cloneNode(true);
@@ -487,28 +491,19 @@ async function initAdmin() {
         newRefresh.addEventListener('click', loadProducts);
     }
 
-    // Add Product Form Handler
     const addProductForm = document.getElementById('add-product-form');
     if (addProductForm) {
-        // Clone to clear listeners
         const newForm = addProductForm.cloneNode(true);
         addProductForm.parentNode.replaceChild(newForm, addProductForm);
-
         newForm.addEventListener('submit', async (e) => {
-            // ... existing logic ...
-            // Re-implementing the submit logic essentially means copying the whole block or refactoring it out.
-            // To be safe and concise, I will call a separate function handler.
             handleProductSubmit(e);
         });
-
-        // Re-attach weight listener
         const weightInput = newForm.querySelector('input[name="Calculate on Weight"]');
         if (weightInput) {
             weightInput.addEventListener('blur', handleWeightCalculation);
         }
     }
 
-    // Settings Handler
     const saveSettingsBtn = document.getElementById('save-settings-btn');
     if (saveSettingsBtn) {
         loadSettings();
@@ -547,23 +542,15 @@ async function initAdmin() {
         });
     }
 
-    // Delegated Event Listener for Order Item Tiles
-    const ordersBody = document.getElementById('orders-table-body');
-    if (ordersBody) {
-        const newBody = ordersBody.cloneNode(true);
-        ordersBody.parentNode.replaceChild(newBody, ordersBody);
+    // 6. Load Data (Blocking stuff LAST)
+    await loadCredentials();
+    await loadGeminiCredentials();
 
-        newBody.addEventListener('click', (e) => {
-            const tile = e.target.closest('.item-tile');
-            if (tile) {
-                e.preventDefault();
-                e.stopPropagation();
-                const sku = tile.dataset.sku;
-                if (sku) {
-                    window.toggleItemExpansion(tile, sku);
-                }
-            }
-        });
+    // Check Session
+    if (sessionStorage.getItem('admin_logged_in') === 'true') {
+        showDashboard();
+    } else {
+        showLogin();
     }
 }
 
@@ -786,6 +773,9 @@ async function loadSettings() {
         if (receiver) receiver.value = data.receiver_email || '';
         if (sender) sender.value = data.sender_email || '';
         if (pass) pass.value = data.sender_pass || '';
+
+        // Load Admin List
+        if (window.loadAdminsForManagement) window.loadAdminsForManagement();
 
     } catch (e) {
         console.error("Error loading settings:", e);
@@ -1252,9 +1242,13 @@ async function loadData() {
                         <label>Payment</label>
                         <span>${o.paymentMethod || '-'}</span>
                     </div>
-                     <div class="info-group">
+                    <div class="info-group">
                         <label>Delivery Cost</label>
                         <span>${o.deliveryCost || '0.00'} JOD</span>
+                    </div>
+                    <div class="info-group">
+                        <label>Currency</label>
+                        <span>${o.currency || 'JOD'}</span>
                     </div>
                 </div>
             `;
@@ -1724,27 +1718,32 @@ const PRODUCT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg4
 async function initProductData() {
     if (window.allProducts && window.allProducts.length > 0) return; // Already loaded
 
-    try {
-        console.log("Fetching Product CSV from:", PRODUCT_CSV_URL);
-        // Use Papa Parse directly via URL if possible, or fetch text first
-        // Papa.parse supports remote files if 'download: true'
-        Papa.parse(PRODUCT_CSV_URL, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                if (results.data) {
-                    window.allProducts = results.data;
-                    console.log("Products loaded:", window.allProducts.length);
+    return new Promise((resolve, reject) => {
+        try {
+            console.log("Fetching Product CSV from:", PRODUCT_CSV_URL);
+            // Use Papa Parse directly via URL if possible, or fetch text first
+            // Papa.parse supports remote files if 'download: true'
+            Papa.parse(PRODUCT_CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    if (results.data) {
+                        window.allProducts = results.data;
+                        console.log("Products loaded:", window.allProducts.length);
+                    }
+                    resolve();
+                },
+                error: (err) => {
+                    console.error("Papa Parse Error:", err);
+                    reject(err);
                 }
-            },
-            error: (err) => {
-                console.error("Papa Parse Error:", err);
-            }
-        });
-    } catch (e) {
-        console.error("Failed to load products:", e);
-    }
+            });
+        } catch (e) {
+            console.error("Failed to load products:", e);
+            reject(e);
+        }
+    });
 }
 
 function extractDriveId(url) {
@@ -2738,7 +2737,8 @@ async function submitManualOrder() {
         paymentMethod: payment,
         status: 'Pending',
         timestamp: Date.now() / 1000,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        currency: window.currentCurrency || 'JOD'
     };
 
     try {
@@ -2874,10 +2874,10 @@ window.loadAdminsForManagement = async function () {
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon btn-edit" title="Change Password" onclick="window.openChangePassModal('${admin.username}')">
-                            <i data-lucide="key" style="width:16px; height:16px;"></i>
+                            <i data-lucide="key" style="width:16px; height:16px; pointer-events: none;"></i>
                         </button>
                         <button class="btn-icon btn-delete" title="Remove Admin" onclick="window.handleRemoveAdmin('${admin.username}')">
-                            <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
+                            <i data-lucide="trash-2" style="width:16px; height:16px; pointer-events: none;"></i>
                         </button>
                     </div>
                 </td>
