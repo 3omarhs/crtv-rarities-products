@@ -418,8 +418,11 @@ function selectDeliveryMethod(method) {
     const pmEwallet = document.getElementById('pm-ewallet');
 
     if (method === 'pickup') {
-        document.getElementById('delivery-details').classList.add('hidden');
-        document.getElementById('pickup-details').classList.remove('hidden');
+        const deliveryDetails = document.getElementById('delivery-details');
+        const pickupDetails = document.getElementById('pickup-details');
+
+        if (deliveryDetails) deliveryDetails.classList.add('hidden');
+        if (pickupDetails) pickupDetails.classList.remove('hidden');
         checkoutState.deliveryCost = 0;
 
         // Update Payment Labels for Pickup
@@ -428,10 +431,17 @@ function selectDeliveryMethod(method) {
         if (pmEwallet) pmEwallet.textContent = t.paymentEWallet;
 
     } else {
-        document.getElementById('delivery-details').classList.remove('hidden');
-        document.getElementById('pickup-details').classList.add('hidden');
+        const deliveryDetails = document.getElementById('delivery-details');
+        const pickupDetails = document.getElementById('pickup-details');
+
+        if (deliveryDetails) deliveryDetails.classList.remove('hidden');
+        if (pickupDetails) pickupDetails.classList.add('hidden');
 
         // Update Payment Labels for Delivery
+        const pmCash = document.getElementById('pm-cash');
+        const pmCliq = document.getElementById('pm-cliq');
+        const pmEwallet = document.getElementById('pm-ewallet');
+
         if (pmCash) pmCash.textContent = t.paymentCashDelivery;
         if (pmCliq) pmCliq.textContent = t.paymentCliQDelivery;
         if (pmEwallet) pmEwallet.textContent = t.paymentEWalletDelivery;
@@ -512,7 +522,7 @@ function updateDeliveryCompanies() {
         // Store cost in value or handle by lookup. 
         // Simple way: value="Name|Cost"
         opt.value = `${comp.name}|${cost}`;
-        opt.textContent = `${comp.name} - ${window.formatPrice ? window.formatPrice(cost) : cost.toFixed(2) + ' JOD'}`;
+        opt.textContent = `${comp.name} - ${window.formatPrice ? window.formatPrice(cost) : cost.toFixed(3) + ' JOD'}`;
         selectEl.appendChild(opt);
 
         // Auto select first one? User said "Choosing... then company", implying manual choice.
@@ -559,6 +569,7 @@ function getEffectivePrice(item, productQuantities) {
     if ((cleanString.match(/\./g) || []).length > 1) {
         // logic to handle multiple dots if necessary, but usually standard replace works for simple currency
     }
+    // Return float with high precision, formatting happens at display time
     return parseFloat(cleanString) || 0;
 }
 
@@ -787,6 +798,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Explicitly export to window
 window.openCheckoutModal = openCheckoutModal;
+window.checkoutNext = checkoutNext;
+window.checkoutBack = checkoutBack;
+window.submitOrder = submitOrder;
+window.selectDeliveryMethod = selectDeliveryMethod;
+window.updateDeliveryCompanies = updateDeliveryCompanies;
+window.selectCompanyFromDropdown = selectCompanyFromDropdown;
+window.initCheckout = initCheckout;
 window.closeCheckout = closeCheckout;
 window.checkoutNext = checkoutNext;
 window.checkoutBack = checkoutBack;

@@ -6,6 +6,8 @@ import mimetypes
 import sqlite3
 import pyodbc
 from datetime import datetime
+import traceback
+from decimal import Decimal
 
 PORT = 8000
 BASE_DIR = os.getcwd()
@@ -122,11 +124,25 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
         super().end_headers()
 
+    def send_json(self, data):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        
+        class DecimalEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, Decimal):
+                    return float(obj)
+                return super(DecimalEncoder, self).default(obj)
+                
+        self.wfile.write(json.dumps(data, cls=DecimalEncoder).encode('utf-8'))
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
 
     def do_GET(self):
+        print(f"Incoming GET: {self.path}")
         path = self.path.split('?')[0]
         
         try:
@@ -147,7 +163,8 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             if path == '/api/settings':
-                 rows = execute_query('SELECT key, value FROM settings', fetch=True)
+                 # Escape key for MSSQL
+                 rows = execute_query('SELECT [key], value FROM settings', fetch=True)
                  settings = {row['key']: row['value'] for row in rows}
                  self.send_json(settings)
                  return
@@ -188,7 +205,8 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             
             super().do_GET()
         except Exception as e:
-            print(f"Server Error: {e}")
+            print(f"Server Error (GET): {e}")
+            traceback.print_exc()
             self.send_error_json(500, str(e))
 
     def do_POST(self):
@@ -286,6 +304,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, "Not Found")
         except Exception as e:
             print(f"Server Error (POST): {e}")
+            traceback.print_exc()
             self.send_error_json(500, str(e))
 
     def do_PUT(self):
@@ -319,7 +338,13 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404)
 
     # --- HELPERS ---
-    def send_json(self, data):
+    # --- HELPERS ---
+    # send_json is moved up to override SimpleHTTPRequestHandler methods if needed or just organizing
+    # But since I redefined it above, I should remove the old one or ensure I don't have duplicates.
+    # The previous ReplacementChunk replaced do_OPTIONS and added send_json BEFORE it.
+    # I should check where the old send_json was. It was at line 326.
+    # I will remove the old send_json definition to avoid confusion/errors.
+
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
