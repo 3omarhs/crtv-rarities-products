@@ -58,6 +58,23 @@
     display: none !important;
 }
 
+/* Mobile Sidebar Overlay */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+    backdrop-filter: blur(2px);
+}
+
+.sidebar-overlay.active {
+    display: block;
+}
+
 /* Ensure views stack correctly and clear previous content */
 .view-section {
     display: block;
@@ -628,20 +645,78 @@
 }
 
 /* Responsive */
+/* Responsive */
 @media (max-width: 768px) {
     .dashboard-container {
         display: block;
     }
 
     .sidebar {
-        display: none;
-        /* Or transform: translateX(-100%) for mobile menu */
+        display: block;
+        /* Keep it blocked but transform it out */
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
     }
 
     .main-content {
         margin-left: 0;
         width: 100%;
+        padding: 1rem;
+        /* Reduce padding on mobile */
     }
+
+    .mobile-only {
+        display: flex !important;
+    }
+
+    #page-title {
+        font-size: 1.2rem;
+        /* Smaller title on mobile */
+    }
+
+    .top-bar {
+        margin-bottom: 1rem;
+    }
+
+    /* Make tables responsive */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        min-width: 600px;
+        /* Ensure it scrolls */
+    }
+
+    /* Create Order Stacking */
+    .create-order-grid {
+        grid-template-columns: 1fr !important;
+        /* Stack vertically */
+        height: auto !important;
+        /* Allow full height */
+        display: block !important;
+        /* Or flex-column if preferred, but block works for stacking divs */
+    }
+
+    .create-order-grid>div {
+        width: 100% !important;
+        margin-bottom: 2rem;
+    }
+}
+
+/* Default Desktop Styles for Create Order */
+.create-order-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+    height: calc(100vh - 140px);
 }
 
 /* Switch Toggle */

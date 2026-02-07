@@ -108,8 +108,17 @@
         <main class="main-content">
             <!-- Top Bar -->
             <header class="top-bar">
-                <h1 id="page-title">Dashboard Overview</h1>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <button id="mobile-menu-btn" class="btn-icon mobile-only" onclick="toggleSidebar()"
+                        style="display:none; color:var(--text-primary);">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h1 id="page-title">Dashboard Overview</h1>
+                </div>
                 <div class="user-info">
+                    <button id="theme-toggle" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
+                        <i data-lucide="moon"></i>
+                    </button>
                     <span>Admin User</span>
                     <div class="avatar">A</div>
                 </div>
@@ -495,8 +504,7 @@
                 <h3>Create Manual Order</h3>
                 <div class="admin-form" style="width: 100%; max-width: 100%;">
 
-                    <div
-                        style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; height: calc(100vh - 140px);">
+                    <div class="create-order-grid">
 
                         <!-- Col 1: Customer & Search -->
                         <div style="display:flex; flex-direction:column; gap:1rem; overflow-y:auto; padding-right:5px;">
@@ -659,6 +667,18 @@
                                 </div>
 
                                 <div class="form-group">
+                                    <label>Currency</label>
+                                    <select id="mo-currency" onchange="updateManualTotal()">
+                                        <option value="JOD">JOD (Jordanian Dinar)</option>
+                                        <option value="USD">USD (US Dollar)</option>
+                                        <option value="EUR">EUR (Euro)</option>
+                                        <option value="SAR">SAR (Saudi Riyal)</option>
+                                        <option value="AED">AED (UAE Dirham)</option>
+                                        <option value="QAR">QAR (Qatari Riyal)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
                                     <label>Payment Method</label>
                                     <select id="mo-payment">
                                         <option value="Cash on delivery">Cash on delivery</option>
@@ -705,7 +725,7 @@
 
                     <div style="text-align: center; margin-bottom: 2.5rem;">
                         <h2 class="section-title"
-                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
                             Social Media Magic ✨</h2>
                         <p style="color: var(--text-secondary); font-size: 1.1rem;">Generate engagement-ready captions
                             in seconds.</p>
@@ -750,7 +770,7 @@
 
                     <div style="text-align: center; margin-bottom: 2.5rem;">
                         <h2 class="section-title"
-                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #34d399 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
                             Upload Gallery Images 📸</h2>
                         <p style="color: var(--text-secondary); font-size: 1.1rem;">Add multiple images to a
                             product's gallery.</p>

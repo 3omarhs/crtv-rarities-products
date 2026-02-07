@@ -180,13 +180,30 @@ header {
         display: none;
     }
 
+    header {
+        padding-top: 4rem;
+        /* Add space for top actions */
+    }
+
     .header-actions {
-        top: -1rem;
-        right: 1rem;
+        position: absolute;
+        top: 1rem;
+        left: 0;
+        right: 0;
+        justify-content: center;
+        flex-direction: row;
+        width: 100%;
+        gap: 1rem;
+        padding: 0 1rem;
     }
 
     .whatsapp-btn {
-        padding: 0.8rem;
+        padding: 0.6rem 1rem;
+        /* Smaller padding */
+    }
+
+    .lang-switch-btn {
+        padding: 0.6rem 1rem;
     }
 }
 

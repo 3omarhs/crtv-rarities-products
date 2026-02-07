@@ -1084,7 +1084,13 @@ async function loadData() {
             // Try fetching visits.json directly (since no API server)
             const visitsRes = await fetch('/api/visits');
             if (visitsRes.ok) {
-                visitsData = await visitsRes.json();
+                const json = await visitsRes.json();
+                // Server returns { visits: { total: ..., daily: ... } }
+                if (json.visits && json.visits.total !== undefined) {
+                    visitsData = json.visits;
+                } else {
+                    visitsData = json;
+                }
             } else {
                 throw new Error("visits.json not found");
             }
@@ -2401,6 +2407,42 @@ window.handleManualProductSearch = function (e) {
     dropdown.classList.remove('hidden');
 };
 
+// Mobile Sidebar Logic
+window.toggleSidebar = function () {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    sidebar.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('active');
+};
+
+// Close sidebar when clicking overlay
+document.addEventListener('DOMContentLoaded', () => {
+    // Create overlay if not exists
+    if (!document.getElementById('sidebar-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'sidebar-overlay';
+        overlay.className = 'sidebar-overlay';
+        overlay.onclick = window.toggleSidebar;
+        document.body.appendChild(overlay);
+    }
+
+    // Close sidebar on nav item click (mobile)
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                const sidebar = document.querySelector('.sidebar');
+                const overlay = document.getElementById('sidebar-overlay');
+                if (sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                    if (overlay) overlay.classList.remove('active');
+                }
+            }
+        });
+    });
+});
+
 window.selectManualProduct = function (id) {
     const input = document.getElementById('mo-product-search');
     const dropdown = document.getElementById('mo-product-dropdown');
@@ -2687,9 +2729,11 @@ function updateManualTotal() {
         }
     }
 
-    document.getElementById('mo-subtotal').textContent = subtotal.toFixed(3) + ' JOD';
-    document.getElementById('mo-delivery').textContent = delivery.toFixed(3) + ' JOD';
-    document.getElementById('mo-total').textContent = (subtotal + delivery).toFixed(3) + ' JOD';
+    const currency = document.getElementById('mo-currency').value || 'JOD';
+
+    document.getElementById('mo-subtotal').textContent = subtotal.toFixed(3) + ' ' + currency;
+    document.getElementById('mo-delivery').textContent = delivery.toFixed(3) + ' ' + currency;
+    document.getElementById('mo-total').textContent = (subtotal + delivery).toFixed(3) + ' ' + currency;
 }
 
 async function submitManualOrder() {
@@ -2698,6 +2742,7 @@ async function submitManualOrder() {
     const region = document.getElementById('mo-region').value;
     const address = document.getElementById('mo-address').value;
     const payment = document.getElementById('mo-payment').value;
+    const currency = document.getElementById('mo-currency').value || 'JOD';
 
     // Check method
     const isDelivery = document.querySelector('input[name="mo-method"]:checked').value === 'delivery';
@@ -2739,7 +2784,7 @@ async function submitManualOrder() {
         status: 'Pending',
         timestamp: Date.now() / 1000,
         date: new Date().toISOString(),
-        currency: window.currentCurrency || 'JOD'
+        currency: currency
     };
 
     try {
