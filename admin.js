@@ -25,7 +25,29 @@ async function loadGeminiCredentials() {
         }
         console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys.`);
     } catch (e) {
-        console.error("Admin: Failed to load Gemini credentials", e);
+        console.error("Admin: Failed to load Gemini credentials from API", e);
+    }
+
+    // Fallback to text file (Vercel Support)
+    if (GEMINI_API_KEYS.length === 0) {
+        try {
+            console.log("Admin: Trying geminiCredintials.txt fallback...");
+            // Notice spelling from user's file
+            const res = await fetch('geminiCredintials.txt');
+            if (res.ok) {
+                const text = await res.text();
+                const lines = text.split(/\r?\n/);
+                for (const line of lines) {
+                    if (line.toLowerCase().includes('gemini api key:')) {
+                        const key = line.split(/gemini api key:/i)[1].trim();
+                        if (key) GEMINI_API_KEYS.push(key);
+                    }
+                }
+                console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from file.`);
+            }
+        } catch (ex) {
+            console.warn("Admin: Failed to load geminiCredintials.txt", ex);
+        }
     }
 }
 
@@ -543,6 +565,18 @@ async function initAdmin() {
         });
     }
 
+    // Theme Toggle Listener
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        // Remove existing listener if any to prevent duplicates (though replace is safe)
+        const newToggle = themeToggle.cloneNode(true);
+        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
+        newToggle.addEventListener('change', window.toggleTheme);
+        // Ensure state matches
+        const currentTheme = localStorage.getItem('theme');
+        newToggle.checked = (currentTheme === 'light');
+    }
+
     // 6. Load Data (Blocking stuff LAST)
     await loadCredentials();
     await loadGeminiCredentials();
@@ -801,10 +835,11 @@ window.initSocialGenerator = async function () {
     if (!select || !btn) return;
 
     // Load products if not loaded
-    let products = window.productsData;
+    let products = window.allProducts;
     if (!products || products.length === 0) {
         try {
-            products = await window.fetchProductsData();
+            await initProductData();
+            products = window.allProducts;
         } catch (e) { console.error("Error loading products for social", e); return; }
     }
 
@@ -937,10 +972,11 @@ window.initUploadImages = async function () {
     if (!select || !btn) return;
 
     // Load products if not loaded
-    let products = window.productsData;
+    let products = window.allProducts;
     if (!products || products.length === 0) {
         try {
-            products = await window.fetchProductsData();
+            await initProductData();
+            products = window.allProducts;
         } catch (e) { console.error("Error loading products for upload", e); return; }
     }
 
@@ -2013,8 +2049,9 @@ window.loadProducts = async function () {
     tbody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
 
     try {
-        const data = await window.fetchProductsData();
-        renderProductsTable(data);
+        await initProductData();
+        window.currentProducts = window.allProducts; // Keep currentProducts for compatibility
+        renderProductsTable(window.allProducts);
     } catch (e) {
         console.error("Error loading products", e);
         tbody.innerHTML = '<tr><td colspan="7">Error loading products. Check console.</td></tr>';
@@ -2932,7 +2969,24 @@ window.loadAdminsForManagement = async function () {
 
         if (window.lucide) lucide.createIcons();
     } catch (e) {
-        console.error("Failed to load admins:", e);
+        console.error("Failed to load admins from API. Trying fallback...", e);
+        // Fallback to local array loaded at startup
+        const tbody = document.getElementById('admin-list-body');
+        if (!tbody) return;
+
+        if (ADMIN_USERS.length > 0) {
+            tbody.innerHTML = ADMIN_USERS.map(u => `
+                <tr>
+                    <td style="font-weight:600;">${u.email}</td>
+                    <td><span class="status-badge status-active">Active (File)</span></td>
+                    <td>
+                        <span style="font-size:0.8rem; color:grey;">Read Only</span>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="3">No admins loaded.</td></tr>';
+        }
     }
 };
 
