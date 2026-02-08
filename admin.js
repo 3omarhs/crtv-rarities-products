@@ -9,30 +9,36 @@ let ADMIN_USERS = [];
 let GEMINI_API_KEYS = []; // Array for rotation
 
 async function loadGeminiCredentials() {
+    GEMINI_API_KEYS = [];
+
+    // 1. LocalStorage (Primary for Vercel)
+    const localKey = localStorage.getItem('gemini_api_key');
+    if (localKey) {
+        GEMINI_API_KEYS.push(localKey);
+        console.log("Admin: Loaded Gemini Key from LocalStorage");
+    }
+
     try {
         const response = await fetch('/api/settings');
-        if (!response.ok) throw new Error("Failed to load Gemini credentials");
-        const settings = await response.json();
-        const text = settings.gemini_credentials_raw || "";
-        const lines = text.split(/\r?\n/);
-
-        GEMINI_API_KEYS = []; // Reset
-        for (const line of lines) {
-            if (line.toLowerCase().includes('gemini api key:')) {
-                const key = line.split(/gemini api key:/i)[1].trim();
-                if (key) GEMINI_API_KEYS.push(key);
+        if (response.ok) {
+            const settings = await response.json();
+            const text = settings.gemini_credentials_raw || "";
+            const lines = text.split(/\r?\n/);
+            for (const line of lines) {
+                if (line.toLowerCase().includes('gemini api key:')) {
+                    const key = line.split(/gemini api key:/i)[1].trim();
+                    if (key && !GEMINI_API_KEYS.includes(key)) GEMINI_API_KEYS.push(key);
+                }
             }
         }
-        console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys.`);
     } catch (e) {
-        console.error("Admin: Failed to load Gemini credentials from API", e);
+        console.warn("Admin: Failed to load Gemini credentials from API", e);
     }
 
     // Fallback to text file (Vercel Support)
     if (GEMINI_API_KEYS.length === 0) {
         try {
             console.log("Admin: Trying geminiCredintials.txt fallback...");
-            // Notice spelling from user's file
             const res = await fetch('geminiCredintials.txt');
             if (res.ok) {
                 const text = await res.text();
@@ -40,7 +46,7 @@ async function loadGeminiCredentials() {
                 for (const line of lines) {
                     if (line.toLowerCase().includes('gemini api key:')) {
                         const key = line.split(/gemini api key:/i)[1].trim();
-                        if (key) GEMINI_API_KEYS.push(key);
+                        if (key && !GEMINI_API_KEYS.includes(key)) GEMINI_API_KEYS.push(key);
                     }
                 }
                 console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from file.`);
@@ -540,6 +546,18 @@ async function initAdmin() {
             const pass = document.getElementById('sender-pass').value.trim();
             const msg = document.getElementById('settings-msg');
 
+            // Save Gemini Key to LocalStorage
+            const keyInput = document.getElementById('gemini-api-key-input');
+            if (keyInput) {
+                const key = keyInput.value.trim();
+                if (key) {
+                    localStorage.setItem('gemini_api_key', key);
+                    await loadGeminiCredentials(); // Reload immediately
+                } else {
+                    localStorage.removeItem('gemini_api_key');
+                }
+            }
+
             try {
                 const res = await fetch('/api/settings', {
                     method: 'POST',
@@ -560,7 +578,11 @@ async function initAdmin() {
                     alert("Failed: " + json.error);
                 }
             } catch (e) {
-                alert("Error saving settings: " + e.message);
+                // If API fails (e.g. Vercel), at least we saved to localStorage
+                console.warn("Settings API save failed (expected on static host):", e);
+                msg.textContent = "Settings saved to browser!";
+                msg.classList.remove('hidden');
+                setTimeout(() => msg.classList.add('hidden'), 3000);
             }
         });
     }
@@ -794,6 +816,12 @@ function handleWeightCalculation(e) {
 
 async function loadSettings() {
     console.log("Loading settings...");
+    // LocalStorage
+    const keyInput = document.getElementById('gemini-api-key-input');
+    if (keyInput) {
+        keyInput.value = localStorage.getItem('gemini_api_key') || '';
+    }
+
     try {
         const res = await fetch('/api/settings');
         if (!res.ok) throw new Error("Failed to fetch settings");
@@ -813,7 +841,7 @@ async function loadSettings() {
         if (window.loadAdminsForManagement) window.loadAdminsForManagement();
 
     } catch (e) {
-        console.error("Error loading settings:", e);
+        console.error("Error loading settings (API might be down on Vercel):", e);
     }
 }
 
@@ -1118,17 +1146,18 @@ async function loadData() {
         let visitsData = { total: 0, daily: {} };
         try {
             // Try fetching visits.json directly (since no API server)
-            const visitsRes = await fetch('/api/visits');
-            if (visitsRes.ok) {
-                const json = await visitsRes.json();
-                // Server returns { visits: { total: ..., daily: ... } }
-                if (json.visits && json.visits.total !== undefined) {
-                    visitsData = json.visits;
-                } else {
-                    visitsData = json;
+            try {
+                const visitsRes = await fetch('/api/visits');
+                if (visitsRes.ok) {
+                    const json = await visitsRes.json();
+                    if (json.visits && json.visits.total !== undefined) {
+                        visitsData = json.visits;
+                    } else {
+                        visitsData = json;
+                    }
                 }
-            } else {
-                throw new Error("visits.json not found");
+            } catch (e) {
+                console.warn("Visits API not available, using defaults.");
             }
 
             // Calculate Today's Visits
@@ -2660,8 +2689,33 @@ async function loadManualProducts() {
 
 async function loadDeliveryDetails() {
     try {
-        const res = await fetch('deliveryCompanies.json');
-        const companies = await res.json();
+        // Embed delivery companies directly for Vercel support
+        const companies = [
+            {
+                "Name": "Aramex",
+                "Regions": {
+                    "Amman": 4, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 2": 4
+                }
+            },
+            {
+                "Name": "Bee-X",
+                "Regions": {
+                    "Amman": 2.5, "Ajloon": 3, "Al Fanadik": 3, "Al Hashmyeh": 3, "Al Jafer": 3, "Al Omari Borders": 3, "Al Qaser": 3, "Al Qastal": 3, "Al Rosaifa": 3, "Al Sukhneh": 3, "AAy": 3, "Aqaba": 3, "Azraq": 3, "Balqa": 3, "Bereian": 3, "Der Allah": 3, "Dulail": 3, "Free Zone": 3, "Fuhais": 3, "Ghour": 3, "Ghour Al Safi": 3, "Ghweria": 3, "Irbid": 3, "Jerash": 3, "Karak": 3, "Khaldieh": 3, "MaAn / Maan": 3, "Madaba": 3, "Mahes": 3, "Moatah": 3, "Moghayam Hetein": 3, "Mwaqar": 3, "Naour": 3, "Petra": 3, "Qwaireh": 3, "Ramtha": 3, "Rashadyeh": 3, "Rwaished": 3, "Salt": 3, "Shoubak": 3, "Shouneh": 3, "Tafileh": 3, "Theban": 3, "Wadi Mousa": 3, "Yajoz": 3, "Zarqa": 3, "Zarqa Al Jadedeh": 3, "Zone 1": 3, "Zone 2": 3
+                }
+            },
+            {
+                "Name": "DLX",
+                "Regions": {
+                    "Amman": 2, "Ajloon": 3, "Al Fanadik": 3, "Al Hashmyeh": 3, "Al Jafer": 3, "Al Omari Borders": 3, "Al Qaser": 3, "Al Qastal": 3, "Al Rosaifa": 3, "Al Sukhneh": 3, "AAy": 3, "Aqaba": 3, "Azraq": 3, "Balqa": 3, "Bereian": 3, "Der Allah": 3, "Dulail": 3, "Free Zone": 3, "Fuhais": 3, "Ghour": 3, "Ghour Al Safi": 3, "Ghweria": 3, "Irbid": 3, "Jerash": 3, "Karak": 3, "Khaldieh": 3, "MaAn / Maan": 3, "Madaba": 3, "Mahes": 3, "Moatah": 3, "Moghayam Hetein": 3, "Mwaqar": 3, "Naour": 3, "Petra": 3, "Qwaireh": 3, "Ramtha": 3, "Rashadyeh": 3, "Rwaished": 3, "Salt": 3, "Shoubak": 3, "Shouneh": 3, "Tafileh": 3, "Theban": 3, "Wadi Mousa": 3, "Yajoz": 3, "Zarqa": 3, "Zarqa Al Jadedeh": 3, "Zone 1": 3, "Zone 2": 3
+                }
+            },
+            {
+                "Name": "FLEET Go",
+                "Regions": {
+                    "Amman": 1.5, "Ajloon": 2, "Al Fanadik": 2, "Al Hashmyeh": 2, "Al Jafer": 2, "Al Omari Borders": 2, "Al Qaser": 2, "Al Qastal": 2, "Al Rosaifa": 2, "Al Sukhneh": 2, "AAy": 2, "Aqaba": 2, "Azraq": 2, "Balqa": 2, "Bereian": 2, "Der Allah": 2, "Dulail": 2, "Free Zone": 2, "Fuhais": 2, "Ghour": 2, "Ghour Al Safi": 2, "Ghweria": 2, "Irbid": 2, "Jerash": 2, "Karak": 2, "Khaldieh": 2, "MaAn / Maan": 2, "Madaba": 2, "Mahes": 2, "Moatah": 2, "Moghayam Hetein": 2, "Mwaqar": 2, "Naour": 2, "Petra": 2, "Qwaireh": 2, "Ramtha": 2, "Rashadyeh": 2, "Rwaished": 2, "Salt": 2, "Shoubak": 2, "Shouneh": 2, "Tafileh": 2, "Theban": 2, "Wadi Mousa": 2, "Yajoz": 2, "Zarqa": 2, "Zarqa Al Jadedeh": 2, "Zone 1": 2, "Zone 2": 2
+                }
+            }
+        ];
 
         deliveryRegionsCache = {};
 
@@ -2679,10 +2733,12 @@ async function loadDeliveryDetails() {
 
         // Populate Region Select
         const regionSelect = document.getElementById('mo-region');
-        regionSelect.innerHTML = '<option value="">-- Select Region --</option>' +
-            Object.keys(deliveryRegionsCache).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+        if (regionSelect) {
+            regionSelect.innerHTML = '<option value="">-- Select Region --</option>' +
+                Object.keys(deliveryRegionsCache).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+        }
 
-        console.log("Delivery details loaded from JSON.");
+        console.log("Delivery details loaded from embedded config.");
 
     } catch (e) {
         console.error("Failed to load delivery details", e);

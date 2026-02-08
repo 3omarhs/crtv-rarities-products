@@ -277,6 +277,25 @@
                     </div>
                 </div>
 
+                <!-- API Configuration Section -->
+                <div class="card" style="padding:1.5rem; margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <div class="section-title">API Configuration</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Gemini API Key (AI Features)</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="password" id="gemini-api-key-input"
+                                placeholder="Paste your Gemini API Key here" style="flex:1;">
+                            <button class="btn btn-secondary" onclick="toggleVisibility('gemini-api-key-input')">
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
+                        <small style="color:var(--text-secondary)">Required for Social Media Generator and Product
+                            Analysis.</small>
+                    </div>
+                </div>
+
                 <!-- Existing Google Script URL Section -->
                 <div class="card" style="padding:1.5rem;">
                     <div class="section-header">
@@ -956,6 +975,14 @@
         <script src="admin.js?v=4.0"></script>
         <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.7
         </div>
+        <script>
+            function toggleVisibility(id) {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                }
+            }
+        </script>
 </body>
 
 </html>

@@ -720,14 +720,33 @@ async function fetchSheetData() {
     try {
         console.log("Fetching Product data from DB...");
         const response = await fetch('/api/products');
-        if (!response.ok) {
-            throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+        if (response.ok) {
+            const data = await response.json();
+            return data;
         }
-        const data = await response.json();
-        return data;
+        throw new Error(`API returned ${response.status}`);
     } catch (error) {
-        console.error("Fetch Data Error:", error);
-        throw error;
+        console.warn("API Error, falling back to CSV:", error);
+        // Fallback to CSV
+        return new Promise((resolve, reject) => {
+            if (typeof Papa === 'undefined') {
+                reject(new Error("PapaParse not loaded for CSV fallback"));
+                return;
+            }
+            Papa.parse(CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    console.log("CSV Fallback success:", results.data.length, "items");
+                    resolve(results.data);
+                },
+                error: (err) => {
+                    console.error("CSV Fallback failed:", err);
+                    reject(err);
+                }
+            });
+        });
     }
 }
 
