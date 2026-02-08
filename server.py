@@ -61,6 +61,17 @@ def get_db_connection():
         conn.row_factory = sqlite3.Row
         return conn, "sqlite"
 
+def get_mssql_connection():
+    """Helper to get MSSQL connection regardless of global config"""
+    config = get_config()
+    conn_str = config.get("connection_string", "")
+    if conn_str:
+        try:
+            return pyodbc.connect(conn_str)
+        except Exception as e:
+            print(f"MSSQL Connection Failed: {e}")
+    return None
+
 def execute_query(query, params=(), fetch=False, commit=False):
     conn, db_type = get_db_connection()
     cursor = conn.cursor()
@@ -268,7 +279,26 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
                 
             if path == '/api/visits':
-                # Generic SQL should work for both
+                # Try MSSQL First
+                mssql_conn = get_mssql_connection()
+                if mssql_conn:
+                    try:
+                        cursor = mssql_conn.cursor()
+                        cursor.execute('SELECT SUM(count) as t FROM visits')
+                        row = cursor.fetchone()
+                        total = row[0] if row and row[0] else 0
+                        
+                        cursor.execute('SELECT date, count FROM visits')
+                        daily = {row[0]: row[1] for row in cursor.fetchall()}
+                        
+                        mssql_conn.close()
+                        self.send_json({"visits": {"total": total, "daily": daily}})
+                        return
+                    except Exception as e:
+                        print(f"MSSQL Read Error (Falling back): {e}")
+                        if mssql_conn: mssql_conn.close()
+
+                # Fallback to configured DB (SQLite)
                 total_res = execute_query('SELECT SUM(count) as t FROM visits', fetch=True)
                 total = total_res[0]['t'] if total_res and total_res[0]['t'] else 0
                 
@@ -284,6 +314,24 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                  settings = {row['key']: row['value'] for row in rows}
                  self.send_json(settings)
                  return
+
+            if path == '/api/gemini-keys':
+                keys = []
+                # Try MSSQL
+                mssql_conn = get_mssql_connection()
+                if mssql_conn:
+                    try:
+                        cursor = mssql_conn.cursor()
+                        cursor.execute("SELECT KeyValue FROM ApiKeys WHERE IsActive = 1")
+                        rows = cursor.fetchall()
+                        keys = [row[0] for row in rows]
+                        mssql_conn.close()
+                    except Exception as e:
+                        print(f"Error fetching keys from MSSQL: {e}")
+                        if mssql_conn: mssql_conn.close()
+                
+                self.send_json({"keys": keys})
+                return
 
             if path == '/api/products':
                 # Sync explicitly on request
@@ -367,6 +415,34 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             elif path == '/api/visits':
                 today = datetime.now().strftime('%Y-%m-%d')
                 
+                # Try MSSQL First
+                mssql_conn = get_mssql_connection()
+                if mssql_conn:
+                    try:
+                        cursor = mssql_conn.cursor()
+                        # Upsert
+                        cursor.execute("UPDATE visits SET count = count + 1 WHERE date = ?", (today,))
+                        if cursor.rowcount == 0:
+                            cursor.execute("INSERT INTO visits (date, count) VALUES (?, 1)", (today,))
+                        mssql_conn.commit()
+                        
+                        # Fetch Response
+                        cursor.execute('SELECT SUM(count) as t FROM visits')
+                        row = cursor.fetchone()
+                        total = row[0] if row and row[0] else 0
+                        
+                        cursor.execute('SELECT count FROM visits WHERE date = ?', (today,))
+                        row_today = cursor.fetchone()
+                        today_count = row_today[0] if row_today else 0
+                        
+                        mssql_conn.close()
+                        self.send_json({"visits": total, "today": today_count})
+                        return
+                    except Exception as e:
+                        print(f"MSSQL Write Error (Falling back): {e}")
+                        if mssql_conn: mssql_conn.close()
+
+                # Fallback to configured DB (SQLite)
                 conn, db_type = get_db_connection()
                 try:
                     if db_type == 'sqlite':
@@ -375,13 +451,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                             ON CONFLICT(date) DO UPDATE SET count = count + 1
                         ''', (today,))
                     else:
-                        # MSSQL Upsert (Merge or check exist)
-                        # Simplest reliable way for MSSQL < 2016 without MERGE complexity
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE visits SET count = count + 1 WHERE date = ?", (today,))
-                        if cursor.rowcount == 0:
-                            cursor.execute("INSERT INTO visits (date, count) VALUES (?, 1)", (today,))
-                            
+                        pass 
                     conn.commit()
                 finally:
                     conn.close()

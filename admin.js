@@ -7,53 +7,32 @@ document.title = "Admin Portal (V4.0)";
 
 let ADMIN_USERS = [];
 let GEMINI_API_KEYS = []; // Array for rotation
+// Derived from app.js for consistency
+// const PRODUCT_CSV_URL = '...'; // Removed duplicate
 
 async function loadGeminiCredentials() {
     GEMINI_API_KEYS = [];
 
-    // 1. LocalStorage (Primary for Vercel)
-    const localKey = localStorage.getItem('gemini_api_key');
-    if (localKey) {
-        GEMINI_API_KEYS.push(localKey);
-        console.log("Admin: Loaded Gemini Key from LocalStorage");
-    }
-
+    // 1. Fetch from SQL Server via API (Primary Source)
     try {
-        const response = await fetch('/api/settings');
+        console.log("Admin: Fetching Gemini keys from database...");
+        const response = await fetch('/api/gemini-keys');
         if (response.ok) {
-            const settings = await response.json();
-            const text = settings.gemini_credentials_raw || "";
-            const lines = text.split(/\r?\n/);
-            for (const line of lines) {
-                if (line.toLowerCase().includes('gemini api key:')) {
-                    const key = line.split(/gemini api key:/i)[1].trim();
-                    if (key && !GEMINI_API_KEYS.includes(key)) GEMINI_API_KEYS.push(key);
-                }
+            const data = await response.json();
+            if (data.keys && Array.isArray(data.keys)) {
+                GEMINI_API_KEYS = data.keys;
+                console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from DB.`);
             }
         }
     } catch (e) {
-        console.warn("Admin: Failed to load Gemini credentials from API", e);
+        console.warn("Admin: Failed to load Gemini keys from API", e);
     }
 
-    // Fallback to text file (Vercel Support)
-    if (GEMINI_API_KEYS.length === 0) {
-        try {
-            console.log("Admin: Trying geminiCredintials.txt fallback...");
-            const res = await fetch('geminiCredintials.txt');
-            if (res.ok) {
-                const text = await res.text();
-                const lines = text.split(/\r?\n/);
-                for (const line of lines) {
-                    if (line.toLowerCase().includes('gemini api key:')) {
-                        const key = line.split(/gemini api key:/i)[1].trim();
-                        if (key && !GEMINI_API_KEYS.includes(key)) GEMINI_API_KEYS.push(key);
-                    }
-                }
-                console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from file.`);
-            }
-        } catch (ex) {
-            console.warn("Admin: Failed to load geminiCredintials.txt", ex);
-        }
+    // 2. LocalStorage Override (Optional for dev)
+    const localKey = localStorage.getItem('gemini_api_key');
+    if (localKey && !GEMINI_API_KEYS.includes(localKey)) {
+        GEMINI_API_KEYS.unshift(localKey); // Add to front
+        console.log("Admin: Added local override key.");
     }
 }
 
@@ -105,13 +84,13 @@ async function analyzeImageWithGemini(file) {
             const base64Data = reader.result.split(',')[1];
             const mimeType = file.type;
 
-            const prompt = `You are a product management assistant. Analyze the image and provide the following 6 details based on these specific instructions:
+            const prompt = `You are a product management assistant. Analyze the image and provide the following details based exactly on this structure:
 "name this product, only reply with the name and suggest one only the closest one to the product don't talk alot
-name for selling the product so a promotional name that indicate the function of the product
+name for selling the product so a promotional name that indicate the function of the product 
 in the second line write a description of the product in 80 word only
 after it please name the product category as (Home Decor & Organization - Desk Accessories) but with what belong to the product in the image
 after it mention the product Collection
-then provide the arabic name for the product
+then provide the Arabic name for the product
 and at the last mention the Target Market for the product"
 
 CRITICAL OUTPUT FORMAT:
@@ -119,7 +98,7 @@ Return ONLY the values separated by "|||".
 Order must be: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
 DO NOT include labels like "Name:".
 Example:
-Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب سوبر ||| Professionals`;
+Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
             const payload = {
                 contents: [{
@@ -146,8 +125,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 try {
                     console.log(`Admin: Requesting Gemini with key index ${i}...`);
-                    // Use gemini-1.5-flash which is faster and better for this
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    // Use gemini-flash-latest as verified
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
@@ -177,7 +156,6 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                         // Order: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
                         if (parts[0]) {
                             document.querySelector('input[name="product name"]').value = parts[0];
-                            document.querySelector('input[name="Name on Store"]').value = parts[0];
                         }
                         if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
                         if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
@@ -306,8 +284,16 @@ async function loadCredentials() {
         }
         console.log(`Admin: Loaded ${ADMIN_USERS.length} users from file.`);
         fileSuccess = true;
+
     } catch (e) {
-        console.error("Admin: Both API and File load failed", e);
+        console.warn("Admin: Failed to load adminCredentials.txt", e);
+    }
+
+    // FINAL FALLBACK: If everything failed (no API, no file), use default
+    if (ADMIN_USERS.length === 0) {
+        console.warn("Admin: No credentials source found. Using DEFAULT emergency credentials.");
+        ADMIN_USERS.push({ email: 'admin', pass: 'admin123' });
+        ADMIN_USERS.push({ email: 'omar', pass: 'omar123' });
     }
 
     // Emergency Default
@@ -421,9 +407,13 @@ async function initAdmin() {
                 } else if (viewName === 'add-product') {
                     if (window.prepareAddProductForm) window.prepareAddProductForm();
                 } else if (viewName === 'create-order') {
-                    if (window.renderManualCart) window.renderManualCart();
+                    if (window.initCreateOrder) window.initCreateOrder();
                 } else if (viewName === 'settings') {
                     if (window.loadSettings) window.loadSettings();
+                } else if (viewName === 'social-generator') {
+                    if (window.initSocialGenerator) window.initSocialGenerator();
+                } else if (viewName === 'upload-images') {
+                    if (window.initUploadImages) window.initUploadImages();
                 }
             } else {
                 console.error("Target view not found:", viewId);
@@ -461,6 +451,10 @@ async function initAdmin() {
 
         if (validUser) {
             sessionStorage.setItem('admin_logged_in', 'true');
+            const remember = document.getElementById('remember-me');
+            if (remember && remember.checked) {
+                localStorage.setItem('admin_logged_in', 'true');
+            }
             if (err) err.classList.add('hidden');
             showDashboard();
         } else {
@@ -527,6 +521,7 @@ async function initAdmin() {
         logoutBtn.parentNode.replaceChild(newLogout, logoutBtn);
         newLogout.addEventListener('click', () => {
             sessionStorage.removeItem('admin_logged_in');
+            localStorage.removeItem('admin_logged_in');
             window.location.reload();
         });
     }
@@ -545,6 +540,17 @@ async function initAdmin() {
         newForm.addEventListener('submit', async (e) => {
             handleProductSubmit(e);
         });
+
+        // AI Image Analysis Hook
+        const aiFileInput = newForm.querySelector('#product-image-upload');
+        if (aiFileInput) {
+            aiFileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    analyzeImageWithGemini(e.target.files[0]);
+                }
+            });
+        }
+
         const weightInput = newForm.querySelector('input[name="Calculate on Weight"]');
         if (weightInput) {
             weightInput.addEventListener('blur', handleWeightCalculation);
@@ -622,9 +628,17 @@ async function initAdmin() {
     await loadGeminiCredentials();
 
     // Check Session
-    if (sessionStorage.getItem('admin_logged_in') === 'true') {
+    const session = sessionStorage.getItem('admin_logged_in');
+    const local = localStorage.getItem('admin_logged_in');
+    console.log("Admin: checking persistent login. Session:", session, "Local:", local);
+
+    if (session === 'true' || local === 'true') {
+        if (local === 'true') sessionStorage.setItem('admin_logged_in', 'true');
         showDashboard();
     } else {
+        // Only show login if NOT logged in
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.classList.remove('hidden');
         showLogin();
     }
 }
@@ -675,19 +689,38 @@ async function handleProductSubmit(e) {
     const gasData = {
         'action': action,
         'No': no,
+        // Robust Keys for GAS (Sending multiple variations to ensure match)
         'Name on Store': data['Name on Store'],
+        'name on store': data['Name on Store'],
+        'store name': data['Name on Store'],
+
+        'Product Name': data['product name'],
         'product name': data['product name'],
+        'pro_name': data['product name'],
+
+        'Price >=25 QTY': data['Price >=25 QTY'],
+        'Price >= 25 QTY': data['Price >=25 QTY'],
+        'Price >=25 QTY ': data['Price >=25 QTY'], // Trailing space?
+        'price_25_plus': data['Price >=25 QTY'],
+
+        'Name on Store': data['Name on Store'],
+        'Name on Store ': data['Name on Store'], // Trailing space?
+        'name on store': data['Name on Store'],
+        'store name': data['Name on Store'],
+
         'Arabic Name': data['Arabic Name'],
         'category': data['category'],
         'collection': data['collection'],
         'description (80 word)': data['description (80 word)'],
         'Dimensions(mm) x y z': data['Dimensions(mm) x y z'],
         'Colors': data['Colors'],
+
         'Price < 25 QTY': data['Price < 25 QTY'],
+        'Price <25 QTY': data['Price < 25 QTY'],
+
         'target market': data['target market'],
         'Document Link': data['Document Link'],
         'Calculate on Weight': data['Calculate on Weight'],
-        'Price >= 25 QTY': data['Price >=25 QTY'],
 
         'Available': form.querySelector('[name="Available"]').checked ? "TRUE" : "FALSE",
         'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
@@ -1006,6 +1039,109 @@ async function generateSocialPost(product) {
     }
 }
 
+// --- Social Media Generator ---
+window.initSocialGenerator = async function () {
+    console.log("Initializing Social Generator...");
+    const select = document.getElementById('social-product-select');
+    const btn = document.getElementById('generate-social-btn');
+    const output = document.getElementById('social-post-output');
+
+    if (!select || !btn) return;
+
+    // Load products if not loaded
+    if (!window.allProducts || window.allProducts.length === 0) {
+        try {
+            await initProductData();
+        } catch (e) { console.error("Error loading products for social", e); return; }
+    }
+
+    // Populate Dropdown
+    select.innerHTML = '<option value="">-- Choose a Product --</option>';
+    window.allProducts.forEach(p => {
+        if (!p['No']) return;
+        const name = p['Name on Store'] || p['product name'] || 'Unknown Name';
+        const option = document.createElement('option');
+        option.value = p['No'];
+        option.textContent = `${p['No']} - ${name}`;
+        select.appendChild(option);
+    });
+
+    // Remove old listeners
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', async () => {
+        const productNo = select.value;
+        if (!productNo) { alert("Please select a product."); return; }
+
+        const product = window.allProducts.find(p => p['No'] == productNo);
+        if (!product) return;
+
+        newBtn.disabled = true;
+        newBtn.innerHTML = '<span>Generating... ⏳</span>';
+        output.value = "Creating magic... ✨";
+
+        try {
+            // Retry loading keys if missing
+            if (GEMINI_API_KEYS.length === 0) await loadGeminiCredentials();
+
+            if (GEMINI_API_KEYS.length === 0) {
+                const msg = "⚠️ Missing API Key!\n\nPlease go to the 'Settings' tab -> 'API Configuration' and enter your Gemini API Key there.";
+                alert(msg);
+                output.value = msg;
+                throw new Error("No Gemini API Keys found. Please configure in Settings.");
+            }
+
+            // Double check for placeholder if it somehow sneaked in
+            if (GEMINI_API_KEYS.some(k => k.includes('INSERT_YOUR_API'))) {
+                const msg = "⚠️ Invalid API Key!\n\nIt looks like you're using the placeholder key. Please enter a valid Gemini API Key in Settings.";
+                alert(msg);
+                output.value = msg;
+                throw new Error("Placeholder key detected.");
+            }
+
+            const prompt = `Create an engaging social media post (instagram/facebook) for this product:
+Name: ${product['Name on Store'] || product['product name']}
+Description: ${product['description (80 word)'] || ''}
+Category: ${product['category'] || ''}
+Collection: ${product['collection'] || ''}
+
+Write a catchy caption in Arabic, include emojis, and suggest 5 relevant hashtags.
+Keep it professional yet exciting.`;
+
+            let success = false;
+            for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
+                const API_KEY = GEMINI_API_KEYS[i];
+                // Use gemini-flash-latest as verified by API list
+                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.candidates && data.candidates[0].content) {
+                        output.value = data.candidates[0].content.parts[0].text;
+                        success = true;
+                        break;
+                    }
+                } catch (e) { console.warn(`Key ${i} failed`, e); }
+            }
+            if (!success) throw new Error("All API keys failed.");
+
+        } catch (e) {
+            output.value = "Error: " + e.message;
+        } finally {
+            newBtn.disabled = false;
+            newBtn.innerHTML = '<span>Generate Caption with AI</span><i data-lucide="sparkles"></i>';
+            if (window.lucide) lucide.createIcons();
+        }
+    });
+};
 
 // --- Upload Extra Images ---
 window.initUploadImages = async function () {
@@ -2645,28 +2781,54 @@ window.renderManualCart = function () {
     if (window.lucide) lucide.createIcons();
 };
 
-async function initCreateOrder() {
-    console.log("Initializing Manual Order View...");
-    manualCart = [];
-    renderManualCart();
+// manualProducts and manualCart are global
 
-    // 1. Load Products (if not already loaded)
-    if (manualProducts.length === 0) {
-        await loadManualProducts();
+window.initCreateOrder = async function () {
+    console.log("Initializing Manual Order View...");
+
+    // 1. Load products if missing
+    if (!window.allProducts || window.allProducts.length === 0) {
+        try {
+            await initProductData();
+        } catch (e) {
+            console.error("Create Order: Failed to load products", e);
+            document.getElementById('mo-error').textContent = "Failed to load products. detailed error in console.";
+            document.getElementById('mo-error').classList.remove('hidden');
+        }
     }
 
-    // 2. Load Delivery Details
-    await loadDeliveryDetails();
+    // 2. Populate manualProducts for search
+    if (window.allProducts) {
+        // Update global manualProducts
+        // Empty array first to avoid duplicates if re-run (though map ref is new)
+        manualProducts.length = 0;
+        const mapped = window.allProducts.map(p => ({
+            id: p['No'],
+            name: p['Name on Store'] || p['product name'],
+            price: parseFloat(p['Price < 25 QTY'] || 0),
+            image: `assets/products/${p['No']}.jpg`
+        })).filter(p => p.id && p.name);
 
-    // 3. Listeners
+        manualProducts.push(...mapped);
+        console.log(`Create Order: Populated ${manualProducts.length} manual products.`);
+    }
+
+    // 3. Reset UI
+    manualCart = [];
+    renderManualCart();
+    updateManualTotal();
+
+    // 4. Attach// 3. Listeners
     const searchInput = document.getElementById('mo-product-search');
-    // Remove old listener if any (anonymous functions hard to remove, but cloning helps or just overwriting oninput)
-    // Actually replaceWith cloning is safest if we want to remove ALL listeners
-    const newSearchInput = searchInput.cloneNode(true);
-    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    if (searchInput) {
+        // Remove old listener if any (anonymous functions hard to remove, but cloning helps or just overwriting oninput)
+        // Actually replaceWith cloning is safest if we want to remove ALL listeners
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
 
-    newSearchInput.addEventListener('input', window.handleManualProductSearch);
-    newSearchInput.addEventListener('focus', window.handleManualProductSearch); // Show on focus too if value exists
+        newSearchInput.addEventListener('input', window.handleManualProductSearch);
+        newSearchInput.addEventListener('focus', window.handleManualProductSearch); // Show on focus too if value exists
+    }
 
     // Close dropdown when clicking outside
     document.addEventListener('click', function (e) {
@@ -2679,11 +2841,24 @@ async function initCreateOrder() {
         }
     });
 
-    document.getElementById('mo-add-btn').onclick = addToManualCart;
-    document.getElementById('mo-create-btn').onclick = submitManualOrder;
-    document.getElementById('mo-region').onchange = updateManualDeliveryOptions;
-    // document.getElementById('mo-company').onchange = updateManualTotal; // Removed as element no longer exists
-}
+    if (window.manualProducts.length === 0) await window.loadManualProducts();
+    await window.loadDeliveryDetails();
+};
+// End initCreateOrder
+
+// Bind Buttons (Global or inside init? Global is better if elements exist, but elements might be in a template)
+// Actually they are in index.html (admin.html) so they exist on load (or are hidden)
+// But if they are inside a view that is cloned... `mo-add-btn` is inside `view-create-order`.
+// The cloning in other parts might break these listeners if we aren't careful.
+// Let's bind them SAFELY inside initCreateOrder or here with checks.
+const bindBtn = (id, handler) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = handler;
+};
+bindBtn('mo-add-btn', addToManualCart);
+bindBtn('mo-create-btn', submitManualOrder);
+const regionEl = document.getElementById('mo-region');
+if (regionEl) regionEl.onchange = updateManualDeliveryOptions;
 
 async function loadManualProducts() {
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
