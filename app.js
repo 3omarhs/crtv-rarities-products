@@ -615,18 +615,26 @@ async function init() {
     // --- TRACK VISITS (Server Side) ---
     // Only count unique sessions to prevent spamming stats on reload
     // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
-    if (!sessionStorage.getItem('visited_session') || true) { // FORCE RUN FOR DEBUGGING (Limit later)
-        if (!sessionStorage.getItem('visited_session')) {
-            sessionStorage.setItem('visited_session', 'true');
-        }
+    // --- TRACK VISITS (Server Side / GAS) ---
+    // Only count unique sessions to prevent spamming stats on reload
+    // GAS_URL shared with admin
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
 
-        console.log("Attempting to track visit...");
-        fetch('/api/visits', { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                console.log("Visit recorded. Total:", data.visits);
-                localStorage.setItem('site_visits', data.visits);
-            })
+    if (!sessionStorage.getItem('visited_session')) {
+        sessionStorage.setItem('visited_session', 'true');
+
+        console.log("Attempting to track visit via GAS...");
+        // Use no-cors mode for GAS usually, but we want response if possible.
+        // For simplicity and reliability on Vercel:
+        fetch(GAS_URL, {
+            method: 'POST',
+            mode: 'no-cors', // text/plain is required for simple POST to GAS without preflight issues usually
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify({ action: 'recordVisit' })
+        })
+            .then(() => console.log("Visit recorded (GAS)."))
             .catch(e => console.error("Could not track visit:", e));
     }
 }

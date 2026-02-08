@@ -59,6 +59,7 @@ async function loadGeminiCredentials() {
 
 // --- AI Product Analysis ---
 async function analyzeImageWithGemini(file) {
+    alert("Debug: analyzeImageWithGemini started");
     console.log("Admin: analyzeImageWithGemini called");
 
     // Retry loading keys if missing
@@ -104,20 +105,21 @@ async function analyzeImageWithGemini(file) {
             const base64Data = reader.result.split(',')[1];
             const mimeType = file.type;
 
-            const prompt = `You are a product management assistant. Analyze the image and provide the following 6 details.
-1. Promotional Name (English - short, functional, catchy)
-2. Promotional Name (Arabic - short, functional, catchy - translated/adapted from English)
-3. Description (English - 80 words max, compelling)
-4. Category (Must be: "Home Decor & Organization - Desk Accessories" if relevant, or the closest matching category)
-5. Collection Name (Creative and relevant)
-6. Target Market (e.g., "Office Works", "Gamers", "Students")
+            const prompt = `You are a product management assistant. Analyze the image and provide the following 6 details based on these specific instructions:
+"name this product, only reply with the name and suggest one only the closest one to the product don't talk alot
+name for selling the product so a promotional name that indicate the function of the product
+in the second line write a description of the product in 80 word only
+after it please name the product category as (Home Decor & Organization - Desk Accessories) but with what belong to the product in the image
+after it mention the product Collection
+then provide the arabic name for the product
+and at the last mention the Target Market for the product"
 
 CRITICAL OUTPUT FORMAT:
 Return ONLY the values separated by "|||".
-DO NOT include labels like "Name:" or "Description:".
-DO NOT use markdown formatting.
+Order must be: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
+DO NOT include labels like "Name:".
 Example:
-Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| Professionals`;
+Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب سوبر ||| Professionals`;
 
             const payload = {
                 contents: [{
@@ -136,7 +138,7 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
             let success = false;
             let lastError = null;
 
-            // Try keys sequentially
+            // Try all keys
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
                 const apiKey = GEMINI_API_KEYS[i];
                 const controller = new AbortController();
@@ -144,8 +146,8 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
 
                 try {
                     console.log(`Admin: Requesting Gemini with key index ${i}...`);
-                    // Use exact model string from chatbot.js (gemini-flash-latest) which is known to work
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+                    // Use gemini-1.5-flash which is faster and better for this
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
@@ -157,7 +159,13 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
 
                     if (data.error) {
                         console.warn(`Key ${i} failed:`, data.error.message);
+                        lastError = data.error.message;
                         throw new Error(data.error.message);
+                    }
+
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        console.warn("Invalid API Response (Safety filter?):", data);
+                        throw new Error("AI Generation blocked or empty response.");
                     }
 
                     if (data.candidates && data.candidates[0].content) {
@@ -166,11 +174,15 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
 
                         const parts = text.split('|||').map(p => p.trim());
 
-                        if (parts[0]) document.querySelector('input[name="product name"]').value = parts[0];
-                        if (parts[1]) document.querySelector('input[name="Arabic Name"]').value = parts[1];
-                        if (parts[2]) document.querySelector('textarea[name="description (80 word)"]').value = parts[2];
-                        if (parts[3]) document.querySelector('input[name="category"]').value = parts[3];
-                        if (parts[4]) document.querySelector('input[name="collection"]').value = parts[4];
+                        // Order: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
+                        if (parts[0]) {
+                            document.querySelector('input[name="product name"]').value = parts[0];
+                            document.querySelector('input[name="Name on Store"]').value = parts[0];
+                        }
+                        if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
+                        if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
+                        if (parts[3]) document.querySelector('input[name="collection"]').value = parts[3];
+                        if (parts[4]) document.querySelector('input[name="Arabic Name"]').value = parts[4];
                         if (parts[5]) document.querySelector('input[name="target market"]').value = parts[5];
 
                         if (label) {
@@ -197,12 +209,18 @@ Super Desk Organizer ||| منظم مكتب سوبر ||| Keep your desk tidy... |
                 // alert(`AI Analysis Failed: ${errorMsg}`); // Alert is annoying if it happens often, maybe just show in fields
 
                 // Show error in fields so user knows why it disappeared
-                const failureText = "⚠️ Generation Failed. Try again.";
+                let errorDetails = lastError ? (lastError.message || lastError) : "Connection/Quota Error";
+                // Truncate if too long
+                if (errorDetails.length > 50) errorDetails = "Error (Check Console): " + errorDetails.substring(0, 30) + "...";
+
+                const failureText = `⚠️ Failed: ${errorDetails}`;
+
                 inputsToReset.forEach(selector => {
                     const el = document.querySelector(selector);
                     if (el && el.value === loadingText) {
                         el.value = failureText;
-                        el.title = errorMsg; // Tooltip for debug
+                        el.title = lastError ? (lastError.message || lastError) : "Check Console for details"; // Full error in tooltip
+                        el.classList.add('error-pulse');
                     }
                 });
 
@@ -472,10 +490,10 @@ async function initAdmin() {
 
     const imgInput = document.getElementById('product-image-upload');
     if (imgInput) {
-        console.log("Admin: Event listener attached to #product-image-upload");
         const newInput = imgInput.cloneNode(true);
         imgInput.parentNode.replaceChild(newInput, imgInput);
         newInput.addEventListener('change', async (e) => {
+            alert("Debug: File Selected"); // Visible confirmation
             console.log("Admin: Image file selected/changed");
             if (e.target.files && e.target.files[0]) {
                 await analyzeImageWithGemini(e.target.files[0]);
@@ -1124,11 +1142,27 @@ async function loadData() {
         try {
             // First try GAS
             // Note: simple GET to GAS webapp (Anyone access) usually works fine.
+            // First try GAS for Orders
+            // Note: simple GET to GAS webapp (Anyone access) usually works fine.
             const res = await fetch(`${GAS_URL}?action=getOrders`);
             if (res.ok) {
                 orders = await res.json();
             } else {
                 throw new Error("GAS fetch failed");
+            }
+
+            // Also fetch Visits from GAS
+            try {
+                const visitsRes = await fetch(`${GAS_URL}?action=getVisits`);
+                if (visitsRes.ok) {
+                    const vData = await visitsRes.json();
+                    if (vData.visits !== undefined) {
+                        visitsData = { total: vData.visits, daily: {} }; // GAS returns simple total for now
+                    }
+                    console.log("Visits loaded from GAS:", visitsData);
+                }
+            } catch (ve) {
+                console.warn("Failed to load visits from GAS", ve);
             }
         } catch (e) {
             console.warn("Could not load from GAS, falling back to local/legacy", e);

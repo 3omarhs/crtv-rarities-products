@@ -143,6 +143,40 @@ function doPost(e) {
             }
             return ContentService.createTextOutput(JSON.stringify({ "result": "error", "message": "Order not found" })).setMimeType(ContentService.MimeType.JSON);
         }
+        if (action === 'recordVisit') {
+            let sheet = ss.getSheetByName("Visits");
+            if (!sheet) {
+                sheet = ss.insertSheet("Visits");
+                sheet.appendRow(["Date", "Timestamp", "Total Visits"]); // Header
+                sheet.appendRow([new Date().toLocaleDateString(), new Date().toISOString(), 0]); // Init row
+            }
+
+            // Simple Counter Logic: 
+            // We'll use the last row to track total, and add new rows for daily logs if needed.
+            // For simplicity and speed: Just increment the last row's total column (Index 3 / Col C)
+            // AND add a new log entry for connection info if desired.
+
+            const lastRow = sheet.getLastRow();
+            if (lastRow < 2) {
+                sheet.appendRow([new Date().toLocaleDateString(), new Date().toISOString(), 1]);
+                return ContentService.createTextOutput(JSON.stringify({ "result": "success", "visits": 1 })).setMimeType(ContentService.MimeType.JSON);
+            }
+
+            // Get current total
+            let currentTotal = sheet.getRange(lastRow, 3).getValue();
+            if (typeof currentTotal !== 'number') currentTotal = 0;
+
+            const newTotal = currentTotal + 1;
+
+            // Check if date changed, start new row? 
+            // Let's just keep a running total in the last row for now to be safe and simple.
+            // Actually, let's update the LAST row's total.
+            sheet.getRange(lastRow, 3).setValue(newTotal);
+            sheet.getRange(lastRow, 2).setValue(new Date().toISOString()); // Update timestamp
+
+            return ContentService.createTextOutput(JSON.stringify({ "result": "success", "visits": newTotal })).setMimeType(ContentService.MimeType.JSON);
+        }
+
     } catch (ex) {
         return ContentService.createTextOutput(JSON.stringify({ "result": "error", "error": ex.toString() })).setMimeType(ContentService.MimeType.JSON);
     }
@@ -188,6 +222,18 @@ function doGet(e) {
             } catch (e) { }
         }
         return ContentService.createTextOutput(JSON.stringify(orders)).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'getVisits') {
+        const sheet = ss.getSheetByName("Visits");
+        let total = 0;
+        if (sheet) {
+            const lastRow = sheet.getLastRow();
+            if (lastRow >= 2) {
+                total = sheet.getRange(lastRow, 3).getValue();
+            }
+        }
+        return ContentService.createTextOutput(JSON.stringify({ "visits": total, "daily": [] })).setMimeType(ContentService.MimeType.JSON);
     }
     return ContentService.createTextOutput(JSON.stringify({ "result": "error" })).setMimeType(ContentService.MimeType.JSON);
 }
