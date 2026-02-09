@@ -412,6 +412,121 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({"status": "success"})
                 return
 
+            elif path == '/api/add-product':
+                # Extract fields matching admin.js payload
+                item_no = data.get('No')
+                if not item_no:
+                     self.send_error_json(400, "Item Number (No) is required")
+                     return
+
+                # Helper to clean/convert keys
+                # admin.js sends many variations, pick the best one
+                def get_val(keys):
+                    for k in keys:
+                        if k in data and data[k] is not None:
+                            return str(data[k]).strip()
+                    return None
+                    
+                def get_float(keys):
+                    val = get_val(keys)
+                    if not val: return None
+                    try:
+                        # Remove currency symbols or % if any, though frontend sends raw input usually
+                        val = val.replace('%', '').replace('$', '').strip()
+                        return float(val)
+                    except:
+                        return None
+
+                name = get_val(['Product Name', 'product name', 'pro_name'])
+                category = get_val(['category'])
+                collection = get_val(['collection'])
+                target_market = get_val(['target market'])
+                
+                # weight_calc is nvarchar in DB, so string is fine
+                weight_calc = get_val(['Calculate on Weight'])
+                
+                dimensions = get_val(['Dimensions(mm) x y z'])
+                description = get_val(['description (80 word)'])
+                
+                # Decimals
+                p_low = get_float(['Price < 25 QTY', 'Price < 25 QTY', 'Price <25 QTY'])
+                p_high = get_float(['Price >=25 QTY', 'Price >= 25 QTY', 'price_25_plus'])
+                d_percent = get_float(['Discount %'])
+                
+                doc_link = get_val(['Document Link'])
+                # discount_cal logic? Usually calculated, but if provided...
+                discount_cal = get_val(['discount cal']) 
+                
+                calc_val = get_val(['calc'])
+                store_name = get_val(['Name on Store', 'name on store', 'store name'])
+                arabic_name = get_val(['Arabic Name'])
+                colors = get_val(['Colors'])
+                
+                available = get_val(['Available']) # "TRUE" or "FALSE" string from JS
+                hidden = get_val(['Hidden'])
+                
+                # Insert logic
+                mssql_conn = get_mssql_connection()
+                if mssql_conn:
+                    try:
+                        cursor = mssql_conn.cursor()
+                        
+                        # Check if exists
+                        cursor.execute("SELECT item_no FROM products WHERE item_no = ?", (item_no,))
+                        if cursor.fetchone():
+                             # Update or Skip? User said "add it", implying new. 
+                             # But if it exists, maybe update? 
+                             # For now, let's UPDATE to be safe (idempotent-ish) or ERROR?
+                             # "Product Number already exists" error in GAS suggests uniqueness is enforced there.
+                             # Let's try INSERT and catch violation, or Update.
+                             # Let's do Upsert logic for robustness
+                             update_sql = """
+                                UPDATE products SET
+                                    name=?, category=?, collection=?, target_market=?, weight_calc=?,
+                                    dimensions=?, description=?, price_low_qty=?, price_high_qty=?,
+                                    document_link=?, discount_percent=?, calc_val=?, store_name=?,
+                                    arabic_name=?, available=?, hidden=?, colors=?
+                                WHERE item_no=?
+                             """
+                             cursor.execute(update_sql, (
+                                 name, category, collection, target_market, weight_calc,
+                                 dimensions, description, p_low, p_high,
+                                 doc_link, d_percent, calc_val, store_name,
+                                 arabic_name, available, hidden, colors,
+                                 item_no
+                             ))
+                             action_taken = "updated"
+                        else:
+                            insert_sql = """
+                                INSERT INTO products (
+                                    item_no, name, category, collection, target_market, weight_calc, 
+                                    dimensions, description, price_low_qty, price_high_qty, 
+                                    document_link, discount_percent, calc_val, store_name, 
+                                    arabic_name, available, hidden, colors
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """
+                            cursor.execute(insert_sql, (
+                                item_no, name, category, collection, target_market, weight_calc,
+                                dimensions, description, p_low, p_high,
+                                doc_link, d_percent, calc_val, store_name,
+                                arabic_name, available, hidden, colors
+                            ))
+                            action_taken = "inserted"
+                            
+                        mssql_conn.commit()
+                        mssql_conn.close()
+                        self.send_json({"status": "success", "action": action_taken, "item_no": item_no})
+                        return
+
+                    except Exception as e:
+                        print(f"MSSQL Insert Error: {e}")
+                        if mssql_conn: mssql_conn.close()
+                        self.send_error_json(500, f"Database Error: {str(e)}")
+                        return
+                else:
+                    self.send_error_json(500, "No database connection available")
+                    return
+
             elif path == '/api/visits':
                 today = datetime.now().strftime('%Y-%m-%d')
                 
@@ -528,16 +643,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
     # --- HELPERS ---
     # --- HELPERS ---
-    # send_json is moved up to override SimpleHTTPRequestHandler methods if needed or just organizing
-    # But since I redefined it above, I should remove the old one or ensure I don't have duplicates.
-    # The previous ReplacementChunk replaced do_OPTIONS and added send_json BEFORE it.
-    # I should check where the old send_json was. It was at line 326.
-    # I will remove the old send_json definition to avoid confusion/errors.
 
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
 
     def send_error_json(self, code, message):
         self.send_response(code)

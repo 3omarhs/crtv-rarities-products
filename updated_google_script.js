@@ -31,26 +31,26 @@ function doPost(e) {
             }
             // Append
             const row = [
-                data['product name'] || '',
-                data['No'] || '',
-                data['category'] || '',
-                data['collection'] || '',
-                '', // target market
-                '', // Calculate on Weight
-                data['Dimensions(mm) x y z'] || '',
-                data['description (80 word)'] || '',
-                data['Price < 25 QTY'] || '',
-                '', // Price >=25
-                '', // discount cal
-                '', // Document Link
-                '', // Discount %
-                '', // calc
-                data['Name on Store'] || '', // FIXED: Map Name on Store correctly
-                data['Arabic Name'] || '',
-                'TRUE',
-                'FALSE',
-                data['Colors'] || '',
-                JSON.stringify(data) // Column T: Raw Data
+                data['Product Name'] || data['product name'] || '', // Column A
+                data['No'] || '',                                   // Column B
+                data['category'] || '',                             // Column C
+                data['collection'] || '',                           // Column D
+                data['target market'] || '',                        // Column E
+                data['Calculate on Weight'] || '',                  // Column F
+                data['Dimensions(mm) x y z'] || '',                 // Column G
+                data['description (80 word)'] || '',                // Column H
+                data['Price < 25 QTY'] || '',                       // Column I
+                data['Price >=25 QTY'] || '',                       // Column J
+                data['discount cal'] || '',                         // Column K
+                data['Document Link'] || '',                        // Column L
+                data['Discount %'] || '',                           // Column M
+                data['calc'] || '',                                 // Column N
+                data['Name on Store'] || '',                        // Column O
+                data['Arabic Name'] || '',                          // Column P
+                'TRUE',                                             // Column Q
+                'FALSE',                                            // Column R
+                data['Colors'] || '',                               // Column S
+                JSON.stringify(data)                                // Column T
             ];
             sheet.appendRow(row);
             return ContentService.createTextOutput(JSON.stringify({ "result": "success" })).setMimeType(ContentService.MimeType.JSON);

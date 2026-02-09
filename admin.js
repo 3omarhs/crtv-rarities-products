@@ -38,7 +38,7 @@ async function loadGeminiCredentials() {
 
 // --- AI Product Analysis ---
 async function analyzeImageWithGemini(file) {
-    alert("Debug: analyzeImageWithGemini started");
+    console.log("Debug: analyzeImageWithGemini started");
     console.log("Admin: analyzeImageWithGemini called");
 
     // Retry loading keys if missing
@@ -762,11 +762,31 @@ async function handleProductSubmit(e) {
                 console.error("Local upload error", uploadErr);
             }
 
+            submitToLocal(gasData);
             submitToGas(gasUrl, gasData);
         };
         reader.readAsDataURL(file);
     } else {
+        submitToLocal(gasData);
         submitToGas(gasUrl, gasData);
+    }
+
+    async function submitToLocal(payload) {
+        try {
+            console.log("Syncing to local DB...");
+            // Remove large image data to save bandwidth if not needed by DB logic yet
+            const cleanPayload = { ...payload };
+            delete cleanPayload.image;
+
+            await fetch('/api/add-product', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cleanPayload)
+            });
+            console.log("Local sync requested.");
+        } catch (e) {
+            console.error("Local sync failed", e);
+        }
     }
 
     async function submitToGas(url, payload) {
@@ -1265,7 +1285,7 @@ function showDashboard() {
 async function loadData() {
     try {
         // Get GAS URL
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbwsSCDrdo5u_4ljm526VmYobHj1PXmfnVKRy7lzNjgVpmNDCJvoRnTmQSA1YM3y9bcV/exec";
 
         // Populate the input if not already set, for product adds
         const urlInput = document.getElementById('google-script-url');
