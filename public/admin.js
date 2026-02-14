@@ -912,6 +912,14 @@ async function loadSettings() {
         if (sender) sender.value = data.sender_email || '';
         if (pass) pass.value = data.sender_pass || '';
 
+        const versionDisp = document.getElementById('app-version-display');
+        if (versionDisp && data.version) {
+            versionDisp.textContent = data.version;
+            console.log("Admin: Set version to", data.version);
+        } else if (versionDisp) {
+            versionDisp.textContent = "v3.7"; // Fallback
+        }
+
         const scriptUrl = document.getElementById('google-script-url');
         if (scriptUrl) scriptUrl.value = data.google_script_url || '';
 
@@ -1302,7 +1310,7 @@ async function loadData() {
         try {
             const visitsRes = await fetch('/api/visits');
             const visits = await visitsRes.json();
-            window.currentVisits = { total: visits.visits, daily: {}, today: visits.today };
+            window.currentVisits = { total: visits.total, daily: visits.daily, today: visits.today };
         } catch (e) {
             console.warn("Failed to fetch visits", e);
         }
@@ -1705,8 +1713,12 @@ function initDashboard(orders, visitsData) {
                 }
 
                 // Extract Qty
-                const qtyMatch = item.match(/\(Qty:\s*(\d+)\)/);
-                if (qtyMatch) qty = parseInt(qtyMatch[1]);
+                if (typeof item === 'string') {
+                    const qtyMatch = item.match(/\(Qty:\s*(\d+)\)/);
+                    if (qtyMatch) qty = parseInt(qtyMatch[1]);
+                } else if (typeof item === 'object' && item !== null) {
+                    qty = parseInt(item.qty || 1);
+                }
 
                 if (!prodMap[name]) prodMap[name] = 0;
                 prodMap[name] += qty;
@@ -1906,6 +1918,17 @@ function parseItemString(str) {
     let qty = 1;
 
     try {
+        // If already an object (new format), just return mapping
+        if (typeof str === 'object' && str !== null) {
+            return {
+                sku: str.id || str.sku || 'N/A',
+                color: str.color || 'Default',
+                price: str.price || '0.00',
+                name: str.name || 'Item',
+                qty: str.qty || 1
+            };
+        }
+
         // 1. Extract and remove Quantity: "(Qty: 5)"
         const qtyMatch = str.match(/\(Qty:\s*(\d+)\)/);
         if (qtyMatch) {

@@ -623,19 +623,22 @@ async function init() {
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
 
-        console.log("Attempting to track visit via GAS...");
-        // Use no-cors mode for GAS usually, but we want response if possible.
-        // For simplicity and reliability on Vercel:
+        console.log("Attempting to track visit...");
+
+        // 1. Track locally
+        fetch('/api/visits', { method: 'POST' }).catch(e => console.warn("Local visit tracking failed", e));
+
+        // 2. Track via GAS (Primary for user's remote tracking)
         fetch(GAS_URL, {
             method: 'POST',
-            mode: 'no-cors', // text/plain is required for simple POST to GAS without preflight issues usually
+            mode: 'no-cors',
             headers: {
                 'Content-Type': 'text/plain;charset=utf-8',
             },
             body: JSON.stringify({ action: 'recordVisit' })
         })
             .then(() => console.log("Visit recorded (GAS)."))
-            .catch(e => console.error("Could not track visit:", e));
+            .catch(e => console.error("Could not track visit via GAS:", e));
     }
 }
 

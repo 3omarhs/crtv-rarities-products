@@ -29,22 +29,31 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOod
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 # --- LOCAL DATA DAO ---
 
-class LocalDataDAO:
-    def __init__(self, data_dir):
+# --- UNIFIED DATA DAO ---
+class UnifiedDAO:
+    def __init__(self, data_dir, repo=None, token=None):
         self.data_dir = data_dir
+        self.is_vercel = os.environ.get('VERCEL') == '1'
+        self.github = None
+        if self.is_vercel and repo and token:
+            print("UnifiedDAO: Vercel detected, using GitHub persistence.")
+            self.github = GitHubDAO(repo, token)
+        else:
+            print(f"UnifiedDAO: Using local persistence at {data_dir}")
         os.makedirs(data_dir, exist_ok=True)
 
     def _get_path(self, path):
-        # Extract filename if full path like 'data/file.csv' is passed
         filename = os.path.basename(path)
         return os.path.join(self.data_dir, filename)
 
     def get_csv(self, path):
-        """Returns list of dicts."""
+        if self.github:
+            data, _ = self.github.get_csv(path)
+            return data
+        
         local_path = self._get_path(path)
         if not os.path.exists(local_path):
             return []
-        
         try:
             with open(local_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -53,20 +62,17 @@ class LocalDataDAO:
             print(f"Error reading local CSV {local_path}: {e}")
             return []
 
-    def update_csv(self, path, list_of_dicts, message=None):
-        """Updates a local CSV file."""
-        local_path = self._get_path(path)
-        if not list_of_dicts:
-            with open(local_path, 'w', encoding='utf-8') as f:
-                f.write("")
+    def update_csv(self, path, list_of_dicts, message="Update from server"):
+        if self.github:
+            self.github.update_csv(path, list_of_dicts, message)
             return
-
+            
+        local_path = self._get_path(path)
         try:
             fieldnames = set()
             for row in list_of_dicts:
                 fieldnames.update(row.keys())
             fieldnames = sorted(list(fieldnames))
-            
             with open(local_path, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
@@ -76,119 +82,13 @@ class LocalDataDAO:
             raise
 
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
-local_db = LocalDataDAO(DATA_DIR)
-
-# --- GitHub DAO (Legacy/Fallback) ---
-class GitHubDAO:
-    def __init__(self, repo, token):
-        self.repo = repo
-        self.token = token
-        self.base_url = f"https://api.github.com/repos/{repo}/contents"
-
-    def _request(self, method, path, data=None):
-        url = f"{self.base_url}/{path}"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json"
-        }
-        
-        req = urllib.request.Request(url, headers=headers, method=method)
-        if data:
-            req.data = json.dumps(data).encode('utf-8')
-            
-        try:
-            with urllib.request.urlopen(req, timeout=10) as response:
-                return json.loads(response.read().decode('utf-8'))
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                return None
-            print(f"GitHub API Error {e.code}: {e.read().decode('utf-8')}")
-            raise
-
-    def get_file(self, path):
-        """Returns (content_obj, sha). Content is JSON parsed."""
-        resp = self._request("GET", path)
-        if not resp:
-            return None, None
-        
-        content_b64 = resp.get("content", "")
-        sha = resp.get("sha")
-        try:
-            content_str = base64.b64decode(content_b64).decode('utf-8')
-            return json.loads(content_str), sha
-        except Exception as e:
-            print(f"Error decoding/parsing file {path}: {e}")
-            return None, sha
-
-    def get_csv(self, path):
-        """Returns (list_of_dicts, sha). Content is CSV parsed."""
-        resp = self._request("GET", path)
-        if not resp:
-            return [], None # Return empty list if not found
-        
-        content_b64 = resp.get("content", "")
-        sha = resp.get("sha")
-        try:
-            content_str = base64.b64decode(content_b64).decode('utf-8')
-            # Handle empty file
-            if not content_str.strip():
-                return [], sha
-                
-            reader = csv.DictReader(io.StringIO(content_str))
-            return list(reader), sha
-        except Exception as e:
-            print(f"Error decoding/parsing CSV file {path}: {e}")
-            return [], sha
-
-    def update_file(self, path, content_obj, message, sha=None):
-        """Updates a JSON file."""
-        if not sha:
-            _, existing_sha = self.get_file(path)
-            sha = existing_sha
-
-        content_str = json.dumps(content_obj, indent=2)
-        content_b64 = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
-        
-        data = { "message": message, "content": content_b64 }
-        if sha: data["sha"] = sha
-        return self._request("PUT", path, data)
-
-    def update_csv(self, path, list_of_dicts, message, sha=None):
-        """Updates a CSV file."""
-        if not sha:
-            _, existing_sha = self.get_csv(path)
-            sha = existing_sha
-
-        if not list_of_dicts:
-            content_str = ""
-        else:
-            output = io.StringIO()
-            # Normalize keys from first dictionary or union of keys? 
-            # For simplicity, use keys from first item if available, or just standard ones if known.
-            # But specific endpoints might add fields. Let's find all unique keys.
-            fieldnames = set()
-            for row in list_of_dicts:
-                fieldnames.update(row.keys())
-            fieldnames = sorted(list(fieldnames))
-            
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(list_of_dicts)
-            content_str = output.getvalue()
-
-        content_b64 = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
-        data = { "message": message, "content": content_b64 }
-        if sha: data["sha"] = sha
-        return self._request("PUT", path, data)
-
-
 # Configuration with Token
 GITHUB_REPO = "3omarhs/crtv-rarities-products"
-# Use env var if available, else use the hardcoded one provided by user
-# (In production/Vercel, user should set GITHUB_TOKEN env var)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "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")
-github = GitHubDAO(GITHUB_REPO, GITHUB_TOKEN)
+local_db = UnifiedDAO(DATA_DIR, GITHUB_REPO, GITHUB_TOKEN)
+
+# Removed legacy standalone github instantiation
+
 
 
 # --- SHARED FUNCTIONS ---
@@ -340,6 +240,9 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
     def send_json(self, data):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename')
         self.end_headers()
         
         class DecimalEncoder(json.JSONEncoder):
@@ -354,12 +257,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
-    def send_json(self, data):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
+
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -374,24 +272,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json(products_data)
                 return
             
-            if path == '/api/visits':
-                try:
-                    visits_list = local_db.get_csv("visits.csv")
-                    # Calculate stats
-                    total = 0
-                    today = 0
-                    today_str = datetime.now().strftime('%Y-%m-%d')
-                    
-                    for row in visits_list:
-                        c = int(row.get('count', 0))
-                        total += c
-                        if row.get('date') == today_str:
-                            today += c
-                            
-                    self.send_json({"visits": total, "today": today})
-                except Exception as e:
-                    self.send_json({"visits": 0, "today": 0})
-                return
             
             if path == '/api/settings':
                 try:
@@ -424,6 +304,26 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"Error fetching Gemini keys: {e}")
                     self.send_json({"keys": []})
+                return
+
+            if path == '/api/visits':
+                try:
+                    visits = local_db.get_csv("visits.csv")
+                    total = sum(int(v.get('count', 0)) for v in visits)
+                    daily = {v.get('date'): int(v.get('count', 0)) for v in visits if v.get('date')}
+                    
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    today_count = next((int(v.get('count', 0)) for v in visits if v.get('date') == today), 0)
+                    
+                    self.send_json({
+                        "total": total,
+                        "daily": daily,
+                        "today": today_count,
+                        "visits": total # Compatibility
+                    })
+                except Exception as e:
+                    print(f"Error fetching visits: {e}")
+                    self.send_json({"total": 0, "daily": {}, "today": 0})
                 return
             
             if path == '/api/orders':
@@ -573,7 +473,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"status": "success"})
             return
 
-        elif path == '/api/place-order':
+        elif path == '/api/place-order' or path == '/api/orders':
             order_data = data
             orders = local_db.get_csv("orders.csv")
             
@@ -586,6 +486,48 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             orders.append(order_data)
             local_db.update_csv("orders.csv", orders)
             self.send_json({"status": "success"})
+            return
+
+        elif path == '/api/add-product':
+            # Sync new product from Admin to local CSV
+            products = local_db.get_csv("products.csv")
+            
+            # Check if exists (by item_no)
+            item_no = data.get('item_no') or data.get('No')
+            if not item_no:
+                 self.send_error_json(400, "Item Number (No) is required")
+                 return
+
+            # Map fields if necessary (admin.js sends 'No', 'product name' etc)
+            # Unified keys for server
+            new_p = {
+                "item_no": item_no,
+                "name": data.get('product name') or data.get('Name on Store'),
+                "category": data.get('category'),
+                "collection": data.get('collection'),
+                "target_market": data.get('target market'),
+                "dimensions": data.get('Dimensions(mm) x y z'),
+                "description": data.get('description (80 word)'),
+                "price_low_qty": data.get('Price < 25 QTY'),
+                "price_high_qty": data.get('Price >= 25 QTY'),
+                "available": data.get('Available', 'TRUE'),
+                "hidden": data.get('Hidden', 'FALSE'),
+                "colors": data.get('Colors'),
+                "image_count": data.get('image_count', 1)
+            }
+
+            # Update if exists, else append
+            found = False
+            for i, p in enumerate(products):
+                if str(p.get('item_no')) == str(item_no):
+                    products[i].update(new_p)
+                    found = True
+                    break
+            if not found:
+                products.append(new_p)
+            
+            local_db.update_csv("products.csv", products)
+            self.send_json({"status": "success", "item_no": item_no})
             return
 
         elif path == '/api/special-offers':
@@ -698,14 +640,12 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
-# Allow reuse of port
-socketserver.TCPServer.allow_reuse_address = True
+if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
+    print(f"Starting Python server on http://localhost:{PORT}")
+    print(f"Project Root: {PROJECT_ROOT}")
+    print(f"Public Dir: {PUBLIC_DIR}")
+    print(f"Config: {CONFIG_FILE}")
 
-print(f"Starting Python server on http://localhost:{PORT}")
-print(f"Project Root: {PROJECT_ROOT}")
-print(f"Public Dir: {PUBLIC_DIR}")
-
-print(f"Config: {CONFIG_FILE}")
-
-with ThreadingTCPServer(("", PORT), RequestHandler) as httpd:
-    httpd.serve_forever()
+    with ThreadingTCPServer(("", PORT), RequestHandler) as httpd:
+        httpd.serve_forever()
