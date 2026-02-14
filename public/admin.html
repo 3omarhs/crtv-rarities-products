@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Creative Rarities</title>
+    <link rel="icon" type="image/png" href="logo_dark.png">
+    <link rel="stylesheet" href="style.css?v=fixed_v4"> <!-- Base styles -->
+    <link rel="stylesheet" href="admin.css?v=fixed_v4"> <!-- Admin specific styles -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .item-tile {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .item-tile:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--accent, #8b5cf6);
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body class="admin-body">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container hidden">
+        <div class="login-box fade-in-up">
+            <div class="login-header">
+                <h2>Admin Portal</h2>
+                <p>Creative Rarities</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="admin-email">Email</label>
+                    <input type="text" id="admin-email" placeholder="Enter username or email" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-password">Password</label>
+                    <input type="password" id="admin-password" placeholder="Enter password" required>
+                </div>
+                <div class="form-group" style="flex-direction:row; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+                    <input type="checkbox" id="remember-me" style="width:auto; margin:0;">
+                    <label for="remember-me"
+                        style="margin:0; cursor:pointer; font-size:0.9rem; color:var(--text-secondary);">Remember
+                        Me</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>Login</span>
+                    <i data-lucide="log-in"></i>
+                </button>
+            </form>
+            <p id="login-error" class="error-msg hidden">Invalid credentials.</p>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard (Hidden by default) -->
+    <div id="admin-dashboard" class="dashboard-container hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.png" alt="Creative Rarities" class="sidebar-logo">
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="overview">
+                    <i data-lucide="layout-dashboard"></i> Overview
+                </button>
+                <button class="nav-item" data-view="orders">
+                    <i data-lucide="shopping-bag"></i> Orders
+                </button>
+                <button class="nav-item" data-view="analytics">
+                    <i data-lucide="bar-chart-2"></i> Item Analytics
+                </button>
+                <button class="nav-item" data-view="products">
+                    <i data-lucide="package"></i> Products List
+                </button>
+                <button class="nav-item" data-view="add-product">
+                    <i data-lucide="plus-circle"></i> Add Product
+                </button>
+                <li class="nav-item" data-view="create-order">
+                    <i data-lucide="edit-3"></i>
+                    <span>Create Order</span>
+                </li>
+                <li class="nav-item" data-view="social-generator">
+                    <i data-lucide="share-2"></i>
+                    <span>Social Media</span>
+                </li>
+                <li class="nav-item" data-view="upload-images">
+                    <i data-lucide="image-plus"></i>
+                    <span>Extra Images</span>
+                </li>
+                <li class="nav-item" data-view="wholesale">
+                    <i data-lucide="package"></i>
+                    <span>Wholesale</span>
+                </li>
+                <li class="nav-item" data-view="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </li>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="nav-item logout">
+                    <i data-lucide="log-out"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <button id="mobile-menu-btn" class="btn-icon mobile-only" onclick="toggleSidebar()"
+                        style="display:none; color:var(--text-primary);">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h1 id="page-title">Dashboard Overview</h1>
+                </div>
+                <div class="user-info">
+                    <button id="theme-toggle" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
+                        <i data-lucide="moon"></i>
+                    </button>
+                    <span>Admin User</span>
+                    <div class="avatar">A</div>
+                </div>
+            </header>
+
+            <!-- Views -->
+            <div id="view-overview" class="view-section active">
+                <!-- Dashboard Charts -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="icon-box blue"><i data-lucide="users"></i></div>
+                        <div class="stat-info">
+                            <h4>Total Visits</h4>
+                            <span id="stat-visits">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box orange"><i data-lucide="activity"></i></div>
+                        <div class="stat-info">
+                            <h4>Visits Today</h4>
+                            <span id="stat-visits-today">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box green"><i data-lucide="shopping-cart"></i></div>
+                        <div class="stat-info">
+                            <h4>Total Orders</h4>
+                            <span id="stat-orders">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="icon-box purple"><i data-lucide="dollar-sign"></i></div>
+                        <div class="stat-info">
+                            <h4>Est. Revenue</h4>
+                            <span id="stat-revenue">0.000 JOD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Revenue Trend</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Store Visits Trend</h3>
+                        <canvas id="visitsChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Top Products (Units)</h3>
+                        <canvas id="topProductsChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="charts-container-2"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Sales by Region</h3>
+                        <canvas id="regionChart"></canvas>
+                    </div>
+                    <div class="chart-card"
+                        style="background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                        <h3 style="margin-top:0; color:var(--text-secondary); font-size:1rem;">Payment Methods</h3>
+                        <canvas id="paymentChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="recent-section">
+                    <h3>Recent Activity</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Detail</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-log">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-orders" class="view-section hidden">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="view-section hidden">
+                <h3 class="section-title">Settings</h3>
+
+                <!-- Appearance Section -->
+                <div class="card" style="padding:1.5rem; margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <div class="section-title">Appearance</div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h4 style="margin:0; color:var(--text-primary);">Theme</h4>
+                            <p style="margin:0; color:var(--text-secondary); font-size:0.9rem;">Toggle between Light and
+                                Dark mode.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="theme-toggle" onchange="window.toggleTheme()">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+
+
+                <!-- Admin Management Section -->
+                <div class="card" style="padding:1.5rem; margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <div class="section-title">Admin Management</div>
+                        <button class="btn btn-primary" onclick="window.showAddAdminModal()">
+                            <i data-lucide="user-plus" style="width:18px; height:18px;"></i> Add Admin
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-list-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- API Configuration Section -->
+                <div class="card" style="padding:1.5rem; margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <div class="section-title">API Configuration</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Gemini API Key (AI Features)</label>
+                        <div style="display:flex; gap:0.5rem;">
+                            <input type="password" id="gemini-api-key-input"
+                                placeholder="Paste your Gemini API Key here" style="flex:1;">
+                            <button class="btn btn-secondary" onclick="toggleVisibility('gemini-api-key-input')">
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
+                        <small style="color:var(--text-secondary)">Required for Social Media Generator and Product
+                            Analysis.</small>
+                    </div>
+                </div>
+
+                <!-- Existing Google Script URL Section -->
+                <div class="card" style="padding:1.5rem;">
+                    <div class="section-header">
+                        <div class="section-title">Google Script Configuration</div>
+                    </div>
+                    <!-- ... -->
+                    <div class="form-group">
+                        <label>Google Apps Script Web App URL</label>
+                        <input type="text" id="google-script-url"
+                            placeholder="https://script.google.com/macros/s/.../exec">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+                    </div>
+                    <!-- Helper text if needed -->
+                    <div id="gas-url-container">
+                        <p style="color:var(--text-secondary); margin-top:10px;">
+                            <i data-lucide="info" style="width:16px; height:16px; vertical-align:middle;"></i>
+                            Enter your Google Apps Script Web App URL to enable real-time updates.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-analytics" class="view-section hidden">
+                <h3>Sales by Item</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Item No.</th>
+                                <th>Product Name</th>
+                                <th>Units Sold</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="item-analytics-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="view-products" class="view-section hidden">
+                <div class="section-header">
+                    <div style="display:flex; align-items:center; gap:1.5rem;">
+                        <h2 class="section-title">Product Catalog</h2>
+                        <div class="search-container">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" id="product-search-input"
+                                placeholder="Search all fields (Name, SKU, Desc...)"
+                                onkeyup="window.handleProductSearch(this.value)">
+                        </div>
+                    </div>
+                    <button class="btn-refresh" id="refresh-products-btn" title="Refresh List">
+                        <i data-lucide="refresh-cw" style="width:20px; height:20px;"></i>
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th class="sortable-header" onclick="window.handleSort('No')">Ref No. <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Name on Store')">Name (Store) <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('category')">Category <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Price < 25 QTY')">Price <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th class="sortable-header" onclick="window.handleSort('Active')">Active <i
+                                        class="sort-icon" data-lucide="arrow-up-down"></i></th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-list-body">
+                            <tr>
+                                <td colspan="7">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="view-add-product" class="view-section hidden">
+                <h3>Add New Product</h3>
+                <form id="add-product-form" class="admin-form">
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <input type="hidden" id="gas-url-input" placeholder="Paste Script URL here first"
+                            style="margin-bottom:1rem; width:100%; display:none;">
+                        <input type="hidden" id="product-action" value="addProduct">
+                        <input type="hidden" id="edit-product-no" value="">
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Item Number (No)</label>
+                            <input type="text" name="No" required placeholder="e.g. PTSTLS-1225-001">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Product Name</label>
+                            <input type="text" name="product name" required placeholder="Internal/Generic Name">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Name on Store</label>
+                            <input type="text" name="Name on Store" required placeholder="Promotional Title">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Arabic Name</label>
+                            <input type="text" name="Arabic Name" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Price < 25 QTY</label>
+                                    <input type="number" step="0.001" name="Price < 25 QTY" required placeholder=" ">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Category</label>
+                            <input type="text" name="category" list="cat-list">
+                            <datalist id="cat-list">
+                                <option value="Jewelry Organizer">
+                                <option value="Aquarium Decor & Maintenance">
+                                <option value="Pet Supplies">
+                            </datalist>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Collection</label>
+                            <input type="text" name="collection" placeholder=" ">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description (80 word)" rows="5" placeholder=" "
+                            style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white; font-family: inherit; box-sizing: border-box; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Dimensions</label>
+                            <input type="text" name="Dimensions(mm) x y z" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Colors (comma sep)</label>
+                            <input type="text" name="Colors" placeholder="Black, White" value="Black, White">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Target Market</label>
+                            <input type="text" name="target market" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Document Link</label>
+                            <input type="url" name="Document Link" placeholder="https://...">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex; gap:1rem;">
+                        <div class="form-group" style="flex:1">
+                            <label>Wholesale Price (>= 25 QTY)</label>
+                            <input type="number" step="0.001" name="Price >=25 QTY" placeholder=" ">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label>Calculate on Weight</label>
+                            <input type="number" step="any" name="Calculate on Weight" placeholder=" ">
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-row" style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem;">
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Available" checked> Available
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Hidden"> Hidden
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+                            <input type="checkbox" name="Active" checked> Active (System)
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Product Image</label>
+                        <input type="file" id="product-image-upload" accept="image/*">
+                        <small>Image will be uploaded to Google Drive automatically.</small>
+                    </div>
+
+                    <div class="form-group" id="gas-url-container">
+                        <label>Google Apps Script URL</label>
+                        <input type="text" id="google-script-url"
+                            value="https://script.google.com/macros/s/AKfycbwsSCDrdo5u_4ljm526VmYobHj1PXmfnVKRy7lzNjgVpmNDCJvoRnTmQSA1YM3y9bcV/exec"
+                            placeholder="Paste your Web App URL here" class="form-control"
+                            style="width:100%; padding:0.5rem; margin-bottom:1rem; border:1px solid #ccc; border-radius:4px;">
+                        <small style="color:var(--text-secondary)">Required for writing to Google Sheets. See
+                            instructions provided.</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Product To Sheet</button>
+
+                    <div id="loading-modal" class="modal-overlay hidden">
+                        <div class="modal-content">
+                            <div class="spinner"></div>
+                            <h3>Processing...</h3>
+                            <p>Please wait while we upload the image and update the Google Sheet.</p>
+                        </div>
+                    </div>
+
+                    <p id="add-product-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
+                    <p id="add-product-error" class="error-msg hidden" style="margin-top:10px; color:red;"></p>
+                </form>
+            </div>
+
+            <!-- Create Order View -->
+            <div id="view-create-order" class="view-section hidden">
+                <h3>Create Manual Order</h3>
+                <div class="admin-form" style="width: 100%; max-width: 100%;">
+
+                    <div class="create-order-grid">
+
+                        <!-- Col 1: Customer & Search -->
+                        <div style="display:flex; flex-direction:column; gap:1rem; overflow-y:auto; padding-right:5px;">
+
+                            <!-- Customer Info -->
+                            <div class="card" style="padding:1.5rem;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Customer
+                                    Details</h4>
+                                <div class="form-group">
+                                    <label>Customer Name</label>
+                                    <input type="text" id="mo-name" placeholder="Full Name">
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="text" id="mo-phone" placeholder="07xxxxxxxx">
+                                </div>
+                                <div class="form-group">
+                                    <label>Address Details</label>
+                                    <textarea id="mo-address" rows="2"
+                                        placeholder="City, Street, Building..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Product Search -->
+                            <div class="card" style="padding:1.5rem; flex:1;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Add Products
+                                </h4>
+                                <div class="form-group">
+                                    <label>Search Product</label>
+                                    <div style="position:relative;">
+                                        <input type="text" id="mo-product-search" placeholder="Type to search..."
+                                            autocomplete="off">
+                                        <div id="mo-product-dropdown" class="custom-dropdown hidden"></div>
+                                    </div>
+                                    <style>
+                                        .custom-dropdown {
+                                            position: absolute;
+                                            top: 100%;
+                                            left: 0;
+                                            right: 0;
+                                            background: var(--bg-secondary);
+                                            border: 1px solid var(--border);
+                                            border-radius: 0.5rem;
+                                            max-height: 300px;
+                                            overflow-y: auto;
+                                            z-index: 1000;
+                                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                                        }
+
+                                        .dropdown-item {
+                                            display: grid;
+                                            grid-template-columns: 50px 1fr 100px 80px;
+                                            gap: 10px;
+                                            padding: 10px;
+                                            align-items: center;
+                                            cursor: pointer;
+                                            border-bottom: 1px solid var(--border);
+                                        }
+
+                                        .dropdown-item:hover {
+                                            background: var(--bg-hover);
+                                        }
+
+                                        .dropdown-item img {
+                                            width: 40px;
+                                            height: 40px;
+                                            object-fit: cover;
+                                            border-radius: 4px;
+                                            background: #000;
+                                        }
+
+                                        .dropdown-item .item-name {
+                                            font-weight: 500;
+                                            color: white;
+                                            white-space: nowrap;
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                        }
+
+                                        .dropdown-item .item-id {
+                                            font-family: monospace;
+                                            color: var(--accent);
+                                            font-size: 0.85rem;
+                                        }
+
+                                        .dropdown-item .item-price {
+                                            text-align: right;
+                                            color: var(--text-secondary);
+                                        }
+                                    </style>
+                                </div>
+                                <div class="form-row" style="display:flex; gap:1rem; align-items:flex-end;">
+                                    <div class="form-group" style="flex:1;">
+                                        <label>Quantity</label>
+                                        <input type="number" id="mo-qty" value="1" min="1">
+                                    </div>
+                                    <div class="form-group" style="flex:1;">
+                                        <button type="button" id="mo-add-btn" class="btn btn-secondary"
+                                            style="width:100%;">Add Item</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Col 2: Cart Items (Middle) -->
+                        <div class="card" style="padding:1.5rem; display:flex; flex-direction:column; height:100%;">
+                            <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Order Items</h4>
+                            <div id="mo-cart-items"
+                                style="flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:0.5rem; margin-bottom:1rem; padding:0.5rem;">
+                                <p style="text-align:center; color:var(--text-secondary); margin-top:2rem;">No items
+                                    added.</p>
+                            </div>
+                        </div>
+
+                        <!-- Col 3: Delivery & Finalize -->
+                        <div style="display:flex; flex-direction:column; gap:1rem; overflow-y:auto; padding-right:5px;">
+
+                            <!-- Delivery Settings -->
+                            <div class="card" style="padding:1.5rem;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Delivery &
+                                    Payment</h4>
+
+                                <div class="form-group">
+                                    <label>Order Type</label>
+                                    <div
+                                        style="display:flex; gap:1rem; margin-bottom:1rem; background:var(--bg-darker); padding:0.5rem; border-radius:0.5rem; border:1px solid var(--border);">
+                                        <label
+                                            style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; flex:1; justify-content:center;">
+                                            <input type="radio" name="mo-method" value="delivery" checked
+                                                onchange="toggleManualDelivery(true)">
+                                            Delivery
+                                        </label>
+                                        <label
+                                            style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; flex:1; justify-content:center;">
+                                            <input type="radio" name="mo-method" value="pickup"
+                                                onchange="toggleManualDelivery(false)">
+                                            Pickup
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div id="mo-delivery-group">
+                                    <div class="form-group">
+                                        <label>Region</label>
+                                        <select id="mo-region" onchange="updateManualDeliveryOptions()">
+                                            <option value="">-- Select Region --</option>
+                                            <!-- Populated via JS -->
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Delivery Company</label>
+                                        <div id="mo-delivery-list" class="delivery-list-container">
+                                            <div style="text-align:center; color:var(--text-secondary); padding:1rem;">
+                                                Select a region first</div>
+                                        </div>
+                                        <input type="hidden" id="mo-company-input" value="">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Currency</label>
+                                    <select id="mo-currency" onchange="updateManualTotal()">
+                                        <option value="JOD">JOD (Jordanian Dinar)</option>
+                                        <option value="USD">USD (US Dollar)</option>
+                                        <option value="EUR">EUR (Euro)</option>
+                                        <option value="SAR">SAR (Saudi Riyal)</option>
+                                        <option value="AED">AED (UAE Dirham)</option>
+                                        <option value="QAR">QAR (Qatari Riyal)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Payment Method</label>
+                                    <select id="mo-payment">
+                                        <option value="Cash on delivery">Cash on delivery</option>
+                                        <option value="CliQ payment on delivery">CliQ payment on delivery</option>
+                                        <option value="E-Wallets on delivery">E-Wallets on delivery</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Totals & Action -->
+                            <div class="card" style="padding:1.5rem;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                    <span>Subtotal:</span>
+                                    <span id="mo-subtotal">0.000 JOD</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                                    <span>Delivery:</span>
+                                    <span id="mo-delivery">0.000 JOD</span>
+                                </div>
+                                <div
+                                    style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.2rem; color:var(--accent); margin-bottom:1rem; padding-top:0.5rem; border-top:1px solid var(--border);">
+                                    <span>Total:</span>
+                                    <span id="mo-total">0.000 JOD</span>
+                                </div>
+
+                                <button type="button" id="mo-create-btn" class="btn btn-primary"
+                                    style="width:100%; padding: 1rem;">Create Order</button>
+                                <p id="mo-msg" class="success-msg hidden" style="margin-top:10px; text-align:center;">
+                                </p>
+                                <p id="mo-error" class="error-msg hidden" style="margin-top:10px; text-align:center;">
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Social Media Generator View -->
+            <!-- Social Media Generator View -->
+            <div id="view-social-generator" class="view-section hidden">
+                <div class="card"
+                    style="max-width: 800px; margin: 2rem auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+
+                    <div style="text-align: center; margin-bottom: 2.5rem;">
+                        <h2 class="section-title"
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            Social Media Magic ✨</h2>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Generate engagement-ready captions
+                            in seconds.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Product</label>
+                        <div style="position: relative;">
+                            <input type="text" id="social-product-search" placeholder="Type to search product..."
+                                style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 0.75rem; color: white; font-size: 1rem; transition: all 0.3s ease; cursor: pointer;">
+                            <input type="hidden" id="social-product-select">
+                            <div id="social-product-dropdown" class="custom-dropdown hidden"></div>
+                            <div
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary);">
+                                <i data-lucide="search" style="width:18px; height:18px;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="generate-social-btn" class="btn-primary"
+                        style="width: 100%; padding: 1.2rem; margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%); border: none; border-radius: 0.75rem; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+                        <span>Generate Caption with AI</span>
+                        <i data-lucide="sparkles"></i>
+                    </button>
+
+                    <div class="form-group">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Generated
+                            Caption</label>
+                        <textarea id="social-post-output" rows="12" placeholder="AI magic will appear here..." dir="rtl"
+                            style="width: 100%; padding: 1.5rem; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border); border-radius: 1rem; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.8; font-size: 1.1rem; resize: vertical; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Extra Images View -->
+            <div id="view-upload-images" class="view-section hidden">
+                <div class="card"
+                    style="max-width: 800px; margin: 2rem auto; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+
+                    <div style="text-align: center; margin-bottom: 2.5rem;">
+                        <h2 class="section-title"
+                            style="font-size: 2.2rem; background: linear-gradient(135deg, #fff 0%, #34d399 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; display: inline-block;">
+                            Upload Gallery Images 📸</h2>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Add multiple images to a
+                            product's gallery.</p>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Product</label>
+                        <div style="position: relative;">
+                            <input type="text" id="upload-product-search" placeholder="Type to search product..."
+                                style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 0.75rem; color: white; font-size: 1rem; transition: all 0.3s ease; cursor: pointer;">
+                            <input type="hidden" id="upload-product-select">
+                            <div id="upload-product-dropdown" class="custom-dropdown hidden"></div>
+                            <div
+                                style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary);">
+                                <i data-lucide="search" style="width:18px; height:18px;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 2rem;">
+                        <label
+                            style="display: block; margin-bottom: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; font-size: 0.95rem; text-transform: uppercase;">Select
+                            Images</label>
+                        <input type="file" id="extra-images-input" multiple accept="image/*"
+                            style="width: 100%; padding: 1rem; background: rgba(15, 23, 42, 0.6); border: 1px dashed var(--border); border-radius: 0.75rem; color: var(--text-secondary); cursor: pointer;">
+                        <small style="display:block; margin-top:0.5rem; color:var(--text-secondary);">Files will be
+                            renamed to: SKU_1.jpg, SKU_2.jpg, etc.</small>
+                    </div>
+
+                    <button id="upload-images-btn" class="btn-primary"
+                        style="width: 100%; padding: 1.2rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 0.75rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;">
+                        <span>Upload Images</span>
+                        <i data-lucide="upload-cloud"></i>
+                    </button>
+
+                    <p id="upload-status" style="text-align:center; min-height:1.5rem;"></p>
+
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="view-section hidden">
+
+                <!-- Admin Management Section -->
+                <div
+                    style="margin-bottom: 3rem; background: rgba(30, 41, 59, 0.4); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem;">
+                            <span
+                                style="width: 4px; height: 1.25rem; background: var(--accent); display: inline-block; border-radius: 2px;"></span>
+                            Admin Management
+                        </h3>
+                        <button class="btn-primary btn-sm"
+                            onclick="document.getElementById('add-admin-modal').classList.remove('hidden')">
+                            <i data-lucide="user-plus"></i> Add Admin
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="color: var(--accent);">USERNAME</th>
+                                    <th style="color: var(--accent);">STATUS</th>
+                                    <th style="color: var(--accent);">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-list-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <h3>Email Notification Settings</h3>
+                <div class="admin-form" style="max-width: 600px;">
+                    <div class="form-group"
+                        style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-darker); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                        <div>
+                            <label style="margin-bottom: 0; color: white; font-weight: 500;">Enable Email
+                                Notifications</label>
+                            <small style="color: var(--text-secondary); display: block;">Receive an email whenever a new
+                                order is placed.</small>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="email-enabled">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Receiver Email</label>
+                        <input type="email" id="receiver-email"
+                            placeholder="Where to send notifications (e.g. your@email.com)">
+                    </div>
+
+                    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+                        <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Sender Configuration (Gmail SMTP)
+                        </h4>
+                        <div class="form-group">
+                            <label>Sender Email</label>
+                            <input type="email" id="sender-email" placeholder="Your Gmail address">
+                        </div>
+                        <div class="form-group">
+                            <label>App Password</label>
+                            <input type="password" id="sender-pass"
+                                placeholder="Your Google App Password (not login password)">
+                            <small style="color:var(--text-secondary)">
+                                Use a <a href="https://myaccount.google.com/apppasswords" target="_blank"
+                                    style="color:var(--accent)">Google App Password</a>.
+                            </small>
+                        </div>
+                    </div>
+
+                    <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
+                    <p id="settings-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
+                    <div id="loading" class="modal-overlay hidden">
+                        <div class="spinner"></div>
+                    </div>
+
+                </div> <!-- End admin-form -->
+            </div> <!-- End view-settings -->
+
+            <!-- Wholesale View -->
+            <div id="view-wholesale" class="view-section hidden">
+                <div class="section-header">
+                    <h2 class="section-title">Wholesale Management</h2>
+                    <button class="btn btn-primary" onclick="window.showAddWholesaleModal()">
+                        <i data-lucide="plus"></i> Add Wholesale Item
+                    </button>
+                </div>
+
+                <div id="wholesale-grid" class="grid-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(600px, 1fr)); gap: 1.5rem;">
+                    <!-- Populated by JS -->
+                    <p style="color:var(--text-secondary);">Loading items...</p>
+                </div>
+            </div>
+
+            <!-- Add Wholesale Modal -->
+            <div id="add-wholesale-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 500px;">
+                    <h3>Add Wholesale Item</h3>
+                    <div class="form-group">
+                        <label>Select Product</label>
+                        <div style="position: relative;">
+                            <input type="text" id="so-product-search" placeholder="Type to search product..."
+                                style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white; font-size: 0.9rem;">
+                            <input type="hidden" id="so-product-select">
+                            <div id="so-product-dropdown" class="custom-dropdown hidden"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Category</label>
+                        <input type="text" id="so-category-input" list="so-category-list"
+                            placeholder="Type or select category"
+                            style="width:100%; padding:0.75rem; background:var(--bg-darker); border:1px solid var(--border); border-radius:0.5rem; color:white;">
+                        <datalist id="so-category-list">
+                            <!-- Populated by JS -->
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between;">
+                            <label>Original Price</label>
+                            <span id="so-original-price" style="color:var(--text-secondary);">0.00 JOD</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Wholesale Price (JOD)</label>
+                        <input type="number" step="0.001" id="so-price" placeholder="0.000">
+                    </div>
+                    <div class="form-actions"
+                        style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                        <button class="btn btn-secondary" onclick="window.closeWholesaleModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="window.submitWholesaleItem()">Add Item</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Product Details Modal -->
+        <div id="product-details-modal" class="modal-overlay hidden">
+            <div class="modal-container"
+                style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 0;">
+                <div id="product-modal-content" class="expanded-content" style="box-shadow: none; border: none;">
+                    <!-- Content will be injected here -->
+                </div>
+                <button class="modal-close-btn" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;"
+                    onclick="closeProductModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Admin Modal -->
+        <div id="add-admin-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Add New Admin</h3>
+                <div class="form-group">
+                    <label>Email / Username</label>
+                    <input type="text" id="new-admin-username" placeholder="admin@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="new-admin-password" placeholder="******">
+                </div>
+                <div class="form-actions" style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('add-admin-modal').classList.add('hidden')">Cancel</button>
+                    <button class="btn btn-primary" onclick="window.handleAddAdmin()">Add Admin</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Modal -->
+        <div id="change-pass-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Change Password</h3>
+                <input type="hidden" id="edit-admin-username">
+                <p id="edit-admin-display" style="margin-bottom:1rem; color:var(--text-primary);"></p>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="new-admin-pass-update" placeholder="******">
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:1rem; margin-top:1.5rem;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('change-pass-modal').classList.add('hidden')">Cancel</button>
+                    <button class="btn btn-primary" onclick="window.handleUpdateAdmin()">Update</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+        <script src="drive-images.js"></script>
+        <script src="admin.js?v=fixed_v3"></script>
+        <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.7
+        </div>
+        <script>
+            function toggleVisibility(id) {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                }
+            }
+        </script>
+</body>
+
+</html>
