@@ -593,7 +593,7 @@ async function initAdmin() {
                         receiver_email: receiver,
                         sender_email: sender,
                         sender_pass: pass,
-                        google_script_url: document.getElementById('google-script-url')?.value.trim() || ''
+                        google_script_url: document.getElementById('settings-google-script-url')?.value.trim() || ''
                     })
                 });
 
@@ -920,8 +920,14 @@ async function loadSettings() {
             versionDisp.textContent = "v3.7"; // Fallback
         }
 
-        const scriptUrl = document.getElementById('google-script-url');
-        if (scriptUrl) scriptUrl.value = data.google_script_url || '';
+        const settingsScriptUrl = document.getElementById('settings-google-script-url');
+        if (settingsScriptUrl) settingsScriptUrl.value = data.google_script_url || '';
+
+        const formScriptUrl = document.getElementById('google-script-url');
+        // Only populate form URL if it's currently empty and we have a setting
+        if (formScriptUrl && (!formScriptUrl.value || formScriptUrl.value.trim() === '') && data.google_script_url) {
+            formScriptUrl.value = data.google_script_url;
+        }
 
         // Load Admin List
         if (window.loadAdminsForManagement) window.loadAdminsForManagement();
@@ -2485,7 +2491,7 @@ window.editProduct = function (no) {
 
 window.deleteProduct = async function (no) {
     if (!confirm(`Are you sure you want to delete ${no}?`)) return;
-    const url = document.getElementById('google-script-url').value;
+    const url = document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value;
     if (!window.submitToGas) { alert("Function not ready."); return; }
 
     await window.submitToGas(url, { action: 'deleteProduct', No: no });
@@ -3504,7 +3510,7 @@ async function submitManualOrder() {
     try {
         let success = false;
         // Try GAS if configured
-        const GAS_URL = document.getElementById('google-script-url') ? document.getElementById('google-script-url').value : null;
+        const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
 
         if (GAS_URL && window.submitToGas) {
             try {

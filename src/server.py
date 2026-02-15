@@ -397,167 +397,174 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error_json(500, str(e))
 
     def do_POST(self):
-        path = self.path.split('?')[0]
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length).decode('utf-8')
         try:
-            data = json.loads(body)
-        except:
-            data = {}
-            
-        if path == '/api/upload-image':
-            # This is multipart, handled differently usually. 
-            # Current implementation of handle_upload uses headers X-Filename.
-            self.handle_upload()
-            return
-
-        if path == '/api/sync-sheet':
-             sync_products_from_sheet()
-             self.send_json({"status": "synced"})
-             return
-
-        # CSV Data Handlers
-        if path == '/api/admins':
-            # Create Admin
-            username = data.get('username')
-            password = data.get('password')
-            
-            admins = local_db.get_csv("admins.csv")
-            if any(a.get('username') == username for a in admins):
-                self.send_error_json(400, "Username exists")
-                return
-            
-            admins.append({"username": username, "password": password, "created_at": datetime.now().isoformat()})
-            local_db.update_csv("admins.csv", admins)
-            self.send_json({"status": "success"})
-            return
-
-        elif path == '/api/settings':
-            settings = local_db.get_csv("settings.csv")
-            
-            # Support both batch ({key: val, ...}) and single ({key: 'k', value: 'v'})
-            updates = {}
-            if 'key' in data and 'value' in data:
-                updates[data['key']] = data['value']
-            else:
-                updates = data
+            path = self.path.split('?')[0]
+            print(f"[DEBUG] POST request to {path}")
                 
-            for key, value in updates.items():
+            if path == '/api/upload-image':
+                self.handle_upload()
+                return
+
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8')
+            try:
+                data = json.loads(body)
+            except:
+                data = {}
+            
+            if path == '/api/sync-sheet':
+                 sync_products_from_sheet()
+                 self.send_json({"status": "synced"})
+                 return
+    
+            # CSV Data Handlers
+            if path == '/api/admins':
+                # Create Admin
+                username = data.get('username')
+                password = data.get('password')
+                
+                admins = local_db.get_csv("admins.csv")
+                if any(a.get('username') == username for a in admins):
+                    self.send_error_json(400, "Username exists")
+                    return
+                
+                admins.append({"username": username, "password": password, "created_at": datetime.now().isoformat()})
+                local_db.update_csv("admins.csv", admins)
+                self.send_json({"status": "success"})
+                return
+    
+            elif path == '/api/settings':
+                settings = local_db.get_csv("settings.csv")
+                
+                # Support both batch ({key: val, ...}) and single ({key: 'k', value: 'v'})
+                updates = {}
+                if 'key' in data and 'value' in data:
+                    updates[data['key']] = data['value']
+                else:
+                    updates = data
+                    
+                for key, value in updates.items():
+                    found = False
+                    for s in settings:
+                        if s.get('key') == key:
+                            s['value'] = value
+                            found = True
+                            break
+                    if not found:
+                        settings.append({"key": key, "value": value})
+                
+                local_db.update_csv("settings.csv", settings)
+                self.send_json({"status": "success"})
+                return
+    
+            elif path == '/api/visits':
+                today = datetime.now().strftime('%Y-%m-%d')
+                visits = local_db.get_csv("visits.csv")
+                
                 found = False
-                for s in settings:
-                    if s.get('key') == key:
-                        s['value'] = value
+                for v in visits:
+                    if v.get('date') == today:
+                        v['count'] = int(v.get('count', 0)) + 1
                         found = True
                         break
                 if not found:
-                    settings.append({"key": key, "value": value})
-            
-            local_db.update_csv("settings.csv", settings)
-            self.send_json({"status": "success"})
-            return
-
-        elif path == '/api/visits':
-            today = datetime.now().strftime('%Y-%m-%d')
-            visits = local_db.get_csv("visits.csv")
-            
-            found = False
-            for v in visits:
-                if v.get('date') == today:
-                    v['count'] = int(v.get('count', 0)) + 1
-                    found = True
-                    break
-            if not found:
-                visits.append({"date": today, "count": 1})
-            
-            local_db.update_csv("visits.csv", visits)
-            self.send_json({"status": "success"})
-            return
-
-        elif path == '/api/place-order' or path == '/api/orders':
-            order_data = data
-            orders = local_db.get_csv("orders.csv")
-            
-            # Convert complex fields to JSON strings for CSV storage
-            if 'items' in order_data:
-                order_data['items'] = json.dumps(order_data['items'])
-            if 'customer' in order_data:
-                order_data['customer'] = json.dumps(order_data['customer'])
+                    visits.append({"date": today, "count": 1})
                 
-            orders.append(order_data)
-            local_db.update_csv("orders.csv", orders)
-            self.send_json({"status": "success"})
-            return
-
-        elif path == '/api/add-product':
-            # Sync new product from Admin to local CSV
-            products = local_db.get_csv("products.csv")
-            
-            # Check if exists (by item_no)
-            item_no = data.get('item_no') or data.get('No')
-            if not item_no:
-                 self.send_error_json(400, "Item Number (No) is required")
-                 return
-
-            # Map fields if necessary (admin.js sends 'No', 'product name' etc)
-            # Unified keys for server
-            new_p = {
-                "item_no": item_no,
-                "name": data.get('product name') or data.get('Name on Store'),
-                "category": data.get('category'),
-                "collection": data.get('collection'),
-                "target_market": data.get('target market'),
-                "dimensions": data.get('Dimensions(mm) x y z'),
-                "description": data.get('description (80 word)'),
-                "price_low_qty": data.get('Price < 25 QTY'),
-                "price_high_qty": data.get('Price >= 25 QTY'),
-                "available": data.get('Available', 'TRUE'),
-                "hidden": data.get('Hidden', 'FALSE'),
-                "colors": data.get('Colors'),
-                "image_count": data.get('image_count', 1)
-            }
-
-            # Update if exists, else append
-            found = False
-            for i, p in enumerate(products):
-                if str(p.get('item_no')) == str(item_no):
-                    products[i].update(new_p)
-                    found = True
-                    break
-            if not found:
-                products.append(new_p)
-            
-            local_db.update_csv("products.csv", products)
-            self.send_json({"status": "success", "item_no": item_no})
-            return
-
-        elif path == '/api/special-offers':
-            item_no = data.get('item_no')
-            special_price = data.get('special_price')
-            category = data.get('category')
-            
-            offers = local_db.get_csv("wholesale.csv")
-            
-            found = False
-            for o in offers:
-                if str(o.get('item_no')) == str(item_no):
-                    o['special_price'] = special_price
-                    o['category'] = category
-                    o['updated_at'] = datetime.now().isoformat()
-                    found = True
-                    break
-            
-            if not found:
-                offers.append({
-                    "id": int(float(time.time())),
+                local_db.update_csv("visits.csv", visits)
+                self.send_json({"status": "success"})
+                return
+    
+            elif path == '/api/place-order' or path == '/api/orders':
+                order_data = data
+                orders = local_db.get_csv("orders.csv")
+                
+                # Convert complex fields to JSON strings for CSV storage
+                if 'items' in order_data:
+                    order_data['items'] = json.dumps(order_data['items'])
+                if 'customer' in order_data:
+                    order_data['customer'] = json.dumps(order_data['customer'])
+                    
+                orders.append(order_data)
+                local_db.update_csv("orders.csv", orders)
+                self.send_json({"status": "success"})
+                return
+    
+            elif path == '/api/add-product':
+                # Sync new product from Admin to local CSV
+                products = local_db.get_csv("products.csv")
+                
+                # Check if exists (by item_no)
+                item_no = data.get('item_no') or data.get('No')
+                if not item_no:
+                     self.send_error_json(400, "Item Number (No) is required")
+                     return
+    
+                # Map fields if necessary (admin.js sends 'No', 'product name' etc)
+                # Unified keys for server
+                new_p = {
                     "item_no": item_no,
-                    "special_price": special_price,
-                    "category": category,
-                    "updated_at": datetime.now().isoformat()
-                })
-            
-            local_db.update_csv("wholesale.csv", offers)
-            self.send_json({"status": "success"})
-            return
+                    "name": data.get('product name') or data.get('Name on Store'),
+                    "category": data.get('category'),
+                    "collection": data.get('collection'),
+                    "target_market": data.get('target market'),
+                    "dimensions": data.get('Dimensions(mm) x y z'),
+                    "description": data.get('description (80 word)'),
+                    "price_low_qty": data.get('Price < 25 QTY'),
+                    "price_high_qty": data.get('Price >= 25 QTY'),
+                    "available": data.get('Available', 'TRUE'),
+                    "hidden": data.get('Hidden', 'FALSE'),
+                    "colors": data.get('Colors'),
+                    "image_count": data.get('image_count', 1)
+                }
+    
+                # Update if exists, else append
+                found = False
+                for i, p in enumerate(products):
+                    if str(p.get('item_no')) == str(item_no):
+                        products[i].update(new_p)
+                        found = True
+                        break
+                if not found:
+                    products.append(new_p)
+                
+                local_db.update_csv("products.csv", products)
+                self.send_json({"status": "success", "item_no": item_no})
+                return
+    
+            elif path == '/api/special-offers':
+                item_no = data.get('item_no')
+                special_price = data.get('special_price')
+                category = data.get('category')
+                
+                offers = local_db.get_csv("wholesale.csv")
+                
+                found = False
+                for o in offers:
+                    if str(o.get('item_no')) == str(item_no):
+                        o['special_price'] = special_price
+                        o['category'] = category
+                        o['updated_at'] = datetime.now().isoformat()
+                        found = True
+                        break
+                
+                if not found:
+                    offers.append({
+                        "id": int(float(time.time())),
+                        "item_no": item_no,
+                        "special_price": special_price,
+                        "category": category,
+                        "updated_at": datetime.now().isoformat()
+                    })
+                
+                local_db.update_csv("wholesale.csv", offers)
+                self.send_json({"status": "success"})
+                return
+    
+            self.send_error(404)
+
+        except Exception as e:
+            print(f"[ERROR] POST {self.path} failed: {traceback.format_exc()}")
+            self.send_error_json(500, str(e))
 
         self.send_error(404)
 
@@ -622,16 +629,28 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps({"error": message}).encode('utf-8'))
 
     def handle_upload(self):
-         filename = self.headers.get('X-Filename')
-         length = int(self.headers.get('Content-Length', 0))
-         
-         if filename:
-             path = os.path.join(UPLOAD_DIR, filename)
-             with open(path, 'wb') as f:
-                 f.write(self.rfile.read(length))
-             self.send_json({"status": "success", "filename": filename})
-         else:
-             self.send_error_json(400, "X-Filename header missing")
+         try:
+             filename = self.headers.get('X-Filename')
+             length = int(self.headers.get('Content-Length', 0))
+             print(f"[DEBUG] Handling upload for {filename} (Internal: {length} bytes)")
+             
+             if filename:
+                 # Sanitize filename
+                 filename = os.path.basename(filename)
+                 path = os.path.join(UPLOAD_DIR, filename)
+                 print(f"[DEBUG] Saving to {path}")
+                 
+                 with open(path, 'wb') as f:
+                     f.write(self.rfile.read(length))
+                 
+                 print(f"[DEBUG] Upload successful: {filename}")
+                 self.send_json({"status": "success", "filename": filename})
+             else:
+                 print("[ERROR] X-Filename missing in headers")
+                 self.send_error_json(400, "X-Filename header missing")
+         except Exception as e:
+             print(f"[ERROR] handle_upload failed: {traceback.format_exc()}")
+             self.send_error_json(500, str(e))
 
 # Start
 

@@ -315,7 +315,7 @@
                     <!-- ... -->
                     <div class="form-group">
                         <label>Google Apps Script Web App URL</label>
-                        <input type="text" id="google-script-url"
+                        <input type="text" id="settings-google-script-url"
                             placeholder="https://script.google.com/macros/s/.../exec">
                     </div>
 
@@ -893,215 +893,131 @@
                 </div>
             </div>
 
-            <!-- Settings View -->
-            <div
-                style="margin-bottom: 3rem; background: rgba(30, 41, 59, 0.4); padding: 1.5rem; border-radius: 1rem; border: 1px solid var(--border);">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                    <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem;">
-                        <span
-                            style="width: 4px; height: 1.25rem; background: var(--accent); display: inline-block; border-radius: 2px;"></span>
-                        Admin Management
-                    </h3>
-                    <button class="btn-primary btn-sm"
-                        onclick="document.getElementById('add-admin-modal').classList.remove('hidden')">
-                        <i data-lucide="user-plus"></i> Add Admin
+
+
+            <!-- Wholesale View -->
+            <div id="view-wholesale" class="view-section hidden">
+                <div class="section-header">
+                    <h2 class="section-title">Wholesale Management</h2>
+                    <button class="btn btn-primary" onclick="window.showAddWholesaleModal()">
+                        <i data-lucide="plus"></i> Add Wholesale Item
                     </button>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="color: var(--accent);">USERNAME</th>
-                                <th style="color: var(--accent);">STATUS</th>
-                                <th style="color: var(--accent);">ACTION</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-list-body">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <h3>Email Notification Settings</h3>
-            <div class="admin-form" style="max-width: 600px;">
-                <div class="form-group"
-                    style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-darker); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border);">
-                    <div>
-                        <label style="margin-bottom: 0; color: white; font-weight: 500;">Enable Email
-                            Notifications</label>
-                        <small style="color: var(--text-secondary); display: block;">Receive an email whenever a new
-                            order is placed.</small>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="email-enabled">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-
-                <div class="form-group">
-                    <label>Receiver Email</label>
-                    <input type="email" id="receiver-email"
-                        placeholder="Where to send notifications (e.g. your@email.com)">
-                </div>
-
-                <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-                    <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Sender Configuration (Gmail SMTP)
-                    </h4>
-                    <div class="form-group">
-                        <label>Sender Email</label>
-                        <input type="email" id="sender-email" placeholder="Your Gmail address">
-                    </div>
-                    <div class="form-group">
-                        <label>App Password</label>
-                        <input type="password" id="sender-pass"
-                            placeholder="Your Google App Password (not login password)">
-                        <small style="color:var(--text-secondary)">
-                            Use a <a href="https://myaccount.google.com/apppasswords" target="_blank"
-                                style="color:var(--accent)">Google App Password</a>.
-                        </small>
-                    </div>
-                </div>
-
-                <div class="form-group"
-                    style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem; opacity: 0.6;">
-                    <label>Application Version</label>
-                    <div id="app-version-display" style="font-family: monospace; color: var(--accent);">v3.7</div>
-                </div>
-
-                <button id="save-settings-btn" class="btn btn-primary" style="margin-top: 1rem;">Save
-                    Settings</button>
-                <p id="settings-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
-                <div id="loading" class="modal-overlay hidden">
-                    <div class="spinner"></div>
-                </div>
-
-            </div> <!-- End admin-form -->
-    </div> <!-- End view-settings -->
-
-    <!-- Wholesale View -->
-    <div id="view-wholesale" class="view-section hidden">
-        <div class="section-header">
-            <h2 class="section-title">Wholesale Management</h2>
-            <button class="btn btn-primary" onclick="window.showAddWholesaleModal()">
-                <i data-lucide="plus"></i> Add Wholesale Item
-            </button>
-        </div>
-
-        <div id="wholesale-grid" class="grid-container"
-            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(600px, 1fr)); gap: 1.5rem;">
-            <!-- Populated by JS -->
-            <p style="color:var(--text-secondary);">Loading items...</p>
-        </div>
-    </div>
-
-    <!-- Add Wholesale Modal -->
-    <div id="add-wholesale-modal" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width: 500px;">
-            <h3>Add Wholesale Item</h3>
-            <div class="form-group">
-                <label>Select Product</label>
-                <div style="position: relative;">
-                    <input type="text" id="so-product-search" placeholder="Type to search product..."
-                        style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white; font-size: 0.9rem;">
-                    <input type="hidden" id="so-product-select">
-                    <div id="so-product-dropdown" class="custom-dropdown hidden"></div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Select Category</label>
-                <input type="text" id="so-category-input" list="so-category-list" placeholder="Type or select category"
-                    style="width:100%; padding:0.75rem; background:var(--bg-darker); border:1px solid var(--border); border-radius:0.5rem; color:white;">
-                <datalist id="so-category-list">
+                <div id="wholesale-grid" class="grid-container"
+                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(600px, 1fr)); gap: 1.5rem;">
                     <!-- Populated by JS -->
-                </datalist>
-            </div>
-            <div class="form-group">
-                <div style="display:flex; justify-content:space-between;">
-                    <label>Original Price</label>
-                    <span id="so-original-price" style="color:var(--text-secondary);">0.00 JOD</span>
+                    <p style="color:var(--text-secondary);">Loading items...</p>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Wholesale Price (JOD)</label>
-                <input type="number" step="0.001" id="so-price" placeholder="0.000">
+
+            <!-- Add Wholesale Modal -->
+            <div id="add-wholesale-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 500px;">
+                    <h3>Add Wholesale Item</h3>
+                    <div class="form-group">
+                        <label>Select Product</label>
+                        <div style="position: relative;">
+                            <input type="text" id="so-product-search" placeholder="Type to search product..."
+                                style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white; font-size: 0.9rem;">
+                            <input type="hidden" id="so-product-select">
+                            <div id="so-product-dropdown" class="custom-dropdown hidden"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Category</label>
+                        <input type="text" id="so-category-input" list="so-category-list"
+                            placeholder="Type or select category"
+                            style="width:100%; padding:0.75rem; background:var(--bg-darker); border:1px solid var(--border); border-radius:0.5rem; color:white;">
+                        <datalist id="so-category-list">
+                            <!-- Populated by JS -->
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <div style="display:flex; justify-content:space-between;">
+                            <label>Original Price</label>
+                            <span id="so-original-price" style="color:var(--text-secondary);">0.00 JOD</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Wholesale Price (JOD)</label>
+                        <input type="number" step="0.001" id="so-price" placeholder="0.000">
+                    </div>
+                    <div class="form-actions"
+                        style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                        <button class="btn btn-secondary" onclick="window.closeWholesaleModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="window.submitWholesaleItem()">Add Item</button>
+                    </div>
+                </div>
             </div>
-            <div class="form-actions" style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
-                <button class="btn btn-secondary" onclick="window.closeWholesaleModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="window.submitWholesaleItem()">Add Item</button>
+
+        </main>
+
+        <!-- Product Details Modal -->
+        <div id="product-details-modal" class="modal-overlay hidden">
+            <div class="modal-container"
+                style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 0;">
+                <div id="product-modal-content" class="expanded-content" style="box-shadow: none; border: none;">
+                    <!-- Content will be injected here -->
+                </div>
+                <button class="modal-close-btn" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;"
+                    onclick="closeProductModal()">
+                    <i data-lucide="x"></i>
+                </button>
             </div>
         </div>
-    </div>
 
-    </main>
-
-    <!-- Product Details Modal -->
-    <div id="product-details-modal" class="modal-overlay hidden">
-        <div class="modal-container"
-            style="max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 0;">
-            <div id="product-modal-content" class="expanded-content" style="box-shadow: none; border: none;">
-                <!-- Content will be injected here -->
-            </div>
-            <button class="modal-close-btn" style="position: absolute; top: 1rem; right: 1rem; z-index: 10;"
-                onclick="closeProductModal()">
-                <i data-lucide="x"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Add Admin Modal -->
-    <div id="add-admin-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Add New Admin</h3>
-            <div class="form-group">
-                <label>Email / Username</label>
-                <input type="text" id="new-admin-username" placeholder="admin@example.com">
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="new-admin-password" placeholder="******">
-            </div>
-            <div class="form-actions" style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
-                <button class="btn btn-secondary"
-                    onclick="document.getElementById('add-admin-modal').classList.add('hidden')">Cancel</button>
-                <button class="btn btn-primary" onclick="window.handleAddAdmin()">Add Admin</button>
+        <!-- Add Admin Modal -->
+        <div id="add-admin-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Add New Admin</h3>
+                <div class="form-group">
+                    <label>Email / Username</label>
+                    <input type="text" id="new-admin-username" placeholder="admin@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="new-admin-password" placeholder="******">
+                </div>
+                <div class="form-actions" style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('add-admin-modal').classList.add('hidden')">Cancel</button>
+                    <button class="btn btn-primary" onclick="window.handleAddAdmin()">Add Admin</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Change Password Modal -->
-    <div id="change-pass-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Change Password</h3>
-            <input type="hidden" id="edit-admin-username">
-            <p id="edit-admin-display" style="margin-bottom:1rem; color:var(--text-primary);"></p>
-            <div class="form-group">
-                <label>New Password</label>
-                <input type="password" id="new-admin-pass-update" placeholder="******">
-            </div>
-            <div style="display:flex; justify-content:space-between; gap:1rem; margin-top:1.5rem;">
-                <button class="btn btn-secondary"
-                    onclick="document.getElementById('change-pass-modal').classList.add('hidden')">Cancel</button>
-                <button class="btn btn-primary" onclick="window.handleUpdateAdmin()">Update</button>
+        <!-- Change Password Modal -->
+        <div id="change-pass-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Change Password</h3>
+                <input type="hidden" id="edit-admin-username">
+                <p id="edit-admin-display" style="margin-bottom:1rem; color:var(--text-primary);"></p>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="new-admin-pass-update" placeholder="******">
+                </div>
+                <div style="display:flex; justify-content:space-between; gap:1rem; margin-top:1.5rem;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('change-pass-modal').classList.add('hidden')">Cancel</button>
+                    <button class="btn btn-primary" onclick="window.handleUpdateAdmin()">Update</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="drive-images.js"></script>
-    <script src="admin.js?v=fixed_v3"></script>
-    <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.7
-    </div>
-    <script>
-        function toggleVisibility(id) {
-            const input = document.getElementById(id);
-            if (input) {
-                input.type = input.type === 'password' ? 'text' : 'password';
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+        <script src="drive-images.js"></script>
+        <script src="admin.js?v=fixed_v3"></script>
+        <div style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">v3.7
+        </div>
+        <script>
+            function toggleVisibility(id) {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                }
             }
-        }
-    </script>
+        </script>
 </body>
 
 </html>
