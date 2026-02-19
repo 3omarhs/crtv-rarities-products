@@ -21,7 +21,7 @@ import base64
 PORT = 8000
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 PUBLIC_DIR = os.path.join(PROJECT_ROOT, 'public')
-ASSETS_DIR = os.path.join(PROJECT_ROOT, 'assets')
+ASSETS_DIR = os.path.join(PROJECT_ROOT, 'public', 'assets')
 UPLOAD_DIR = os.path.join(ASSETS_DIR, 'products')
 
 CONFIG_FILE = os.path.join(PROJECT_ROOT, 'config.json')
@@ -221,13 +221,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         
         print(f"Translating path: {original_path} -> {path}")
 
-        # Explicit assets route
-        if path.startswith('/assets/'):
-             clean_path = path.replace('/assets/', '', 1)
-             res = os.path.join(ASSETS_DIR, clean_path)
-             print(f" -> Assets Path: {res}")
-             return res
-             
         # Normalize
         path = os.path.normpath(urllib.request.url2pathname(path))
         words = path.split(os.sep)
