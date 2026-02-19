@@ -121,7 +121,10 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
                 const apiKey = GEMINI_API_KEYS[i];
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s Timeout
+                const timeoutId = setTimeout(() => {
+                    console.warn(`Admin: Gemini Key ${i} timeout after 60s`);
+                    controller.abort();
+                }, 60000); // 60s Timeout for complex vision tasks
 
                 try {
                     console.log(`Admin: Requesting Gemini with key index ${i}...`);
@@ -176,7 +179,11 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     }
 
                 } catch (err) {
-                    lastError = err;
+                    if (err.name === 'AbortError') {
+                        lastError = "Request timed out after 60s. Please try again or check your connection.";
+                    } else {
+                        lastError = err;
+                    }
                     console.error(`Attempt ${i} failed:`, err);
                 }
             }
@@ -615,16 +622,13 @@ async function initAdmin() {
         });
     }
 
-    // Theme Toggle Listener
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        // Remove existing listener if any to prevent duplicates (though replace is safe)
-        const newToggle = themeToggle.cloneNode(true);
-        themeToggle.parentNode.replaceChild(newToggle, themeToggle);
+    // Theme Toggle Listener (Settings Checkbox)
+    const themeCheckbox = document.getElementById('theme-toggle-checkbox');
+    if (themeCheckbox) {
+        const newToggle = themeCheckbox.cloneNode(true);
+        themeCheckbox.parentNode.replaceChild(newToggle, themeCheckbox);
         newToggle.addEventListener('change', window.toggleTheme);
-        // Ensure state matches
-        const currentTheme = localStorage.getItem('theme');
-        newToggle.checked = (currentTheme === 'light');
+        // State is matched in initTheme
     }
 
     // 6. Load Data (Blocking stuff LAST)
@@ -950,140 +954,6 @@ if (document.readyState === 'loading') {
 // --- Social Media Generator ---
 window.initSocialGenerator = async function () {
     console.log("Initializing Social Generator...");
-    const select = document.getElementById('social-product-select');
-    const btn = document.getElementById('generate-social-btn');
-
-    if (!select || !btn) return;
-
-    // Load products if not loaded
-    let products = window.allProducts;
-    if (!products || products.length === 0) {
-        try {
-            await initProductData();
-            products = window.allProducts;
-        } catch (e) { console.error("Error loading products for social", e); return; }
-    }
-
-    // Populate Dropdown
-    select.innerHTML = '<option value="">-- Choose a Product --</option>';
-    // Sort logic? maybe newest first.
-    products.forEach(p => {
-        if (!p['No']) return;
-        const name = p['Name on Store'] || p['product name'] || p['Product Name'] || 'Unknown Name';
-        const option = document.createElement('option');
-        option.value = p['No'];
-        option.textContent = `${p['No']} - ${name}`;
-        select.appendChild(option);
-    });
-
-    // Remove old listeners to avoid duplicates if re-init
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-
-    newBtn.addEventListener('click', async () => {
-        const sku = select.value;
-        if (!sku) { alert("Please select a product first."); return; }
-
-        const product = products.find(p => p['No'] === sku);
-        if (!product) return;
-
-        await generateSocialPost(product);
-    });
-};
-
-async function generateSocialPost(product) {
-    const output = document.getElementById('social-post-output');
-    const btn = document.getElementById('generate-social-btn');
-
-    if (GEMINI_API_KEYS.length === 0) {
-        await loadGeminiCredentials();
-        if (GEMINI_API_KEYS.length === 0) {
-            output.value = "Error: Gemini API Keys not found.";
-            return;
-        }
-    }
-
-    const originalText = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span>Generating... ⏳</span>';
-    output.value = "AI is writing your post... please wait.";
-
-    try {
-        const name = product['Name on Store'] || product['product name'] || product['Product Name'] || 'Unknown Product';
-        const dimensions = product['Dimensions(mm) x y z'] || product['Dimensions'] || 'N/A';
-        const price = product['Price < 25 QTY'] || product['Price'] || product['Retail Price'] || 'N/A';
-        const link = product['Document Link'] || product['link'] || '';
-
-        const prompt = `Act as a professional social media manager and copywriter for a brand called "Creative Rarities" that sells 3D printed products for home organization, aquariums, and pets.
-        
-        Product Details:
-        - Name: ${name}
-        - Dimensions: ${dimensions}
-        - Price: ${price} JOD
-        - Link: ${link}
-
-        Your task is to write a social media post caption (in colloquial Arabic/Ammiya) following this exact structure:
-        
-        Hook: Start with a catchy question or a fun statement that addresses a problem the product solves. use emojis.
-        Description: Briefly explain what the product is and why it's cool/useful in a friendly, engaging tone. Mention if it has a specific design feature.
-        
-        Details Block: List the dimensions and price clearly using this format:
-        📏 الأبعاد: [Insert Dimensions] mm
-        💰 السعر: [Insert Price] JOD
-        
-        Call to Action: Tell them to find it in the bio link by searching for its English name. Use this exact phrasing:
-        "عشان تطلبوه وتلاقوه بالقائمة (الرابط بالبايو)، دوروا على اسمه بالإنجليزي: ${name}"
-        
-        Link: Add the provided Google Drive link with the text if provided:
-        🔗 رابط التفاصيل:
-        ${link ? link : "[Link not provided]"}
-        
-        Hashtags: Add 4-5 relevant hashtags in Arabic and English (e.g., #Aquarium #Decor #CatToys) and always add the hashtag #crtv_rarities.
-        
-        Important Notes:
-        Keep the tone friendly, enthusiastic, and helpful.
-        The description should be in one single column/block.
-        Do not translate the Product Name in the "Call to Action" section.
-        Return ONLY the post content.`;
-
-        const payload = {
-            contents: [{ parts: [{ text: prompt }] }]
-        };
-
-        // Reuse Gemini fetch logic simpler here
-        let success = false;
-        for (const apiKey of GEMINI_API_KEYS) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                if (data.candidates && data.candidates[0].content) {
-                    output.value = data.candidates[0].content.parts[0].text;
-                    success = true;
-                    break;
-                }
-            } catch (e) { console.error("Key failed", e); }
-        }
-
-        if (!success) {
-            output.value = "Failed to generate post. Please check API keys or connection.";
-        }
-
-    } catch (e) {
-        console.error("Generation error", e);
-        output.value = "Error: " + e.message;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-// --- Social Media Generator ---
-window.initSocialGenerator = async function () {
-    console.log("Initializing Social Generator V2...");
     const searchInput = document.getElementById('social-product-search');
     const select = document.getElementById('social-product-select');
     const btn = document.getElementById('generate-social-btn');
@@ -1119,11 +989,11 @@ window.initSocialGenerator = async function () {
         if (!product) return;
 
         newBtn.disabled = true;
+        const originalText = newBtn.innerHTML;
         newBtn.innerHTML = '<span>Generating... ⏳</span>';
         output.value = "Creating magic... ✨";
 
         try {
-            // ... (rest of generation logic remains same)
             if (GEMINI_API_KEYS.length === 0) await loadGeminiCredentials();
 
             if (GEMINI_API_KEYS.length === 0) {
@@ -1133,14 +1003,32 @@ window.initSocialGenerator = async function () {
                 throw new Error("No Gemini API Keys found. Please configure in Settings.");
             }
 
-            const prompt = `Create an engaging social media post (instagram/facebook) for this product:
-Name: ${product['Name on Store'] || product['product name']}
-Description: ${product['description (80 word)'] || ''}
-Category: ${product['category'] || ''}
-Collection: ${product['collection'] || ''}
+            const name = product['Name on Store'] || product['product name'];
+            const description = product['description (80 word)'] || '';
+            const price = parseFloat(String(product['Price < 25 QTY'] || product['Price'] || 0).replace(/[^\d.]/g, '')).toFixed(3);
+            const bulkPrice = product['Price >= 25 QTY'] || product['Wholesale Price'];
+            const hasBulk = bulkPrice && parseFloat(String(bulkPrice).replace(/[^\d.]/g, '')) > 0;
 
-Write a catchy caption in Arabic, include emojis, and suggest 5 relevant hashtags.
-Keep it professional yet exciting.`;
+            const prompt = `Act as a social media manager for "Creative Rarities". Write a post caption for this product in colloquial Arabic (Jordanian/Palestinian Ammiya).
+            
+Product Info:
+- Name: ${name}
+- Description: ${description}
+- Price: ${price} JOD
+- Has Bulk Discount: ${hasBulk ? 'Yes' : 'No'}
+
+Instructions:
+1. Write in catchy, friendly colloquial Arabic.
+2. Structure:
+   - Fun opening hook with emojis.
+   - Descriptive sentence about why this product is useful/cool.
+   - Price line: Mention it costs ${price} JOD. ${hasBulk ? "Crucially, mention that there is a special discount if they buy in bulk (more than 25 pcs), but do NOT say 'individual price' or 'retail price' for the single item." : ""}
+   - Call to Action: Tell them how to order (link in bio, search for the English name).
+3. NO hashtags.
+4. NO titles or headers (like "Caption:" or "Post:").
+5. NO meta-commentary or instructions in the output.
+6. NO mention of the product being "3D printed".
+7. Return ONLY the caption text itself.`;
 
             let success = false;
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
@@ -1157,7 +1045,7 @@ Keep it professional yet exciting.`;
                     });
                     const data = await response.json();
                     if (data.candidates && data.candidates[0].content) {
-                        output.value = data.candidates[0].content.parts[0].text;
+                        output.value = data.candidates[0].content.parts[0].text.trim();
                         success = true;
                         break;
                     }
@@ -1169,7 +1057,7 @@ Keep it professional yet exciting.`;
             output.value = "Error: " + e.message;
         } finally {
             newBtn.disabled = false;
-            newBtn.innerHTML = '<span>Generate Caption with AI</span><i data-lucide="sparkles"></i>';
+            newBtn.innerHTML = originalText;
             if (window.lucide) lucide.createIcons();
         }
     });
@@ -1226,17 +1114,15 @@ window.initUploadImages = async function () {
             const isLocalFile = window.location.protocol === 'file:';
             const apiBase = isLocalFile ? 'http://localhost:8000' : '';
 
+            // Get existing image count from data if available
+            const product = window.allProducts.find(p => String(p['No'] || p['item_no']) === productNo);
+            const startOffset = (product && product.image_count) ? parseInt(product.image_count) : 0;
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                // Naming Convention: SKU_1.jpg, SKU_2.jpg ... 
-                // We don't know existing offset, so just using batch index 1-based for now.
-                // Or maybe use timestamp to be safe? The prompt said SKU_1.jpg
-                // Let's use numeric index + timestamp to avoid easy collisions or just index if that's the strict requirement.
-                // The prompt example "SKU_1.jpg" implies simple indexing.
-                // To avoid overwriting existing "SKU_1.jpg" if we upload again, we might want a random suffix or timestamp.
-                // BUT, to keep it simple and consistent with user request:
                 const ext = file.name.split('.').pop() || 'jpg';
-                const newFileName = `${productNo}_${i + 1}_${Date.now().toString().slice(-4)}.${ext}`; // Added timestamp suffix for safety
+                const nextIndex = startOffset + i + (startOffset === 0 ? 1 : 0);
+                const newFileName = `${productNo}_${nextIndex}.${ext}`;
 
                 status.textContent = `Uploading ${i + 1}/${files.length}...`;
 
@@ -1388,12 +1274,18 @@ function renderDashboardStats(orders, visitsData) {
     let todayVisits = 0;
     try {
         const now = new Date();
-        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        console.log("Admin: Checking visits for", todayStr);
         if (visitsData.daily) {
+            // Robust match: trim keys and compare
             const match = Object.entries(visitsData.daily).find(([k, v]) => k.trim() === todayStr);
             if (match) todayVisits = match[1];
         }
-    } catch (e) { }
+    } catch (e) { console.error("Admin: Error calculating todayVisits", e); }
     document.getElementById('stat-visits-today').textContent = todayVisits;
 
     // 2. Orders Count
@@ -2688,70 +2580,132 @@ window.loadWholesale = async function () {
 
 function renderWholesaleItems(offers) {
     const grid = document.getElementById('wholesale-grid');
+    if (!grid) return;
     grid.innerHTML = '';
 
     if (offers.length === 0) {
-        grid.innerHTML = '<p style="color:var(--text-secondary);">No wholesale items active.</p>';
+        grid.innerHTML = '<p style="color:var(--text-secondary); text-align:center; grid-column:1/-1; padding:2rem;">No wholesale items active.</p>';
         return;
     }
 
     offers.forEach(offer => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.cssText = 'padding:0; overflow:hidden; display:flex; flex-direction:column; position:relative;';
+        const card = document.createElement('article');
+        card.className = 'card fade-in-up';
+        card.style.cssText = 'padding:0; overflow:hidden; display:flex; flex-direction:column; position:relative; min-height:400px;';
 
         const name = offer.name || 'Unknown Product';
-        const originalPrice = parseFloat(offer.original_price || 0);
+        const originalPrice = parseFloat(offer.price || 0); // Using 'price' from enriched data
         const specialPrice = parseFloat(offer.special_price || 0);
         let discount = 0;
         if (originalPrice > 0 && specialPrice < originalPrice) {
             discount = Math.round(((originalPrice - specialPrice) / originalPrice) * 100);
         }
 
-        // Image Gallery Logic
         const images = offer.images || [];
-        let imagesHtml = '';
-
-        if (images.length > 0) {
-            imagesHtml = `<div class="so-gallery" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; scrollbar-width:thin;">`;
-            images.forEach(img => {
-                imagesHtml += `<img src="${img}" onclick="window.openImagePopup(this.src)" style="width:100%; height:250px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">`;
-            });
-            imagesHtml += `</div>`;
-        }
+        const imageSrc = images.length > 0 ? images[0] : `assets/products/${offer.item_no}.jpg`;
+        const fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232d2d35%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E";
 
         card.innerHTML = `
-            <div style="padding:1.5rem; flex-grow:1; display:flex; flex-direction:column;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
-                    <span style="background:var(--accent); color:white; padding:2px 8px; border-radius:4px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">${offer.category || 'Wholesale'}</span>
-                    <button class="icon-btn delete-btn" style="color:#ef4444;" onclick="window.removeWholesaleItem('${offer.item_no}')">
-                        <i data-lucide="trash-2"></i>
+            <div class="card-image-container" style="height:250px; background:#000; position:relative;">
+                <img src="${imageSrc}" alt="${name}" 
+                     style="width:100%; height:100%; object-fit:cover;"
+                     onerror="this.src='${fallback}'">
+                <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px;">
+                     <button class="icon-btn" style="background:rgba(0,0,0,0.6); color:white; border-radius:4px; padding:6px;" 
+                             onclick="window.showEditWholesaleModal('${offer.item_no}')" title="Edit Item">
+                        <i data-lucide="edit-3" style="width:16px; height:16px;"></i>
+                    </button>
+                    <button class="icon-btn" style="background:rgba(239, 68, 68, 0.8); color:white; border-radius:4px; padding:6px;" 
+                             onclick="window.showDeleteWholesaleModal('${offer.item_no}')" title="Remove Item">
+                        <i data-lucide="trash-2" style="width:16px; height:16px;"></i>
                     </button>
                 </div>
-                <h3 style="margin:0 0 0.5rem 0; font-size:1.1rem; line-height:1.4;">${name}</h3>
-                <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem;">${offer.item_no}</p>
+                ${discount > 0 ? `<div style="position:absolute; bottom:10px; left:10px; background:#ef4444; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">-${discount}%</div>` : ''}
+            </div>
+            <div style="padding:1.25rem; flex-grow:1; display:flex; flex-direction:column; gap:0.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.7rem; color:var(--text-secondary); background:var(--bg-darker); padding:2px 6px; border-radius:4px;">#${offer.item_no}</span>
+                    <span style="background:var(--accent); color:white; padding:2px 8px; border-radius:4px; font-size:0.7rem; text-transform:uppercase;">${offer.category || 'Wholesale'}</span>
+                </div>
+                <h3 style="margin:0; font-size:1rem; line-height:1.4; color:white; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${name}</h3>
                 
-                ${imagesHtml}
-
-                <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
-                    <div>
-                        <span style="text-decoration:line-through; color:var(--text-secondary); margin-right:0.5rem;">${originalPrice.toFixed(2)} JOD</span>
-                        <span style="color:var(--accent); font-weight:bold; font-size:1.1rem;">${specialPrice.toFixed(2)} JOD</span>
-                    </div>
-                    ${discount > 0 ? `<span class="badge" style="background:#ef4444;">-${discount}%</span>` : ''}
+                <div style="margin-top:auto; padding-top:0.75rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.75rem;">
+                    <span style="color:var(--accent); font-weight:bold; font-size:1.1rem;">${specialPrice.toFixed(3)} JOD</span>
+                    <span style="text-decoration:line-through; color:var(--text-secondary); font-size:0.85rem;">${originalPrice.toFixed(3)} JOD</span>
                 </div>
             </div>
         `;
         grid.appendChild(card);
     });
 
-    // re-init icons
     if (window.lucide) lucide.createIcons();
 }
 
-window.removeWholesaleItem = async function (itemNo) {
-    if (!confirm("Are you sure you want to remove this wholesale item?")) return;
+window.showEditWholesaleModal = function (itemNo) {
+    const offer = window.wholesaleOffers.find(o => o.item_no == itemNo);
+    if (!offer) return;
 
+    document.getElementById('edit-so-item-no').value = itemNo;
+    document.getElementById('edit-so-product-name').textContent = offer.name;
+    document.getElementById('edit-so-category-input').value = offer.category || '';
+    document.getElementById('edit-so-price').value = offer.special_price;
+
+    const modal = document.getElementById('edit-wholesale-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('open');
+};
+
+window.showDeleteWholesaleModal = function (itemNo) {
+    const offer = window.wholesaleOffers.find(o => o.item_no == itemNo);
+    if (!offer) return;
+
+    document.getElementById('delete-so-item-no').value = itemNo;
+    document.getElementById('delete-so-product-name').textContent = offer.name;
+
+    const modal = document.getElementById('delete-wholesale-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('open');
+};
+
+window.closeDeleteWholesaleModal = function () {
+    const modal = document.getElementById('delete-wholesale-modal');
+    modal.classList.remove('open');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+};
+
+window.closeEditWholesaleModal = function () {
+    const modal = document.getElementById('edit-wholesale-modal');
+    modal.classList.remove('open');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+};
+
+window.submitWholesaleEdit = async function () {
+    const itemNo = document.getElementById('edit-so-item-no').value;
+    const category = document.getElementById('edit-so-category-input').value;
+    const price = parseFloat(document.getElementById('edit-so-price').value);
+
+    if (isNaN(price)) { alert("Invalid price"); return; }
+
+    try {
+        const res = await fetch('/api/special-offers', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_no: itemNo, special_price: price, category: category })
+        });
+        if (res.ok) {
+            window.closeEditWholesaleModal();
+            loadWholesale();
+        } else {
+            alert("Failed to update item.");
+        }
+    } catch (e) {
+        console.error("Error editing wholesale:", e);
+        alert("Network error.");
+    }
+};
+
+window.confirmWholesaleDelete = async function () {
+    const itemNo = document.getElementById('delete-so-item-no').value;
     try {
         const response = await fetch('/api/special-offers', {
             method: 'DELETE',
@@ -2760,6 +2714,7 @@ window.removeWholesaleItem = async function (itemNo) {
         });
 
         if (response.ok) {
+            window.closeDeleteWholesaleModal();
             loadWholesale();
         } else {
             alert("Failed to remove item.");
@@ -2768,6 +2723,10 @@ window.removeWholesaleItem = async function (itemNo) {
         console.error("Error removing item:", e);
         alert("Network error.");
     }
+};
+
+window.removeWholesaleItem = function (itemNo) {
+    window.showDeleteWholesaleModal(itemNo);
 };
 
 window.showOfferImages = function (itemNo, imagesJson) {
@@ -3599,24 +3558,46 @@ window.submitToGas = async function (url, data) {
 // Theme Logic
 window.initTheme = function () {
     const savedTheme = localStorage.getItem('theme');
-    const toggle = document.getElementById('theme-toggle');
-    if (savedTheme === 'light') {
+    const isLight = savedTheme === 'light';
+
+    if (isLight) {
         document.documentElement.setAttribute('data-theme', 'light');
-        if (toggle) toggle.checked = true;
     } else {
         document.documentElement.removeAttribute('data-theme');
-        if (toggle) toggle.checked = false;
+    }
+
+    // Sync UI elements
+    const checkbox = document.getElementById('theme-toggle-checkbox');
+    if (checkbox) checkbox.checked = isLight;
+
+    const topBtn = document.getElementById('theme-toggle-top');
+    if (topBtn) {
+        topBtn.innerHTML = `<i data-lucide="${isLight ? 'sun' : 'moon'}"></i>`;
+        if (window.lucide) lucide.createIcons();
     }
 };
 
 window.toggleTheme = function () {
-    const toggle = document.getElementById('theme-toggle');
-    if (toggle.checked) {
+    const currentTheme = localStorage.getItem('theme');
+    const newTheme = (currentTheme === 'light') ? 'dark' : 'light';
+    const isLight = newTheme === 'light';
+
+    if (isLight) {
         document.documentElement.setAttribute('data-theme', 'light');
         localStorage.setItem('theme', 'light');
     } else {
         document.documentElement.removeAttribute('data-theme');
         localStorage.setItem('theme', 'dark');
+    }
+
+    // Sync UI elements
+    const checkbox = document.getElementById('theme-toggle-checkbox');
+    if (checkbox) checkbox.checked = isLight;
+
+    const topBtn = document.getElementById('theme-toggle-top');
+    if (topBtn) {
+        topBtn.innerHTML = `<i data-lucide="${isLight ? 'sun' : 'moon'}"></i>`;
+        if (window.lucide) lucide.createIcons();
     }
 };
 

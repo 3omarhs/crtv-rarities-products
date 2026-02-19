@@ -829,15 +829,17 @@ function processData(data) {
         keys.find(k => normalizeKey(k).includes('document') && normalizeKey(k).includes('link')) ||
         keys.find(k => normalizeKey(k) === 'link');
 
-    const retailPriceKey = keys.find(k => k.includes('<')) ||
+    const retailPriceKey = keys.find(k => normalizeKey(k) === 'price_low_qty') ||
+        keys.find(k => k.includes('<')) ||
         keys.find(k => normalizeKey(k).includes('retail')) ||
         keys.find(k => normalizeKey(k) === 'price');
 
-    const wholesalePriceKey = keys.find(k => k.includes('>')) ||
+    const wholesalePriceKey = keys.find(k => normalizeKey(k) === 'price_high_qty') ||
+        keys.find(k => k.includes('>')) ||
         keys.find(k => normalizeKey(k).includes('wholesale')) ||
         keys.find(k => normalizeKey(k).includes('bulk'));
 
-    const priceKey = keys.find(k => normalizeKey(k).includes('price') && !k.includes('<') && !k.includes('>')) ||
+    const priceKey = keys.find(k => normalizeKey(k).includes('price') && !k.includes('<') && !k.includes('>') && !k.includes('low') && !k.includes('high')) ||
         keys.find(k => normalizeKey(k).includes('cost'));
 
     const categoryKey = keys.find(k => normalizeKey(k).includes('category')) ||
@@ -1090,7 +1092,22 @@ function createCard(product, uiIndex) {
                 ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
             </div>
             <div class="card-footer">
-                ${product.price ? `<span class="card-price">${formatPrice(product.price)}</span>` : (product.bulkPrice ? `<span class="card-price">${formatPrice(product.bulkPrice)}</span>` : '')}
+                ${(() => {
+            const pRetail = parseFloat(String(product.price).replace(/[^\d.]/g, '')) || 0;
+            const pWholesale = parseFloat(String(product.bulkPrice).replace(/[^\d.]/g, '')) || 0;
+            const hasPriceDifference = pWholesale > 0 && Math.abs(pRetail - pWholesale) > 0.0001;
+
+            if (!hasPriceDifference) {
+                return `<span class="card-price"><small style="font-size:0.65rem; color:var(--text-secondary); display:block; line-height:1;">${t.priceLabel}</small>${formatPrice(product.price || product.bulkPrice)}</span>`;
+            } else {
+                return `
+                            <div class="card-price-dual" style="display: flex; flex-direction: column; gap: 2px;">
+                                <span class="card-price retail" style="color: var(--accent);"><small style="font-size:0.65rem; color:var(--text-secondary); display:block; line-height:1;">${t.retailPrice}</small>${formatPrice(product.price)}</span>
+                                <span class="card-price wholesale" style="font-size: 0.85rem; opacity: 0.8;"><small style="font-size:0.6rem; color:var(--text-secondary); display:block; line-height:1;">${t.bulkSaving}</small>${formatPrice(product.bulkPrice)}</span>
+                            </div>
+                        `;
+            }
+        })()}
                 ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
             `<span class="stock-badge out-stock"><i data-lucide="x-circle" style="width: 14px;"></i> ${t.oos}</span>`}

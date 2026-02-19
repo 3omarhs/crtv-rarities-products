@@ -42,6 +42,43 @@
 
     /* Overrides for specific elements that assume dark mode transparency */
     --modal-overlay: rgba(255, 255, 255, 0.85);
+
+    /* Specific element overrides */
+    --table-row-bg: rgba(235, 235, 240, 0.6);
+    --table-row-hover: rgba(220, 220, 230, 0.9);
+    --stat-span-color: #1e293b;
+    --modal-h3-color: #1e293b;
+}
+
+[data-theme="light"] .data-table td {
+    background: var(--table-row-bg);
+    border-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .data-table tr:hover td {
+    background: var(--table-row-hover);
+    border-color: var(--accent);
+}
+
+[data-theme="light"] .stat-info span {
+    color: var(--stat-span-color);
+}
+
+[data-theme="light"] .icon-box {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .modal-content h3 {
+    color: var(--modal-h3-color);
+}
+
+[data-theme="light"] .section-header {
+    border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .sidebar-logo {
+    border-color: #e2e8f0;
 }
 
 .admin-body {

@@ -9,6 +9,8 @@ from datetime import datetime
 import traceback
 from decimal import Decimal
 import urllib.request
+import urllib.parse
+import sys
 import csv
 import io
 import time
@@ -109,25 +111,25 @@ def get_product_by_no(item_no, products_list=None):
             return p
     return None
 
-def count_images_for_product(item_no):
-    if not os.path.exists(UPLOAD_DIR): return 0
-    count = 0
-    # Pattern: item_no.ext or item_no_X.ext
-    # Simple check: startswith item_no + '_' or == item_no + '.'
-    # Be careful with partial matches e.g. "123" matching "1234"
-    
+def get_product_images(item_no):
+    if not os.path.exists(UPLOAD_DIR): return []
+    image_files = []
     files = os.listdir(UPLOAD_DIR)
     for f in files:
         if not f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')): continue
         name, _ = os.path.splitext(f)
-        if name == item_no:
-            count += 1
-        elif name.startswith(item_no + '_'):
-            # check if rest is number
-             suffix = name[len(item_no)+1:]
-             if suffix.isdigit():
-                 count += 1
-    return count
+        if name == item_no or name.startswith(item_no + '_'):
+            # Double check it matches strictly (item_no or item_no_123)
+            if name == item_no:
+                image_files.append(f"assets/products/{f}")
+            elif name.startswith(item_no + '_'):
+                suffix = name[len(item_no)+1:]
+                if suffix.isdigit():
+                    image_files.append(f"assets/products/{f}")
+    return sorted(image_files)
+
+def count_images_for_product(item_no):
+    return len(get_product_images(item_no))
 
 def sync_products_from_sheet():
     print("Syncing products from Google Sheet to GitHub...")
@@ -199,7 +201,18 @@ def sync_products_from_sheet():
     except Exception as e:
         print(f"Failed to sync products from sheet: {e}")
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.0"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def translate_path(self, path):
         """Map paths to PUBLIC_DIR or specific routes."""
         original_path = path
@@ -210,7 +223,6 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
         # Explicit assets route
         if path.startswith('/assets/'):
-             # Map /assets/... to PROJECT_ROOT/assets/...
              clean_path = path.replace('/assets/', '', 1)
              res = os.path.join(ASSETS_DIR, clean_path)
              print(f" -> Assets Path: {res}")
@@ -243,15 +255,10 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Filename')
+        body = json.dumps(data, cls=DecimalEncoder).encode('utf-8')
+        self.send_header('Content-Length', str(len(body)))
         self.end_headers()
-        
-        class DecimalEncoder(json.JSONEncoder):
-            def default(self, obj):
-                if isinstance(obj, Decimal):
-                    return float(obj)
-                return super(DecimalEncoder, self).default(obj)
-                
-        self.wfile.write(json.dumps(data, cls=DecimalEncoder).encode('utf-8'))
+        self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -260,6 +267,8 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
     def do_GET(self):
+        sys.stderr.write(f"[DEBUG] Received GET request for {self.path}\n")
+        sys.stderr.flush()
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -372,12 +381,8 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                             offer_data["name"] = product.get('name')
                             offer_data["price"] = product.get('price')
                             offer_data["description"] = product.get('description')
-                            img_count = product.get('image_count')
-                            if img_count:
-                                try:
-                                    count = int(img_count)
-                                    offer_data["image_paths"] = [f"assets/products/{item_no}_{i+1}.jpg" for i in range(count)]
-                                except: pass
+                            # Dynamically get actual image paths
+                            offer_data["images"] = get_product_images(item_no)
                         enriched_offers.append(offer_data)
 
                     self.send_json(enriched_offers)
@@ -392,8 +397,12 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         try:
             if path == '/admin' or path == '/admin/':
                 self.path = '/admin.html'
+            sys.stderr.write(f"[DEBUG] Serving static file: {self.path}\n")
+            sys.stderr.flush()
             super().do_GET()
         except Exception as e:
+            sys.stderr.write(f"[DEBUG] Exception in do_GET: {e}\n")
+            sys.stderr.flush()
             self.send_error_json(500, str(e))
 
     def do_POST(self):
@@ -500,10 +509,12 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                      return
     
                 # Map fields if necessary (admin.js sends 'No', 'product name' etc)
-                # Unified keys for server
+                # Unified keys for server mapping to products.csv headers
                 new_p = {
                     "item_no": item_no,
-                    "name": data.get('product name') or data.get('Name on Store'),
+                    "name": data.get('product name'),
+                    "store_name": data.get('Name on Store'),
+                    "arabic_name": data.get('Arabic Name'),
                     "category": data.get('category'),
                     "collection": data.get('collection'),
                     "target_market": data.get('target market'),
@@ -511,16 +522,22 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                     "description": data.get('description (80 word)'),
                     "price_low_qty": data.get('Price < 25 QTY'),
                     "price_high_qty": data.get('Price >= 25 QTY'),
+                    "document_link": data.get('Document Link'),
+                    "calc_val": data.get('Calculate on Weight'),
                     "available": data.get('Available', 'TRUE'),
                     "hidden": data.get('Hidden', 'FALSE'),
                     "colors": data.get('Colors'),
-                    "image_count": data.get('image_count', 1)
+                    "image_count": data.get('image_count', 1),
+                    "id": data.get('id') or int(float(time.time()) * 1000)
                 }
     
                 # Update if exists, else append
                 found = False
                 for i, p in enumerate(products):
                     if str(p.get('item_no')) == str(item_no):
+                        # Preserve existing ID if updating
+                        if 'id' in products[i] and not data.get('id'):
+                            new_p['id'] = products[i]['id']
                         products[i].update(new_p)
                         found = True
                         break
@@ -588,6 +605,29 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
             self.send_error_json(404, "Admin not found")
             return
+
+        elif path == '/api/special-offers':
+            item_no = data.get('item_no')
+            special_price = data.get('special_price')
+            category = data.get('category')
+            
+            offers = local_db.get_csv("wholesale.csv")
+            found = False
+            for o in offers:
+                if str(o.get('item_no')) == str(item_no):
+                    o['special_price'] = special_price
+                    o['category'] = category
+                    o['updated_at'] = datetime.now().isoformat()
+                    found = True
+                    break
+            
+            if found:
+                local_db.update_csv("wholesale.csv", offers)
+                self.send_json({"status": "success"})
+            else:
+                self.send_error_json(404, "Wholesale item not found")
+            return
+
         self.send_error(404)
 
     def do_DELETE(self):
@@ -660,6 +700,7 @@ class ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 if __name__ == "__main__":
+    import socket
     socketserver.TCPServer.allow_reuse_address = True
     print(f"Starting Python server on http://localhost:{PORT}")
     print(f"Project Root: {PROJECT_ROOT}")
@@ -667,4 +708,5 @@ if __name__ == "__main__":
     print(f"Config: {CONFIG_FILE}")
 
     with ThreadingTCPServer(("", PORT), RequestHandler) as httpd:
+        print("[DEBUG] Server binding successful, entering serve_forever")
         httpd.serve_forever()

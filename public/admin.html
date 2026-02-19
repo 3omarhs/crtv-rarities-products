@@ -126,7 +126,7 @@
                     <h1 id="page-title">Dashboard Overview</h1>
                 </div>
                 <div class="user-info">
-                    <button id="theme-toggle" class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
+                    <button id="theme-toggle-top" class="btn-icon" onclick="window.toggleTheme()" title="Toggle Theme">
                         <i data-lucide="moon"></i>
                     </button>
                     <span>Admin User</span>
@@ -256,7 +256,7 @@
                                 Dark mode.</p>
                         </div>
                         <label class="switch">
-                            <input type="checkbox" id="theme-toggle" onchange="window.toggleTheme()">
+                            <input type="checkbox" id="theme-toggle-checkbox" onchange="window.toggleTheme()">
                             <span class="slider round"></span>
                         </label>
                     </div>
@@ -947,6 +947,51 @@
                         style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
                         <button class="btn btn-secondary" onclick="window.closeWholesaleModal()">Cancel</button>
                         <button class="btn btn-primary" onclick="window.submitWholesaleItem()">Add Item</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Wholesale Modal -->
+            <div id="edit-wholesale-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 500px;">
+                    <h3>Edit Wholesale Item</h3>
+                    <input type="hidden" id="edit-so-item-no">
+                    <div class="form-group">
+                        <label>Product</label>
+                        <p id="edit-so-product-name" style="color:var(--accent); font-weight:500; margin:0.5rem 0;"></p>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="edit-so-category-input" list="so-category-list"
+                            placeholder="Type or select category"
+                            style="width:100%; padding:0.75rem; background:var(--bg-darker); border:1px solid var(--border); border-radius:0.5rem; color:white;">
+                    </div>
+                    <div class="form-group">
+                        <label>Wholesale Price (JOD)</label>
+                        <input type="number" step="0.001" id="edit-so-price" placeholder="0.000">
+                    </div>
+                    <div class="form-actions"
+                        style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                        <button class="btn btn-secondary" onclick="window.closeEditWholesaleModal()">Cancel</button>
+                        <button class="btn btn-primary" onclick="window.submitWholesaleEdit()">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Wholesale Modal -->
+            <div id="delete-wholesale-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 400px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <h3 style="color:#ef4444;">Confirm Deletion</h3>
+                    <input type="hidden" id="delete-so-item-no">
+                    <p style="margin: 1rem 0; color:var(--text-secondary); line-height:1.5;">
+                        Are you sure you want to remove <span id="delete-so-product-name"
+                            style="color:white; font-weight:500;"></span> from the wholesale catalog?
+                    </p>
+                    <div class="form-actions"
+                        style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
+                        <button class="btn btn-secondary" onclick="window.closeDeleteWholesaleModal()">Cancel</button>
+                        <button class="btn" style="background:#ef4444; color:white;"
+                            onclick="window.confirmWholesaleDelete()">Delete Item</button>
                     </div>
                 </div>
             </div>
