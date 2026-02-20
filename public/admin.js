@@ -1523,14 +1523,16 @@ function initDashboard(orders, visitsData) {
         if (totalVisitsEl) totalVisitsEl.textContent = visitsData.total;
     }
 
-    // Calculate Today's Visits
-    const now = new Date();
-    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-
-    // Robust match for today
+    // Calculate Today's Visits (Rely on server calculation to avoid Timezone mismatches)
     let visitsToday = 0;
-    const match = Object.entries(dailyVisits).find(([k, v]) => k.trim() === todayStr);
-    if (match) visitsToday = match[1];
+    if (visitsData && visitsData.today !== undefined) {
+        visitsToday = visitsData.today;
+    } else {
+        const now = new Date();
+        const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        const match = Object.entries(dailyVisits).find(([k, v]) => k.trim() === todayStr);
+        if (match) visitsToday = match[1];
+    }
 
     const visitsTodayEl = document.getElementById('stat-visits-today');
     if (visitsTodayEl) visitsTodayEl.textContent = visitsToday;

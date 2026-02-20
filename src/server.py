@@ -5,7 +5,7 @@ import json
 import mimetypes
 # import sqlite3
 # import pyodbc
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import traceback
 from decimal import Decimal
 import urllib.request
@@ -15,6 +15,9 @@ import csv
 import io
 import time
 import base64
+
+def get_amman_today():
+    return datetime.now(timezone(timedelta(hours=3))).strftime('%Y-%m-%d')
 
 PORT = 8000
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -418,7 +421,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                     total = sum(int(v.get('count', 0)) for v in visits)
                     daily = {v.get('date'): int(v.get('count', 0)) for v in visits if v.get('date')}
                     
-                    today = datetime.now().strftime('%Y-%m-%d')
+                    today = get_amman_today()
                     today_count = next((int(v.get('count', 0)) for v in visits if v.get('date') == today), 0)
                     
                     self.send_json({
@@ -576,7 +579,7 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
     
             elif path == '/api/visits':
-                today = datetime.now().strftime('%Y-%m-%d')
+                today = get_amman_today()
                 visits = local_db.get_csv("visits.csv")
                 
                 found = False
