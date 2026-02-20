@@ -8,4 +8,6 @@ from server import RequestHandler
 
 # Vercel's Python runtime will use the last class inheriting from BaseHTTPRequestHandler in the file
 # as the handler, but it's safer to just provide it here.
-handler = RequestHandler
+# Vercel's Python runtime analyzes the AST to find `class handler(BaseHTTPRequestHandler)` or `app=...`.
+class handler(RequestHandler):
+    pass
