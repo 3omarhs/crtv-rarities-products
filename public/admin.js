@@ -1344,7 +1344,14 @@ function renderOrdersTable(orders) {
             <td>${o.items ? o.items.length : 0} Items</td>
             <td>${o.total}</td>
             <td>${new Date(o.date).toLocaleDateString()}</td>
-            <td>${renderStatusSelect(o.id, o.status || 'Placed')}</td>
+            <td>
+                <div style="display:flex; align-items:center;">
+                    ${renderStatusSelect(o.id, o.status || 'Placed')}
+                    <button class="btn-icon" onclick="event.stopPropagation(); window.deleteOrder('${idStr}')" title="Delete Order" style="color:var(--danger); padding:4px; margin-left:8px; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
+                        <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                    </button>
+                </div>
+            </td>
         `;
         ordersBody.appendChild(tr);
 
@@ -1755,43 +1762,40 @@ function renderStatusSelect(id, currentStatus) {
 
 window.updateOrderStatus = async function (id, newStatus) {
     try {
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
+        const res = await fetch('/api/update-order-status', {
+            method: 'POST',
+            body: JSON.stringify({ orderId: id, status: newStatus })
+        });
 
-        if (GAS_URL) {
-            // Update via GAS
-            const payload = {
-                action: 'updateStatus',
-                orderId: id,
-                status: newStatus
-            };
-
-            await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify(payload),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            });
-            // We assume success or it fails silently/logs error. GAS return is hard to read due to no-cors/redirects sometimes.
-            // But if we use redirect:follow, we might get it.
-
-            // Reload to verify
-            setTimeout(loadData, 1000);
-
+        const json = await res.json();
+        if (json.status === 'success') {
+            // Optional visual feedback could go here
+            loadData();
         } else {
-            // Fallback to local server
-            const res = await fetch('/api/update-order-status', {
-                method: 'POST',
-                body: JSON.stringify({ orderId: id, status: newStatus })
-            });
-            const json = await res.json();
-            if (json.status === 'success') {
-                loadData();
-            } else {
-                alert("Failed to update status: " + (json.message || "Unknown error"));
-            }
+            alert("Failed to update status: " + (json.message || "Unknown error"));
         }
     } catch (e) {
         console.error("Error updating status:", e);
         alert("Error updating status");
+    }
+}
+
+window.deleteOrder = async function (id) {
+    if (!confirm(`Are you sure you want to delete order #${id}?`)) return;
+    try {
+        const res = await fetch('/api/orders', {
+            method: 'DELETE',
+            body: JSON.stringify({ orderId: id })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            loadData();
+        } else {
+            alert("Failed to delete order: " + (json.message || "Unknown error"));
+        }
+    } catch (e) {
+        console.error("Error deleting order:", e);
+        alert("Error deleting order");
     }
 }
 

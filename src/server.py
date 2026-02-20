@@ -591,7 +591,30 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                 local_db.update_csv("orders.csv", orders)
                 self.send_json({"status": "success"})
                 return
-    
+
+            elif path == '/api/update-order-status':
+                order_id = data.get('orderId')
+                new_status = data.get('status')
+                if not order_id or not new_status:
+                    self.send_error_json(400, "Missing orderId or status")
+                    return
+                
+                orders = local_db.get_csv("orders.csv")
+                updated = False
+                for o in orders:
+                    # 'id' in orders.csv is typically stored as a string or a number, converting both to str for safe comparison
+                    if str(o.get('id', '')) == str(order_id):
+                        o['status'] = new_status
+                        updated = True
+                        break
+                
+                if updated:
+                    local_db.update_csv("orders.csv", orders)
+                    self.send_json({"status": "success"})
+                else:
+                    self.send_error_json(404, "Order not found")
+                return
+
             elif path == '/api/add-product':
                 # Sync new product from Admin to local CSV
                 products = local_db.get_csv("products.csv")
@@ -725,32 +748,49 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404)
 
     def do_DELETE(self):
-        path = self.path.split('?')[0]
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length).decode('utf-8')
-        data = json.loads(body)
+        try:
+            path = self.path.split('?')[0].rstrip('/')
+            sys.stderr.write(f"[DEBUG] DELETE request to {path}\n")
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8')
+            try:
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                data = {}
 
-        if path == '/api/admins':
-            username = data.get('username')
-            admins = local_db.get_csv("admins.csv")
-            new_admins = [a for a in admins if a.get('username') != username]
-            if len(new_admins) < len(admins):
-                local_db.update_csv("admins.csv", new_admins)
-            self.send_json({"status": "success"})
-            return
+            if path == '/api/admins':
+                username = data.get('username')
+                admins = local_db.get_csv("admins.csv")
+                new_admins = [a for a in admins if a.get('username') != username]
+                if len(new_admins) < len(admins):
+                    local_db.update_csv("admins.csv", new_admins)
+                self.send_json({"status": "success"})
+                return
 
-        elif path == '/api/special-offers':
-            item_no = data.get('item_no')
-            offers = local_db.get_csv("wholesale.csv")
-            new_offers = [o for o in offers if str(o.get('item_no')) != str(item_no)]
-            if len(new_offers) < len(offers):
-                local_db.update_csv("wholesale.csv", new_offers)
-            self.send_json({"status": "success"})
-            return
-            
-        self.send_error(404)
+            elif path == '/api/special-offers':
+                item_no = data.get('item_no')
+                offers = local_db.get_csv("wholesale.csv")
+                new_offers = [o for o in offers if str(o.get('item_no')) != str(item_no)]
+                if len(new_offers) < len(offers):
+                    local_db.update_csv("wholesale.csv", new_offers)
+                self.send_json({"status": "success"})
+                return
 
-
+            elif path == '/api/orders':
+                order_id = data.get('orderId')
+                orders = local_db.get_csv("orders.csv")
+                new_orders = [o for o in orders if str(o.get('id', '')) != str(order_id)]
+                if len(new_orders) < len(orders):
+                    local_db.update_csv("orders.csv", new_orders)
+                    self.send_json({"status": "success"})
+                else:
+                    self.send_error_json(404, "Order not found")
+                return
+                
+            self.send_error(404)
+        except Exception as e:
+            print(f"[ERROR] DELETE {self.path} failed: {traceback.format_exc()}")
+            self.send_error_json(500, str(e))
 
     # --- HELPERS ---
     # --- HELPERS ---
