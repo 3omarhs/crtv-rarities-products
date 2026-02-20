@@ -25,7 +25,11 @@ UPLOAD_DIR = os.path.join(ASSETS_DIR, 'products')
 CONFIG_FILE = os.path.join(PROJECT_ROOT, 'config.json')
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXhHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv"
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+except Exception:
+    pass
+
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
 
 # --- GITHUB DAO ---
