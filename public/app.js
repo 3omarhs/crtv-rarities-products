@@ -1059,7 +1059,7 @@ function createCard(product, uiIndex) {
     const displayCollection = translateValue('collection', product.collection);
     const displayDimensions = translateValue('dimensions', product.dimensions);
     const displayTargetMarket = translateValue('targetMarket', product.targetMarket);
-    const displayDescription = translateValue('description', product.description);
+    const displayDescription = (translateValue('description', product.description) || '').trim();
 
     article.innerHTML = `
         <div class="collapsed-view">
@@ -1092,21 +1092,8 @@ function createCard(product, uiIndex) {
                 ${displayCategory ? `<div class="card-category"><i data-lucide="tag" style="width: 14px;"></i> ${displayCategory}</div>` : ''}
             </div>
             <div class="card-footer">
-                ${(() => {
-            const pRetail = parseFloat(String(product.price).replace(/[^\d.]/g, '')) || 0;
-            const pWholesale = parseFloat(String(product.bulkPrice).replace(/[^\d.]/g, '')) || 0;
-            const hasPriceDifference = pWholesale > 0 && Math.abs(pRetail - pWholesale) > 0.0001;
-
-            if (!hasPriceDifference) {
-                return `<span class="card-price"><small style="font-size:0.65rem; color:var(--text-secondary); display:block; line-height:1;">${t.priceLabel}</small>${formatPrice(product.price || product.bulkPrice)}</span>`;
-            } else {
-                return `
-                            <div class="card-price-dual" style="display: flex; flex-direction: column; gap: 2px;">
-                                <span class="card-price retail" style="color: var(--accent);"><small style="font-size:0.65rem; color:var(--text-secondary); display:block; line-height:1;">${t.retailPrice}</small>${formatPrice(product.price)}</span>
-                                <span class="card-price wholesale" style="font-size: 0.85rem; opacity: 0.8;"><small style="font-size:0.6rem; color:var(--text-secondary); display:block; line-height:1;">${t.bulkSaving}</small>${formatPrice(product.bulkPrice)}</span>
-                            </div>
-                        `;
-            }
+        ${(() => {
+            return `<span class="card-price"><small style="font-size:0.65rem; color:var(--text-secondary); display:block; line-height:1;">${t.priceLabel}</small>${formatPrice(product.price)}</span>`;
         })()}
                 ${String(product.available).toLowerCase() !== 'no' ?
             `<span class="stock-badge in-stock"><i data-lucide="package" style="width: 14px;"></i> ${t.inStock}</span>` :
@@ -1169,8 +1156,7 @@ function createCard(product, uiIndex) {
                 </div>
 
                 <div class="expanded-description">
-                    <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-primary);">${t.descriptionLabel}</strong>
-                    ${displayDescription || t.noDesc}
+                    <strong style="display: block; margin-bottom: 0.5rem; color: var(--text-primary);">${t.descriptionLabel}</strong>${displayDescription || t.noDesc}
                 </div>
                 
                 ${product.colors && product.colors.length > 0 ? `

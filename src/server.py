@@ -37,11 +37,7 @@ class UnifiedDAO:
         self.data_dir = data_dir
         self.is_vercel = os.environ.get('VERCEL') == '1'
         self.github = None
-        if self.is_vercel and repo and token:
-            print("UnifiedDAO: Vercel detected, using GitHub persistence.")
-            self.github = GitHubDAO(repo, token)
-        else:
-            print(f"UnifiedDAO: Using local persistence at {data_dir}")
+        print(f"UnifiedDAO: Using local persistence at {data_dir} (Vercel: {self.is_vercel})")
         os.makedirs(data_dir, exist_ok=True)
 
     def _get_path(self, path):
@@ -372,7 +368,11 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                         }
                         if product:
                             offer_data["name"] = product.get('name')
-                            offer_data["price"] = product.get('price')
+                            raw_price = product.get('price_low_qty') or product.get('price') or 0
+                            try:
+                                offer_data["price"] = float(raw_price)
+                            except:
+                                offer_data["price"] = 0
                             offer_data["description"] = product.get('description')
                             # Dynamically get actual image paths
                             offer_data["images"] = get_product_images(item_no)

@@ -1026,7 +1026,7 @@
                 </div>
                 <div class="form-actions" style="display:flex; justify-content:flex-end; gap:1rem; margin-top:2rem;">
                     <button class="btn btn-secondary"
-                        onclick="document.getElementById('add-admin-modal').classList.add('hidden')">Cancel</button>
+                        onclick="document.getElementById('add-admin-modal').classList.remove('open'); setTimeout(()=>document.getElementById('add-admin-modal').classList.add('hidden'), 300);">Cancel</button>
                     <button class="btn btn-primary" onclick="window.handleAddAdmin()">Add Admin</button>
                 </div>
             </div>
@@ -1044,7 +1044,7 @@
                 </div>
                 <div style="display:flex; justify-content:space-between; gap:1rem; margin-top:1.5rem;">
                     <button class="btn btn-secondary"
-                        onclick="document.getElementById('change-pass-modal').classList.add('hidden')">Cancel</button>
+                        onclick="document.getElementById('change-pass-modal').classList.remove('open'); setTimeout(()=>document.getElementById('change-pass-modal').classList.add('hidden'), 300);">Cancel</button>
                     <button class="btn btn-primary" onclick="window.handleUpdateAdmin()">Update</button>
                 </div>
             </div>

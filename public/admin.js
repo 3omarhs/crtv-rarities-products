@@ -3657,7 +3657,9 @@ window.loadAdminsForManagement = async function () {
 window.showAddAdminModal = function () {
     document.getElementById('new-admin-username').value = '';
     document.getElementById('new-admin-password').value = '';
-    document.getElementById('add-admin-modal').classList.remove('hidden');
+    const m = document.getElementById('add-admin-modal');
+    m.classList.remove('hidden');
+    requestAnimationFrame(() => m.classList.add('open'));
 };
 
 window.handleAddAdmin = async function () {
@@ -3679,7 +3681,9 @@ window.handleAddAdmin = async function () {
         if (json.error) throw new Error(json.error);
 
         alert("Admin added successfully.");
-        document.getElementById('add-admin-modal').classList.add('hidden');
+        const m = document.getElementById('add-admin-modal');
+        m.classList.remove('open');
+        setTimeout(() => m.classList.add('hidden'), 300);
         window.loadAdminsForManagement();
         // Reload global creds without refreshing page if we want immediate login effect
         loadCredentials();
@@ -3711,7 +3715,9 @@ window.openChangePassModal = function (username) {
     document.getElementById('edit-admin-username').value = username;
     document.getElementById('edit-admin-display').textContent = `Updating password for: ${username}`;
     document.getElementById('new-admin-pass-update').value = '';
-    document.getElementById('change-pass-modal').classList.remove('hidden');
+    const m = document.getElementById('change-pass-modal');
+    m.classList.remove('hidden');
+    requestAnimationFrame(() => m.classList.add('open'));
 };
 
 window.handleUpdateAdmin = async function () {
@@ -3733,7 +3739,9 @@ window.handleUpdateAdmin = async function () {
         if (json.error) throw new Error(json.error);
 
         alert("Password updated successfully.");
-        document.getElementById('change-pass-modal').classList.add('hidden');
+        const m = document.getElementById('change-pass-modal');
+        m.classList.remove('open');
+        setTimeout(() => m.classList.add('hidden'), 300);
         loadCredentials();
     } catch (e) {
         alert("Error: " + e.message);
