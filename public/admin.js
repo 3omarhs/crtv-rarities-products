@@ -1375,6 +1375,8 @@ function renderOrdersTable(orders) {
         `;
         ordersBody.appendChild(detailsTr);
     });
+
+    if (window.lucide) lucide.createIcons();
 }
 
 function renderOrderItems(items) {
