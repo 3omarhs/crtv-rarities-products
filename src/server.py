@@ -143,7 +143,10 @@ class UnifiedDAO:
             self.github = GitHubDAO(repo, token)
         else:
             print(f"UnifiedDAO: Using local persistence at {data_dir} (Vercel: {self.is_vercel})")
-        os.makedirs(data_dir, exist_ok=True)
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+        except Exception:
+            pass
 
     def _get_path(self, path):
         filename = os.path.basename(path)
