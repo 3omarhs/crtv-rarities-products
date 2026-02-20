@@ -17,19 +17,104 @@ import time
 import base64
 
 # --- GITHUB DAO ---
+class GitHubDAO:
+    def __init__(self, repo, token):
+        self.repo = repo
+        self.token = token
+        self.base_url = f"https://api.github.com/repos/{repo}/contents"
 
-PORT = 8000
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-PUBLIC_DIR = os.path.join(PROJECT_ROOT, 'public')
-ASSETS_DIR = os.path.join(PROJECT_ROOT, 'public', 'assets')
-UPLOAD_DIR = os.path.join(ASSETS_DIR, 'products')
+    def _request(self, method, path, data=None):
+        url = f"{self.base_url}/{path}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        }
+        
+        req = urllib.request.Request(url, headers=headers, method=method)
+        if data:
+            req.data = json.dumps(data).encode('utf-8')
+            
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode('utf-8'))
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            print(f"GitHub API Error {e.code}: {e.read().decode('utf-8')}")
+            raise
 
-CONFIG_FILE = os.path.join(PROJECT_ROOT, 'config.json')
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXhHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv"
+    def get_file(self, path):
+        resp = self._request("GET", path)
+        if not resp:
+            return None, None
+        
+        content_b64 = resp.get("content", "")
+        sha = resp.get("sha")
+        try:
+            content_str = base64.b64decode(content_b64).decode('utf-8')
+            return json.loads(content_str), sha
+        except Exception as e:
+            print(f"Error decoding/parsing file {path}: {e}")
+            return None, sha
 
-# Ensure directories exist
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-# --- LOCAL DATA DAO ---
+    def get_csv(self, path):
+        # Always prepend 'data/' for github paths since Vercel requests only 'admins.csv'
+        gh_path = f"data/{path}" if not path.startswith("data/") else path
+        resp = self._request("GET", gh_path)
+        if not resp:
+            return [], None
+        
+        content_b64 = resp.get("content", "")
+        sha = resp.get("sha")
+        try:
+            content_str = base64.b64decode(content_b64).decode('utf-8')
+            if not content_str.strip():
+                return [], sha
+                
+            reader = csv.DictReader(io.StringIO(content_str))
+            return list(reader), sha
+        except Exception as e:
+            print(f"Error decoding/parsing CSV file {gh_path}: {e}")
+            return [], sha
+
+    def update_file(self, path, content_obj, message, sha=None):
+        gh_path = f"data/{path}" if not path.startswith("data/") else path
+        if not sha:
+            _, existing_sha = self.get_file(gh_path)
+            sha = existing_sha
+
+        content_str = json.dumps(content_obj, indent=2)
+        content_b64 = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
+        
+        data = { "message": message, "content": content_b64 }
+        if sha: data["sha"] = sha
+        return self._request("PUT", gh_path, data)
+
+    def update_csv(self, path, list_of_dicts, message, sha=None):
+        gh_path = f"data/{path}" if not path.startswith("data/") else path
+        if not sha:
+            _, existing_sha = self.get_csv(path)
+            sha = existing_sha
+
+        if not list_of_dicts:
+            content_str = ""
+        else:
+            output = io.StringIO()
+            fieldnames = set()
+            for row in list_of_dicts:
+                fieldnames.update(row.keys())
+            fieldnames = sorted(list(fieldnames))
+            
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(list_of_dicts)
+            content_str = output.getvalue()
+
+        content_b64 = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
+        data = { "message": message, "content": content_b64 }
+        if sha: data["sha"] = sha
+        return self._request("PUT", gh_path, data)
 
 # --- UNIFIED DATA DAO ---
 class UnifiedDAO:
@@ -37,7 +122,11 @@ class UnifiedDAO:
         self.data_dir = data_dir
         self.is_vercel = os.environ.get('VERCEL') == '1'
         self.github = None
-        print(f"UnifiedDAO: Using local persistence at {data_dir} (Vercel: {self.is_vercel})")
+        if self.is_vercel and repo and token:
+            print("UnifiedDAO: Vercel detected, using GitHub persistence.")
+            self.github = GitHubDAO(repo, token)
+        else:
+            print(f"UnifiedDAO: Using local persistence at {data_dir} (Vercel: {self.is_vercel})")
         os.makedirs(data_dir, exist_ok=True)
 
     def _get_path(self, path):

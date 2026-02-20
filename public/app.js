@@ -1787,7 +1787,7 @@ function updateCartUI() {
                     class="cart-item-img" 
                     alt="${displayName}"
                     referrerpolicy="no-referrer"
-                    onerror="this.onerror=null; this.src='${cloudFallback}';"
+                    onerror="handleImageError(this, '${cloudFallback}', '${displayName.replace(/'/g, "\\'")}', '${item.no}', '${driveId || ''}')"
                 >
                 <div class="cart-item-info">
                     <div class="cart-item-title">${displayName} ${displayColor ? `<small style="color: var(--text-secondary);">(${displayColor})</small>` : ''}</div>
