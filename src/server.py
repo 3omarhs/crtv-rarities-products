@@ -16,6 +16,18 @@ import io
 import time
 import base64
 
+PORT = 8000
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+PUBLIC_DIR = os.path.join(PROJECT_ROOT, 'public')
+ASSETS_DIR = os.path.join(PROJECT_ROOT, 'public', 'assets')
+UPLOAD_DIR = os.path.join(ASSETS_DIR, 'products')
+
+CONFIG_FILE = os.path.join(PROJECT_ROOT, 'config.json')
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXhHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv"
+
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
+
 # --- GITHUB DAO ---
 class GitHubDAO:
     def __init__(self, repo, token):
