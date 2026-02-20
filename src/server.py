@@ -425,7 +425,15 @@ class RequestHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_json({"total": 0, "daily": {}, "today": 0})
                 return
             
-            if path == '/api/orders':
+            if path == '/api/index.py':
+                self.send_json({
+                    "self_path": self.path,
+                    "headers": dict(self.headers),
+                    "env_vercel": os.environ.get('VERCEL')
+                })
+                return
+
+            elif path == '/api/orders':
                 try:
                     orders = local_db.get_csv("orders.csv")
                     # Parse items JSON string back to list if needed, or frontend handles it?
