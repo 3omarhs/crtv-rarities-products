@@ -1,16 +1,10 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "api/**/*.py",
-            "use": "@vercel/python"
-        },
-        {
-            "src": "public/**",
-            "use": "@vercel/static"
-        }
-    ],
     "rewrites": [
+        {
+            "source": "/api/ping",
+            "destination": "/api/ping.py"
+        },
         {
             "source": "/api/(.*)",
             "destination": "/api/index.py"
