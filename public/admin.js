@@ -3148,6 +3148,20 @@ window.removeFromManualCart = function (index) {
     updateManualTotal();
 };
 
+window.updateManualCartItem = function (index, field, value) {
+    if (manualCart[index]) {
+        if (field === 'qty') {
+            manualCart[index].qty = Math.max(1, parseInt(value) || 1);
+        } else if (field === 'price') {
+            manualCart[index].price = Math.max(0, parseFloat(value) || 0);
+        } else if (field === 'desc') {
+            manualCart[index].desc = value;
+        }
+        renderManualCart();
+        updateManualTotal();
+    }
+};
+
 window.renderManualCart = function () {
     const list = document.getElementById('mo-cart-items');
     if (!list) return;
@@ -3158,21 +3172,36 @@ window.renderManualCart = function () {
     }
 
     list.innerHTML = manualCart.map((item, idx) => `
-        <div style="display:flex; gap:10px; align-items:center; background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border);">
-            <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000;">
-                <img src="assets/products/${item.id}.jpg" onerror="this.src='assets/products/${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
+        <div style="background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000; flex-shrink:0;">
+                    <img src="assets/products/${item.id}.jpg" onerror="this.src='assets/products/${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
+                </div>
+                <div style="flex:1;">
+                    <div style="font-weight:600; font-size:0.9rem;">${item.name}</div>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">#${item.id}</div>
+                </div>
+                <button onclick="window.removeFromManualCart(${idx})" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:5px;">
+                    <i data-lucide="x-circle" style="width:20px; height:20px;"></i>
+                </button>
             </div>
-            <div style="flex:1;">
-                <div style="font-weight:600; font-size:0.9rem;">${item.name}</div>
-                <div style="font-size:0.8rem; color:var(--text-secondary);">#${item.id}</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Price (JOD)</label>
+                    <input type="number" step="0.001" value="${item.price}" onchange="window.updateManualCartItem(${idx}, 'price', this.value)" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:0.75rem; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Quantity</label>
+                    <input type="number" min="1" value="${item.qty}" onchange="window.updateManualCartItem(${idx}, 'qty', this.value)" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem;">
+                </div>
+                <div style="text-align:right; min-width:80px;">
+                    <label style="font-size:0.75rem; color:var(--text-secondary); display:block; margin-bottom:0.25rem;">Total</label>
+                    <div style="font-weight:bold; font-size:0.95rem; margin-top:0.4rem;">${(item.price * item.qty).toFixed(3)}</div>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <div style="font-weight:bold;">${(item.price * item.qty).toFixed(3)}</div>
-                <div style="font-size:0.8rem; color:var(--text-secondary);">${item.qty} x ${item.price.toFixed(3)}</div>
+            <div>
+                <input type="text" placeholder="Add custom description for this item..." value="${item.desc || ''}" onchange="window.updateManualCartItem(${idx}, 'desc', this.value)" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem;">
             </div>
-            <button onclick="window.removeFromManualCart(${idx})" style="background:none; border:none; color:var(--danger); cursor:pointer; padding:5px;">
-                <i data-lucide="x-circle" style="width:20px; height:20px;"></i>
-            </button>
         </div>
     `).join('');
 
@@ -3463,7 +3492,8 @@ async function submitManualOrder() {
         selectedCompany: isDelivery ? company : "Pickup",
         address: address || "N/A",
         items: manualCart.map((item, idx) => {
-            return `${idx + 1}. [${item.id}] (Default) - ${item.price.toFixed(3)} - ${item.name} (Qty: ${item.qty})`;
+            let descStr = item.desc ? ` - Note: ${item.desc}` : '';
+            return `${idx + 1}. [${item.id}] (Default) - ${item.price.toFixed(3)} - ${item.name} (Qty: ${item.qty})${descStr}`;
         }),
         total: totalText,
         method: isDelivery ? 'delivery' : 'pickup',
