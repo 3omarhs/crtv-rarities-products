@@ -3479,8 +3479,7 @@ async function submitManualOrder() {
         selectedCompany: isDelivery ? company : "Pickup",
         address: address || "N/A",
         items: manualCart.map((item, idx) => {
-            let descStr = item.desc ? ` - Note: ${item.desc}` : '';
-            return `${idx + 1}. [${item.id}] (Default) - ${item.price.toFixed(3)} - ${item.name} (Qty: ${item.qty})${descStr}`;
+            return `${idx + 1}. [${item.id}] (Default) - ${item.price.toFixed(3)} - ${item.name} (Qty: ${item.qty})`;
         }),
         total: totalText,
         method: isDelivery ? 'delivery' : 'pickup',
