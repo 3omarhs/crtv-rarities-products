@@ -1,2 +1,2 @@
 address,currency,customer,customerName,customerPhone,date,deliveryCost,id,items,method,paymentMethod,selectedCompany,selectedRegion,status,timestamp,total
-N/A,JOD,,Test Customer,0123456789,2026-02-14T11:42:51.654Z,,MAN-1771069371653,"[""1. [JWHLD-1225-003] (Default) - 6.900 - Jewelry Organizer - Necklace, Bracelet, Ring Stand (Qty: 1)""]",delivery,Cash on delivery,FLEET Go,Amman,Pending,1771069371.654,8.400 JOD
+N/A,JOD,,Test Customer,0123456789,2026-02-14T11:42:51.654Z,,MAN-1771069371653,"[""1. [JWHLD-1225-003] (Default) - 6.900 - Jewelry Organizer - Necklace, Bracelet, Ring Stand (Qty: 1)""]",delivery,Cash on delivery,FLEET Go,Amman,Canceled,1771069371.654,8.400 JOD
