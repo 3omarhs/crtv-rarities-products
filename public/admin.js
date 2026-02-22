@@ -917,11 +917,15 @@ async function loadSettings() {
         if (pass) pass.value = data.sender_pass || '';
 
         const versionDisp = document.getElementById('app-version-display');
-        if (versionDisp && data.version) {
-            versionDisp.textContent = data.version;
+        const footerVersionDisp = document.getElementById('footer-version-display');
+
+        if (data.version) {
+            if (versionDisp) versionDisp.textContent = data.version;
+            if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
-        } else if (versionDisp) {
-            versionDisp.textContent = "v3.7"; // Fallback
+        } else {
+            if (versionDisp) versionDisp.textContent = "v3.7"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v3.7";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1271,21 +1275,8 @@ function renderDashboardStats(orders, visitsData) {
     document.getElementById('stat-visits').textContent = visitsData.total || 0;
 
     // Calculate Today's Visits
-    let todayVisits = 0;
-    try {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
+    let todayVisits = visitsData.today || 0;
 
-        console.log("Admin: Checking visits for", todayStr);
-        if (visitsData.daily) {
-            // Robust match: trim keys and compare
-            const match = Object.entries(visitsData.daily).find(([k, v]) => k.trim() === todayStr);
-            if (match) todayVisits = match[1];
-        }
-    } catch (e) { console.error("Admin: Error calculating todayVisits", e); }
     document.getElementById('stat-visits-today').textContent = todayVisits;
 
     // 2. Orders Count
@@ -3505,35 +3496,30 @@ async function submitManualOrder() {
     };
 
     try {
-        let success = false;
         // Try GAS if configured
         const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
 
         if (GAS_URL && window.submitToGas) {
             try {
-                // Adjust payload for GAS
-                // GAS usually expects a specific action
+                // Synchronously await GAS or don't block? Let's await to ensure success
                 await window.submitToGas(GAS_URL, {
                     action: 'placeOrder',
-                    order: order // Pass object directly, submitToGas handles stringify
+                    order: order
                 });
-                success = true;
             } catch (e) {
-                console.warn("GAS submission failed, trying local API...", e);
+                console.warn("GAS submission failed, order will only be saved locally.", e);
             }
         }
 
-        if (!success) {
-            // Fallback to local API
-            const res = await fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(order)
-            });
-            if (!res.ok) throw new Error("Server error, status: " + res.status);
-            const json = await res.json();
-            if (json.status !== 'success') throw new Error(json.error || "Unknown error");
-        }
+        // Always save to the local API database as primary storage
+        const res = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(order)
+        });
+        if (!res.ok) throw new Error("Server error, status: " + res.status);
+        const json = await res.json();
+        if (json.status !== 'success') throw new Error(json.error || "Unknown error");
 
         msgEl.textContent = "Order created successfully!";
         msgEl.classList.remove('hidden');
