@@ -756,6 +756,10 @@
     height: calc(100vh - 140px);
 }
 
+.create-order-grid>div>.card {
+    flex-shrink: 0;
+}
+
 /* Switch Toggle */
 .switch {
     position: relative;
