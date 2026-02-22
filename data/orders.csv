@@ -1,3 +1,2 @@
 address,currency,customer,customerName,customerPhone,date,deliveryCost,id,items,method,paymentMethod,selectedCompany,selectedRegion,status,timestamp,total
 N/A,JOD,,Test Customer,0123456789,2026-02-14T11:42:51.654Z,,MAN-1771069371653,"[""1. [JWHLD-1225-003] (Default) - 6.900 - Jewelry Organizer - Necklace, Bracelet, Ring Stand (Qty: 1)""]",delivery,Cash on delivery,FLEET Go,Amman,Pending,1771069371.654,8.400 JOD
-test,JOD,,omar,795965910,2026-02-20T09:25:06.707Z,2.000 JOD,1771579506707,"[""1. [TYS-0126-130] (White) - 0.375 JOD - Realistic Cigarette Style Bubble Wand (Qty: 1)"", ""2. [TLS-0226-133] (Black) - 2.640 JOD - Smart Presence Indicator Key Hook (Qty: 1)""]",delivery,Cash on delivery,DLX,Amman,Closed,,5.015 JOD
