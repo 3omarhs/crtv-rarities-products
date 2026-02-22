@@ -1,2 +1,0 @@
-address,currency,customerName,customerPhone,date,id,items,method,paymentMethod,selectedCompany,selectedRegion,status,timestamp,total
-Test address,JOD,Manual Test,07xxxxxxxx,2026-02-23T00:00:00.000Z,MAN-1,"[""1. test item (Qty: 1)""]",delivery,Cash on delivery,DLX,Amman,Pending,1771069371.654,10.00 JOD
