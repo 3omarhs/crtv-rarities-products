@@ -881,7 +881,7 @@ function processData(data) {
             bulkPrice: wholesalePriceKey ? item[wholesalePriceKey] : null,
             bulkDiscount: bulkDiscountKey ? item[bulkDiscountKey] : null,
             available: (availableKey && item[availableKey] && String(item[availableKey]).trim() !== '') ? item[availableKey] : 'Yes',
-            hidden: hiddenKey ? String(item[hiddenKey]).toLowerCase() === 'yes' : false,
+            hidden: hiddenKey ? (String(item[hiddenKey]).toLowerCase() === 'yes' || String(item[hiddenKey]).toLowerCase() === 'true') : false,
             colors: (colorsKey && item[colorsKey]) ? String(item[colorsKey]).split(',').map(c => c.trim()).filter(c => c) : [],
             index: index
         };
