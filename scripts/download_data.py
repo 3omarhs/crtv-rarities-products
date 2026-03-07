@@ -7,7 +7,7 @@ import io
 
 # Configuration from server.py (mirrored here)
 GITHUB_REPO = "3omarhs/crtv-rarities-products"
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 DATA_FILES = [
     "data/products.csv",
     "data/wholesale.csv",
