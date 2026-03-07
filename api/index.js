@@ -518,6 +518,98 @@ app.get('/api/special-offers', async (req, res) => {
         res.json(enrichedOffers);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+app.get('/api/migrate-db', async (req, res) => {
+    try {
+        // Create tables first using Postgres pool
+        const createTables = `
+            CREATE TABLE IF NOT EXISTS site_settings (
+                key VARCHAR PRIMARY KEY,
+                value TEXT
+            );
+            CREATE TABLE IF NOT EXISTS admin_users (
+                username VARCHAR PRIMARY KEY,
+                password VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS orders (
+                id VARCHAR PRIMARY KEY,
+                customer JSONB,
+                items JSONB,
+                total VARCHAR,
+                subtotal VARCHAR,
+                deliveryCost VARCHAR,
+                currency VARCHAR,
+                method VARCHAR,
+                paymentMethod VARCHAR,
+                selectedRegion VARCHAR,
+                selectedCompany VARCHAR,
+                address TEXT,
+                date TIMESTAMP,
+                status VARCHAR,
+                timestamp BIGINT
+            );
+            CREATE TABLE IF NOT EXISTS site_visits (
+                date VARCHAR PRIMARY KEY,
+                count INTEGER
+            );
+            CREATE TABLE IF NOT EXISTS wholesale_offers (
+                id VARCHAR PRIMARY KEY,
+                item_no VARCHAR,
+                special_price VARCHAR,
+                category VARCHAR,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS products (
+                id VARCHAR PRIMARY KEY,
+                no VARCHAR,
+                name VARCHAR,
+                name_on_store VARCHAR,
+                arabic_name VARCHAR,
+                description TEXT,
+                price_low_qty VARCHAR,
+                price_high_qty VARCHAR,
+                category VARCHAR,
+                collection VARCHAR,
+                dimensions VARCHAR,
+                colors VARCHAR,
+                target_market VARCHAR,
+                document_link VARCHAR,
+                image_count INTEGER,
+                available BOOLEAN,
+                active BOOLEAN,
+                hidden BOOLEAN,
+                calculate_on_weight VARCHAR,
+                drive_images JSONB
+            );
+        `;
+        await pool.query(createTables);
+
+        // Fetch CSVs from GitHub Primary (Secondary DAO)
+        console.log("Fetching CSVs from GitHub for migration...");
+        const settings = await githubDb.getCsv("settings.csv");
+        const admins = await githubDb.getCsv("admins.csv");
+        const visits = await githubDb.getCsv("visits.csv");
+        const orders = await githubDb.getCsv("orders.csv");
+        const offers = await githubDb.getCsv("wholesale.csv");
+        const productsRaw = await loadProducts();
+
+        console.log("Writing to Supabase...");
+
+        if (settings && settings.length) await supabaseDb.updateCsv("settings.csv", settings);
+        if (admins && admins.length) await supabaseDb.updateCsv("admins.csv", admins);
+        if (visits && visits.length) await supabaseDb.updateCsv("visits.csv", visits);
+        if (orders && orders.length) await supabaseDb.updateCsv("orders.csv", orders);
+        if (offers && offers.length) await supabaseDb.updateCsv("wholesale.csv", offers);
+        if (productsRaw && productsRaw.length) await supabaseDb.updateCsv("products.csv", productsRaw);
+
+        res.json({ status: "success", message: "Database tables created and data migrated from GitHub to Supabase." });
+    } catch (e) {
+        console.error("Migration error:", e);
+        res.status(500).json({ status: "error", error: e.message });
+    }
+});
+
 module.exports = app;
 
 if (require.main === module) {
