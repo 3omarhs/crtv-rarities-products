@@ -199,18 +199,33 @@ function getAmmanToday() {
 app.get('/api/products', async (req, res) => {
     try {
         const products = await loadProducts();
+
+        if (!products || !Array.isArray(products)) {
+            return res.json({ debug: "products is not an array", type: typeof products, val: products });
+        }
+
         const visibleProducts = products.filter(p => {
-            const isHidden = String(p['Hidden'] || '').trim().toUpperCase();
+            const isHidden = String(p['hidden'] || p['Hidden'] || '').trim().toUpperCase();
             if (isHidden === 'TRUE' || isHidden === '1' || isHidden === 'YES') return false;
 
-            const isActive = String(p['Active'] || 'TRUE').trim().toUpperCase();
+            const isActive = String(p['available'] || p['Active'] || 'TRUE').trim().toUpperCase();
             if (isActive === 'FALSE' || isActive === '0' || isActive === 'NO') return false;
 
             return true;
         });
+
+        // Temporarily send debug
+        if (req.query.debug === '1') {
+            return res.json({
+                totalLoaded: products.length,
+                visibleCount: visibleProducts.length,
+                sample: products[0] || null
+            });
+        }
+
         res.json(visibleProducts);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message, stack: e.stack });
     }
 });
 
