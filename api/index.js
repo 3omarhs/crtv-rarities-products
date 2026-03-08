@@ -53,7 +53,7 @@ class SupabaseDAO {
 
             const columns = Object.keys(list_of_dicts[0]);
             const paramIndexes = columns.map((_, i) => `$${i + 1}`).join(', ');
-            const queryText = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${paramIndexes})`;
+            const queryText = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${paramIndexes})`;
 
             for (const row of list_of_dicts) {
                 const values = columns.map(col => {
