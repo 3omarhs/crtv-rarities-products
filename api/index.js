@@ -205,11 +205,19 @@ app.get('/api/products', async (req, res) => {
         const products = await loadProducts();
 
         const visibleProducts = products.filter(p => {
-            const isHidden = String(p['hidden'] || p['Hidden'] || '').trim().toUpperCase();
-            if (isHidden === 'TRUE' || isHidden === '1' || isHidden === 'YES') return false;
+            if (!p) return false;
 
-            const isActive = String(p['available'] || p['Active'] || 'TRUE').trim().toUpperCase();
-            if (isActive === 'FALSE' || isActive === '0' || isActive === 'NO') return false;
+            // Comprehensive Hidden Check
+            const hiddenVal = String(p['hidden'] || p['Hidden'] || p['HIDDEN'] || '').trim().toUpperCase();
+            if (['TRUE', '1', 'YES', 'Y', 'HIDE'].includes(hiddenVal)) return false;
+
+            // Comprehensive Active/Available Check
+            const availableVal = String(p['available'] || p['Available'] || p['Active'] || p['ACTIVE'] || 'TRUE').trim().toUpperCase();
+            if (['FALSE', '0', 'NO', 'N', 'OFF', 'HIDDEN', 'INACTIVE'].includes(availableVal)) return false;
+
+            // Basic Validity Check (ignore items with no name or placeholder names)
+            const name = String(p['name'] || p['Name'] || '').trim();
+            if (!name || name.toLowerCase().includes('placeholder') || name === '-') return false;
 
             return true;
         });
