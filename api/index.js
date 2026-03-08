@@ -41,19 +41,19 @@ class SupabaseDAO {
             });
         } catch (error) {
             console.error(`DB Read Error ${table}:`, error.message);
-            return [];
+            throw error;
         }
     }
 
     async updateCsv(fileName, list_of_dicts) {
         const table = this.getTableName(fileName);
         try {
-            await this.pool.query(`TRUNCATE ${table}`);
+            await this.pool.query(`TRUNCATE "${table}"`);
             if (!list_of_dicts || list_of_dicts.length === 0) return;
 
             const columns = Object.keys(list_of_dicts[0]);
             const paramIndexes = columns.map((_, i) => `$${i + 1}`).join(', ');
-            const queryText = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${paramIndexes})`;
+            const queryText = `INSERT INTO "${table}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${paramIndexes})`;
 
             for (const row of list_of_dicts) {
                 const values = columns.map(col => {
@@ -67,6 +67,7 @@ class SupabaseDAO {
             }
         } catch (error) {
             console.error(`DB Write Error ${table}:`, error.message);
+            throw error;
         }
     }
 }
@@ -502,6 +503,10 @@ app.get('/api/special-offers', async (req, res) => {
 
 app.get('/api/migrate-db', async (req, res) => {
     try {
+        if (!process.env.DATABASE_URL) {
+            return res.status(400).json({ status: "error", message: "DATABASE_URL is not set in Vercel Environment Variables." });
+        }
+
         // No manual static creation here, we will drop and recreate dynamically
         console.log("Fetching CSVs from GitHub for migration...");
         const settings = await githubDb.getCsv("settings.csv");
