@@ -272,29 +272,7 @@ app.get('/api/index.py', (req, res) => {
     res.json({ message: "Running inside Node.js now", url: req.url });
 });
 
-app.get('/api/migrate-db', async (req, res) => {
-    try {
-        const tables = ['settings', 'admins', 'visits', 'orders', 'wholesale', 'products', 'gemini_keys', 'keys'];
-        const results = {};
 
-        for (const table of tables) {
-            const fileName = `${table}.csv`;
-            // Force read from GitHub backup since Vercel ephemeral filesystem might not have the static CSVs
-            const csvData = await githubDb.getCsv(fileName);
-            const records = csvData.data || [];
-
-            if (records.length > 0) {
-                await supabaseDb.updateCsv(fileName, records);
-                results[table] = `Migrated ${records.length} rows.`;
-            } else {
-                results[table] = "Empty or not found.";
-            }
-        }
-        res.json({ status: "Migration Completed successfully!", details: results });
-    } catch (e) {
-        res.status(500).json({ status: "Migration Failed", error: e.message });
-    }
-});
 
 app.get('/api/orders', async (req, res) => {
     try {
