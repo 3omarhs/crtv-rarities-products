@@ -10,6 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // Initialize PostgreSQL pool
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -553,6 +556,15 @@ app.get('/api/migrate-db', async (req, res) => {
     } catch (e) {
         console.error("Migration error:", e);
         res.status(500).json({ status: "error", error: e.message });
+    }
+});
+
+// Catch-all route to serve index.html for any non-API requests
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+        res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    } else {
+        res.status(404).json({ error: "API endpoint not found" });
     }
 });
 
