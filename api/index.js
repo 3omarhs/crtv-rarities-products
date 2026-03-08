@@ -14,8 +14,13 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Initialize PostgreSQL pool
+const dbUrl = process.env.DATABASE_URL;
+if (dbUrl && (dbUrl.includes('[') || dbUrl.includes(']'))) {
+    console.error("CRITICAL: DATABASE_URL contains brackets [ or ]. Replace [YOUR-PASSWORD] with your actual password.");
+}
+
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: dbUrl,
 });
 
 class SupabaseDAO {
@@ -631,8 +636,16 @@ app.get('/api/special-offers', async (req, res) => {
 
 app.get('/api/migrate-db', async (req, res) => {
     try {
-        if (!process.env.DATABASE_URL) {
-            return res.status(400).json({ status: "error", message: "DATABASE_URL is not set in Vercel Environment Variables." });
+        const connectionString = process.env.DATABASE_URL;
+        if (!connectionString) {
+            return res.status(400).json({ status: "error", message: "DATABASE_URL is not set in Environment Variables." });
+        }
+
+        if (connectionString.includes('[') || connectionString.includes(']')) {
+            return res.status(400).json({
+                status: "error",
+                message: "DATABASE_URL still contains brackets [ ]. Please remove the brackets and replace YOUR-PASSWORD with your actual Supabase password in the Render dashboard."
+            });
         }
 
         // No manual static creation here, we will drop and recreate dynamically
