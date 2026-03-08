@@ -153,7 +153,8 @@ class MultiDAO {
 
     async getCsv(path) {
         let res = await this.primary.getCsv(path);
-        if ((!res || res.length === 0) && !this.primary.pool) {
+        // Fallback to secondary if primary returned nothing or errored out (prevent empty storefronts on unconfigured DBs)
+        if (!res || res.length === 0) {
             const fallback = await this.secondary.getCsv(path);
             res = fallback.data ? fallback.data : fallback;
         }
