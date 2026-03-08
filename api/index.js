@@ -521,71 +521,7 @@ app.get('/api/special-offers', async (req, res) => {
 
 app.get('/api/migrate-db', async (req, res) => {
     try {
-        // Create tables first using Postgres pool
-        const createTables = `
-            CREATE TABLE IF NOT EXISTS site_settings (
-                key VARCHAR PRIMARY KEY,
-                value TEXT
-            );
-            CREATE TABLE IF NOT EXISTS admin_users (
-                username VARCHAR PRIMARY KEY,
-                password VARCHAR,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS orders (
-                id VARCHAR PRIMARY KEY,
-                customer JSONB,
-                items JSONB,
-                total VARCHAR,
-                subtotal VARCHAR,
-                deliveryCost VARCHAR,
-                currency VARCHAR,
-                method VARCHAR,
-                paymentMethod VARCHAR,
-                selectedRegion VARCHAR,
-                selectedCompany VARCHAR,
-                address TEXT,
-                date TIMESTAMP,
-                status VARCHAR,
-                timestamp BIGINT
-            );
-            CREATE TABLE IF NOT EXISTS site_visits (
-                date VARCHAR PRIMARY KEY,
-                count INTEGER
-            );
-            CREATE TABLE IF NOT EXISTS wholesale_offers (
-                id VARCHAR PRIMARY KEY,
-                item_no VARCHAR,
-                special_price VARCHAR,
-                category VARCHAR,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS products (
-                id VARCHAR PRIMARY KEY,
-                no VARCHAR,
-                name VARCHAR,
-                name_on_store VARCHAR,
-                arabic_name VARCHAR,
-                description TEXT,
-                price_low_qty VARCHAR,
-                price_high_qty VARCHAR,
-                category VARCHAR,
-                collection VARCHAR,
-                dimensions VARCHAR,
-                colors VARCHAR,
-                target_market VARCHAR,
-                document_link VARCHAR,
-                image_count INTEGER,
-                available BOOLEAN,
-                active BOOLEAN,
-                hidden BOOLEAN,
-                calculate_on_weight VARCHAR,
-                drive_images JSONB
-            );
-        `;
-        await pool.query(createTables);
-
-        // Fetch CSVs from GitHub Primary (Secondary DAO)
+        // No manual static creation here, we will drop and recreate dynamically
         console.log("Fetching CSVs from GitHub for migration...");
         const settings = await githubDb.getCsv("settings.csv");
         const admins = await githubDb.getCsv("admins.csv");
@@ -593,6 +529,30 @@ app.get('/api/migrate-db', async (req, res) => {
         const orders = await githubDb.getCsv("orders.csv");
         const offers = await githubDb.getCsv("wholesale.csv");
         const productsRaw = await loadProducts();
+
+        console.log("Recreating tables to perfectly match CSV headers...");
+        const datasets = [
+            { name: 'settings', data: settings },
+            { name: 'admins', data: admins },
+            { name: 'visits', data: visits },
+            { name: 'orders', data: orders },
+            { name: 'wholesale', data: offers },
+            { name: 'products', data: productsRaw }
+        ];
+
+        for (const ds of datasets) {
+            const table = ds.name;
+            await pool.query(`DROP TABLE IF EXISTS "${table}"`);
+
+            if (ds.data && ds.data.length > 0) {
+                const columns = Object.keys(ds.data[0]);
+                const colDefs = columns.map(c => `"${c}" TEXT`).join(', ');
+                await pool.query(`CREATE TABLE "${table}" (${colDefs})`);
+            } else {
+                await pool.query(`CREATE TABLE "${table}" (id TEXT)`);
+            }
+        }
+
 
         console.log("Writing to Supabase...");
 
