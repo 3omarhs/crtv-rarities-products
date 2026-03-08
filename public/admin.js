@@ -1438,7 +1438,10 @@ function renderOrderInfo(o) {
 function renderAnalytics(orders) {
     const itemMap = {};
     orders.forEach(o => {
-        if (o.items) {
+        if (typeof o.items === 'string' && o.items.startsWith('[')) {
+            try { o.items = JSON.parse(o.items); } catch (e) { }
+        }
+        if (o.items && Array.isArray(o.items)) {
             o.items.forEach(item => {
                 const i = parseItemString(item); // Reuse parser
                 if (!itemMap[i.sku]) {
