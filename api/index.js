@@ -149,23 +149,71 @@ class GitHubDAO {
     }
 }
 
+class FileSystemDAO {
+    constructor(dataDir) {
+        this.dataDir = dataDir;
+    }
+
+    async getCsv(fileName) {
+        const filePath = path.join(this.dataDir, fileName);
+        if (!fs.existsSync(filePath)) return [];
+
+        return new Promise((resolve, reject) => {
+            const results = [];
+            fs.createReadStream(filePath)
+                .pipe(csv())
+                .on('data', (data) => results.push(data))
+                .on('end', () => resolve(results))
+                .on('error', reject);
+        });
+    }
+
+    async updateCsv(fileName, list_of_dicts) {
+        const filePath = path.join(this.dataDir, fileName);
+        const { stringify } = require('csv-stringify/sync');
+        const csvContent = stringify(list_of_dicts, { header: true });
+        fs.writeFileSync(filePath, csvContent);
+    }
+}
+
 class MultiDAO {
-    constructor(primary, secondary) {
+    constructor(primary, secondary, tertiary) {
         this.primary = primary;
         this.secondary = secondary;
+        this.tertiary = tertiary;
     }
 
     async getCsv(path) {
-        let res = await this.primary.getCsv(path);
-        // Fallback to secondary if primary returned nothing or errored out (prevent empty storefronts on unconfigured DBs)
-        if (!res || res.length === 0) {
-            const fallback = await this.secondary.getCsv(path);
-            res = fallback.data ? fallback.data : fallback;
+        // Try Primary (Supabase)
+        try {
+            let res = await this.primary.getCsv(path);
+            if (res && res.length > 0) return res;
+        } catch (e) {
+            console.error(`Primary DAO get failed for ${path}:`, e.message);
         }
-        return res;
+
+        // Try Secondary (GitHub)
+        try {
+            const res = await this.secondary.getCsv(path);
+            const data = res.data ? res.data : res;
+            if (data && data.length > 0) return data;
+        } catch (e) {
+            console.error(`Secondary DAO get failed for ${path}:`, e.message);
+        }
+
+        // Try Tertiary (Local File System) - Critical for local dev
+        if (this.tertiary) {
+            try {
+                return await this.tertiary.getCsv(path);
+            } catch (e) {
+                console.error(`Tertiary DAO get failed for ${path}:`, e.message);
+            }
+        }
+        return [];
     }
 
     async updateCsv(path, list_of_dicts, message = "Update from server") {
+        // 1. Write to Primary (Supabase)
         try {
             await this.primary.updateCsv(path, list_of_dicts, message);
             console.log(`Successfully wrote ${path} to Primary DAO (Supabase)`);
@@ -173,11 +221,22 @@ class MultiDAO {
             console.error(`Primary DAO write failed:`, e.message);
         }
 
+        // 2. Write to Secondary (GitHub)
         try {
             await this.secondary.updateCsv(path, list_of_dicts, message);
             console.log(`Successfully wrote ${path} to Secondary DAO (GitHub)`);
         } catch (e) {
             console.error(`Secondary DAO write failed:`, e.message);
+        }
+
+        // 3. Write to Tertiary (Local File System)
+        if (this.tertiary) {
+            try {
+                await this.tertiary.updateCsv(path, list_of_dicts);
+                console.log(`Successfully wrote ${path} to Tertiary DAO (Local File)`);
+            } catch (e) {
+                console.error(`Tertiary DAO write failed:`, e.message);
+            }
         }
     }
 }
@@ -187,7 +246,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "github_pat_11APU5L2I00pWjvLwP8
 
 const supabaseDb = new SupabaseDAO(pool);
 const githubDb = new GitHubDAO(GITHUB_REPO, GITHUB_TOKEN);
-const localDb = new MultiDAO(supabaseDb, githubDb);
+const fsDb = new FileSystemDAO(path.join(__dirname, '..', 'data'));
+const localDb = new MultiDAO(supabaseDb, githubDb, fsDb);
 
 async function loadProducts() {
     return await localDb.getCsv("products.csv");
@@ -199,6 +259,63 @@ function getAmmanToday() {
     const amman = new Date(utc + (3600000 * 3)); // +3 hours
     return amman.toISOString().substring(0, 10);
 }
+
+// Helper to update product in the list
+function updateProductInList(products, updatedProduct) {
+    const index = products.findIndex(p => String(p.item_no || p.item_no || p.No) === String(updatedProduct.item_no || updatedProduct.No));
+    if (index !== -1) {
+        products[index] = { ...products[index], ...updatedProduct };
+    } else {
+        products.push(updatedProduct);
+    }
+    return products;
+}
+
+app.post('/api/add-product', async (req, res) => {
+    try {
+        const productData = req.body;
+        // Normalize keys for CSV compatibility (ensure 'item_no' exists)
+        if (!productData.item_no && productData.No) productData.item_no = productData.No;
+
+        const products = await loadProducts();
+        const updatedList = updateProductInList(products, productData);
+        await localDb.updateCsv("products.csv", updatedList, `Update product ${productData.item_no}`);
+        res.json({ status: "success", message: "Product updated across all layers" });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/products', async (req, res) => {
+    try {
+        const { item_no } = req.body;
+        console.log(`API: Delete request for item_no: ${item_no}`);
+        if (!item_no) return res.status(400).json({ error: "Missing item_no" });
+
+        const products = await loadProducts();
+        console.log(`API: Loaded ${products.length} products`);
+
+        const targetId = String(item_no).trim().toUpperCase();
+        const newList = products.filter(p => {
+            const pId = String(p.item_no || p.No || '').trim().toUpperCase();
+            return pId !== targetId;
+        });
+
+        console.log(`API: New list size: ${newList.length}`);
+
+        if (newList.length < products.length) {
+            await localDb.updateCsv("products.csv", newList, `Delete product ${item_no}`);
+            // CRITICAL: Send JSON success, NOT the products list
+            return res.json({ status: "success", message: `Deleted ${item_no}` });
+        } else {
+            console.warn(`API: Product ${item_no} not found in the list`);
+            return res.status(404).json({ error: "Product not found" });
+        }
+    } catch (e) {
+        console.error("API: Delete error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 app.get('/api/products', async (req, res) => {
     try {

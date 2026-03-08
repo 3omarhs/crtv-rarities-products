@@ -1259,7 +1259,8 @@ async function fetchVisits(GAS_URL) {
         const res = await fetch('/api/visits');
         if (res.ok) {
             const json = await res.json();
-            return (json.visits && json.visits.total !== undefined) ? json.visits : json;
+            // Match the structure returned by api/index.js: { total, daily, today, visits }
+            return json;
         }
     } catch (e) {
         console.warn("Admin: Local visits fetch failed", e);
@@ -2385,11 +2386,30 @@ window.editProduct = function (no) {
 
 window.deleteProduct = async function (no) {
     if (!confirm(`Are you sure you want to delete ${no}?`)) return;
-    const url = document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value;
-    if (!window.submitToGas) { alert("Function not ready."); return; }
 
-    await window.submitToGas(url, { action: 'deleteProduct', No: no });
-    setTimeout(loadProducts, 2000); // Refresh after delay
+    try {
+        const res = await fetch('/api/products', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_no: no })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            alert("Product deleted successfully!");
+            if (window.loadProducts) window.loadProducts();
+        } else {
+            alert("Failed to delete product: " + (json.error || "Unknown error"));
+        }
+    } catch (e) {
+        console.error("Delete product error", e);
+        alert("Error deleting product. Check console.");
+    }
+
+    // Also sync to GAS for legacy support if URL exists
+    const gasUrl = document.getElementById('google-script-url')?.value.trim();
+    if (gasUrl && window.submitToGas) {
+        await window.submitToGas(gasUrl, { action: 'deleteProduct', No: no });
+    }
 };
 
 // --- Initialization Logic for GAS URL ---
