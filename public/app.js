@@ -2,9 +2,17 @@ const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 // Override console for debugging
 console.log("App.js version 1.15 loaded");
 const GID = '897526080';
-// Using the direct publish link provided by the user for better access
-// Using the direct publish link provided by the user for better access
+// API & Data Source Configuration
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+
+// IMPORTANT: Replace this URL with your new Google Apps Script Web App URL!
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+window.GAS_URL = GAS_URL;
+
+// Assets Configuration
+const ASSETS_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? './assets/products/'
+    : 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
 
 const productGrid = document.getElementById('product-grid');
 const loadingEl = document.getElementById('loading');
@@ -541,25 +549,11 @@ function translateValue(field, value) {
 window.translateValue = translateValue;
 
 async function fetchCurrencyRate() {
-    try {
-        const response = await fetch('/api/settings');
-        if (!response.ok) throw new Error('Failed to fetch settings');
-        const settings = await response.json();
-        const text = settings.store_details_raw || "";
-        // Look for "Currency Rate: 1 USD = 0.75 JOD"
-        const match = text.match(/Currency Rate:\s*1\s*USD\s*=\s*([\d.]+)\s*JOD/i);
-        if (match && match[1]) {
-            const jodVal = parseFloat(match[1]);
-            if (!isNaN(jodVal) && jodVal > 0) {
-                EXCHANGE_RATE = 1 / jodVal;
-                // Update global reference just in case
-                window.EXCHANGE_RATE = EXCHANGE_RATE;
-                console.log(`Currency rate updated: 1 USD = ${jodVal} JOD. Exchange Rate (JOD->USD): ${EXCHANGE_RATE.toFixed(4)}`);
-            }
-        }
-    } catch (e) {
-        console.warn('Could not load dynamic currency rate, using default 1.41:', e);
-    }
+    // Dynamic currency fetching removed for static GitHub Pages deployment.
+    // Defaulting to 1.41.
+    EXCHANGE_RATE = 1.41;
+    window.EXCHANGE_RATE = EXCHANGE_RATE;
+    console.log(`Using default static exchange rate: 1 USD = 0.7092 JOD. Exchange Rate (JOD->USD): ${EXCHANGE_RATE}`);
 }
 
 async function init() {
@@ -618,17 +612,13 @@ async function init() {
     // --- TRACK VISITS (Server Side / GAS) ---
     // Only count unique sessions to prevent spamming stats on reload
     // GAS_URL shared with admin
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxL5HqRvV6REMAPtLdlRM6qcoVn42XwKse0YNU0xmLLy7O1iq7SzKMzjGZNNDnxXeQYDg/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec";
 
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
+        console.log("Attempting to track visit via GAS...");
 
-        console.log("Attempting to track visit...");
-
-        // 1. Track locally
-        fetch('/api/visits', { method: 'POST' }).catch(e => console.warn("Local visit tracking failed", e));
-
-        // 2. Track via GAS (Primary for user's remote tracking)
+        // Track via GAS (Primary for static tracking)
         fetch(GAS_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -728,37 +718,26 @@ function applyLanguage() {
 }
 
 async function fetchSheetData() {
-    try {
-        console.log("Fetching Product data from DB...");
-        const response = await fetch('/api/products');
-        if (response.ok) {
-            const data = await response.json();
-            return data;
+    return new Promise((resolve, reject) => {
+        if (typeof Papa === 'undefined') {
+            reject(new Error("PapaParse not loaded"));
+            return;
         }
-        throw new Error(`API returned ${response.status}`);
-    } catch (error) {
-        console.warn("API Error, falling back to CSV:", error);
-        // Fallback to CSV
-        return new Promise((resolve, reject) => {
-            if (typeof Papa === 'undefined') {
-                reject(new Error("PapaParse not loaded for CSV fallback"));
-                return;
+        console.log("Fetching Product data from Google Sheets CSV...");
+        Papa.parse(CSV_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                console.log("CSV load success:", results.data.length, "items");
+                resolve(results.data);
+            },
+            error: (err) => {
+                console.error("CSV load failed:", err);
+                reject(err);
             }
-            Papa.parse(CSV_URL, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: (results) => {
-                    console.log("CSV Fallback success:", results.data.length, "items");
-                    resolve(results.data);
-                },
-                error: (err) => {
-                    console.error("CSV Fallback failed:", err);
-                    reject(err);
-                }
-            });
         });
-    }
+    });
 }
 
 function normalizeKey(key) {
@@ -866,10 +845,27 @@ function processData(data) {
     }
 
     allProducts = data.map((item, index) => {
+        let extractedImage = imageKey ? item[imageKey] : null;
+
+        // Handle hidden JSON payloads in empty column names
+        if (!extractedImage || String(extractedImage).trim() === '') {
+            for (let key in item) {
+                if (item[key] && typeof item[key] === 'string' && item[key].includes('{"action"')) {
+                    try {
+                        let parsed = JSON.parse(item[key]);
+                        if (parsed.image) {
+                            extractedImage = parsed.image;
+                            break;
+                        }
+                    } catch (e) { }
+                }
+            }
+        }
+
         const product = {
             name: item[productKey],
             no: noKey ? item[noKey] : `ITEM-${index + 1}`,
-            image: imageKey ? item[imageKey] : null,
+            image: extractedImage,
             link: linkKey ? item[linkKey] : null,
             price: (retailPriceKey ? item[retailPriceKey] : null) || item[priceKey] || null,
             category: categoryKey ? item[categoryKey] : null,
@@ -1046,19 +1042,21 @@ function createCard(product, uiIndex) {
     article.className = 'card fade-in-up';
     article.style.animationDelay = `${Math.min(uiIndex * 0.05, 1)}s`;
 
-    // Local path prioritization: Try assets/products/[no].jpg first
-    // We'll let handleImageError handle the extension check and cloud fallbacks
-    let imageSrc = `assets/products/${product.no}.jpg`;
+    // GitHub Assets prioritization or Base64 Image
+    let imageSrc = `${ASSETS_BASE_URL}${product.no}.jpg`;
+    if (product.image && product.image.length > 200 && !product.image.startsWith('http')) {
+        let cleanBase64 = product.image.replace(/\s+/g, '');
+        imageSrc = cleanBase64.startsWith('data:') ? cleanBase64 : `data:image/jpeg;base64,${cleanBase64}`;
+    }
 
     const imgId = `img-${product.index}`;
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     // Cloud Fallbacks (Backup)
     let driveId = extractDriveId(product.image);
-    if (!driveId && product.link) driveId = extractDriveId(product.link);
     if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
 
-    const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w1000` : noLinkPlaceholder;
+    const secondaryFallback = driveId ? `https://drive.google.com/uc?export=view&id=${driveId}` : noLinkPlaceholder;
 
     const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
     const secondaryName = (currentLang === 'ar') ? product.name : product.arabicName;
@@ -1136,7 +1134,7 @@ function createCard(product, uiIndex) {
                     </div>
                     ${[1, 2, 3, 4, 5].map(num => `
                         <div class="gallery-thumb" onclick="switchGalleryImage(this)">
-                            <img src="assets/products/${product.no}_${num}.jpg" onerror="handleGalleryImageError(this, '${product.no}', '_${num}')">
+                            <img src="${ASSETS_BASE_URL}${product.no}_${num}.jpg" onerror="handleGalleryImageError(this, '${product.no}', '_${num}')">
                         </div>
                     `).join('')}
                 </div>
@@ -1305,21 +1303,25 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
     // 1. Try alternate local extensions
     if (retryCount === 0) {
         img.dataset.retries = 1;
-        img.src = `assets/products/${itemNo}.png`;
-        return;
-    }
-    if (retryCount === 1) {
-        img.dataset.retries = 2;
-        img.src = `assets/products/${itemNo}.webp`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}.png`;
+        img.onerror = () => {
+            img.dataset.retries = 2;
+            img.src = `${ASSETS_BASE_URL}${itemNo}.webp`;
+            img.onerror = () => {
+                // If .webp fails, proceed to cloud fallback logic (retryCount 2 in original logic)
+                // This will now be handled by the next `if` block, as `retryCount` is 2.
+                handleImageError(img, fallback, productName, itemNo, driveId);
+            };
+        };
         return;
     }
 
     // 2. Cloud Fallback: Try stable LH3 link first
-    if (retryCount === 2) {
+    if (retryCount === 2) { // This condition now correctly follows the local retries
         img.dataset.retries = 3;
         const currentDriveId = driveId || extractDriveId(fallback);
         if (currentDriveId) {
-            img.src = `https://lh3.googleusercontent.com/d/${currentDriveId}=w1000`;
+            img.src = `https://drive.google.com/uc?export=view&id=${currentDriveId}`;
             img.classList.add('is-doc-preview');
             return;
         }
@@ -1371,10 +1373,16 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
 
     if (retries === 0) {
         img.dataset.retries = '1';
-        img.src = `assets/products/${itemNo}${suffix}.png`;
-    } else if (retries === 1) {
-        img.dataset.retries = '2';
-        img.src = `assets/products/${itemNo}${suffix}.webp`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.png`;
+        img.onerror = () => {
+            img.dataset.retries = '2';
+            img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp`;
+            img.onerror = () => {
+                if (suffix !== '') {
+                    img.closest('.gallery-thumb').style.display = 'none';
+                }
+            };
+        };
     } else {
         if (suffix !== '') {
             img.closest('.gallery-thumb').style.display = 'none';
@@ -1761,7 +1769,7 @@ function updateCartUI() {
         total += subtotal;
 
         // Image Logic: Try local first, then cloud fallbacks
-        let localImg = `assets/products/${item.no}.jpg`;
+        let localImg = `${ASSETS_BASE_URL}${item.no}.jpg`;
         let driveId = extractDriveId(item.image);
         const placeholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22200%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3C%2Fsvg%3E`;
         let cloudFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}=w200` : placeholder;

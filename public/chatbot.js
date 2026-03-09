@@ -75,6 +75,23 @@ async function loadStoreDetails() {
 async function loadCredentials() {
     try {
         console.log("Chatbot: Fetching credentials...");
+
+        // Fetch keys from new endpoint
+        try {
+            const keysRes = await fetch('/api/gemini-keys');
+            if (keysRes.ok) {
+                const keysData = await keysRes.json();
+                if (keysData.keys && Array.isArray(keysData.keys)) {
+                    keysData.keys.forEach(k => {
+                        if (k && !GEMINI_API_KEYS.includes(k)) GEMINI_API_KEYS.push(k);
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn("Could not fetch /api/gemini-keys", e);
+        }
+
+        // Fetch settings for fallback keys and name
         const response = await fetch('/api/settings');
         if (!response.ok) throw new Error("Could not load settings");
         const settings = await response.json();
@@ -86,8 +103,9 @@ async function loadCredentials() {
             const cleanLine = line.trim();
             if (cleanLine.toLowerCase().includes('gemini api key:')) {
                 const key = cleanLine.split(/gemini api key:/i)[1].trim();
+                // Add key only if we didn't get it from the other endpoint
                 if (key && !GEMINI_API_KEYS.includes(key)) {
-                    GEMINI_API_KEYS.push(key);
+                    // GEMINI_API_KEYS.push(key); // We skip these old expired keys from settings.csv to be safe
                 }
             }
             if (cleanLine.toLowerCase().startsWith('name:')) {
@@ -97,8 +115,8 @@ async function loadCredentials() {
         });
 
         if (GEMINI_API_KEYS.length === 0) {
-            console.error("Chatbot: No API Keys found in geminiCredintials.txt");
-            appendMessage("⚠️ System: No Gemini API Keys found in geminiCredintials.txt. Please check the file format.", 'bot');
+            console.error("Chatbot: No API Keys found.");
+            appendMessage("⚠️ System: No Gemini API Keys found. Please configure them in the admin dashboard.", 'bot');
         } else {
             console.log(`Chatbot: ${GEMINI_API_KEYS.length} credentials loaded successfully.`);
         }
@@ -293,13 +311,13 @@ async function sendMessage() {
             const data = await response.json();
 
             if (data.error) {
-                if (data.error.code === 429 || data.error.message.toLowerCase().includes('quota')) {
-                    console.warn(`Key ${currentKeyIndex + 1} quota exceeded. Trying next key...`);
+                console.error("DEBUG API ERROR:", data.error);
+                if (data.error.code === 429) {
                     currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length;
                     attempts++;
-                    continue; // Try next key
+                    continue;
                 }
-                throw new Error(`API Error: ${data.error.message} (Code: ${data.error.code})`);
+                throw new Error(data.error.message || "Unknown API Error");
             }
 
             const botResponse = data.candidates && data.candidates[0].content
@@ -324,10 +342,10 @@ async function sendMessage() {
 
             if (attempts >= maxAttempts - 1) {
                 typing.classList.add('hidden');
-                let errorMsg = `I'm having trouble connecting to the AI. (Error: ${displayError})`;
+                let errorMsg = `API Error: ${displayError}`;
 
-                if (displayError.toLowerCase().includes('quota')) {
-                    errorMsg = "Limit reached on all available keys! Please wait 1 minute. (Quota Exceeded)";
+                if (displayError.toLowerCase().includes('quota') || displayError.includes('429')) {
+                    errorMsg = "Limit reached on all available keys! Please try again in 1 minute.";
                 } else if (displayError.includes('403')) {
                     errorMsg = "Access Denied: Your API key has been reported as leaked or disabled.";
                 }
@@ -342,12 +360,10 @@ async function sendMessage() {
         }
     }
 
-    // Final cleanup if everything failed
-    if (!success) {
+    // Final cleanup if everything failed and loop ended naturally (e.g. all 429s)
+    if (!success && attempts >= maxAttempts) {
         typing.classList.add('hidden');
-        if (attempts >= maxAttempts) {
-            appendMessage("Limit reached on all available keys! Please wait 1 minute. (All Keys Quota Exceeded)", 'bot');
-        }
+        appendMessage("Limit reached on all available keys! Please try again in 1 minute.", 'bot');
     }
 }
 

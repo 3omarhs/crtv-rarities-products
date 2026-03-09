@@ -228,27 +228,7 @@ async function loadCredentials() {
     let apiSuccess = false;
     let fileSuccess = false;
 
-    try {
-        console.log("Admin: Fetching /api/admins...");
-        const response = await fetch('/api/admins');
-        if (response.ok) {
-            const users = await response.json();
-            console.log("Admin: API Response:", users);
-            if (Array.isArray(users)) {
-                ADMIN_USERS = users.map(u => ({
-                    email: u.username.toLowerCase(),
-                    pass: u.password
-                }));
-                console.log(`Admin: Loaded ${ADMIN_USERS.length} users from API.`);
-                apiSuccess = true;
-                return;
-            }
-        } else {
-            console.warn("Admin: API response not OK:", response.status);
-        }
-    } catch (e) {
-        console.warn("Admin: API load failed (server possibly down or CORS issue)", e);
-    }
+    console.log("Admin: /api/admins removed for static hosting. Falling back to adminCredentials.txt.");
 
     // Fallback: Legacy Text File
     try {
@@ -592,6 +572,13 @@ async function initAdmin() {
             }
 
             try {
+                // Static hosting limitation: Cannot save settings to backend API
+                alert("Saving email settings is disabled on static GitHub Pages. These settings are for a backend API.");
+                msg.textContent = "Email settings not saved (static host).";
+                msg.classList.remove('hidden');
+                setTimeout(() => msg.classList.add('hidden'), 3000);
+                return;
+
                 const res = await fetch('/api/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -750,6 +737,10 @@ async function handleProductSubmit(e) {
                 err.textContent = "Failed to read file";
                 err.classList.remove('hidden');
             }
+            alert("Product management is disabled on static GitHub Pages. Please add products directly to your Google Sheet and upload images to your GitHub assets repository.");
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            return;
         };
 
         reader.onload = async function (e) {
@@ -760,41 +751,45 @@ async function handleProductSubmit(e) {
             gasData.imageName = newFileName;
             gasData.mimeType = file.type;
 
-            try {
-                const localRes = await fetch('/api/upload-image', {
-                    method: 'POST',
-                    body: file,
-                    headers: { 'X-Filename': newFileName }
-                });
-            } catch (uploadErr) {
-                console.error("Local upload error", uploadErr);
-            }
+            // Local image upload is disabled for static hosting
+            // try {
+            //     const localRes = await fetch('/api/upload-image', {
+            //         method: 'POST',
+            //         body: file,
+            //         headers: { 'X-Filename': newFileName }
+            //     });
+            // } catch (uploadErr) {
+            //     console.error("Local upload error", uploadErr);
+            // }
 
-            submitToLocal(gasData);
+            // submitToLocal(gasData); // Local DB sync is disabled for static hosting
             submitToGas(gasUrl, gasData);
         };
         reader.readAsDataURL(file);
     } else {
-        submitToLocal(gasData);
+        // submitToLocal(gasData); // Local DB sync is disabled for static hosting
         submitToGas(gasUrl, gasData);
     }
 
     async function submitToLocal(payload) {
-        try {
-            console.log("Syncing to local DB...");
-            // Remove large image data to save bandwidth if not needed by DB logic yet
-            const cleanPayload = { ...payload };
-            delete cleanPayload.image;
+        // This function is effectively disabled for static GitHub Pages
+        console.warn("Local sync is disabled on static GitHub Pages.");
+        return;
+        // try {
+        //     console.log("Syncing to local DB...");
+        //     // Remove large image data to save bandwidth if not needed by DB logic yet
+        //     const cleanPayload = { ...payload };
+        //     delete cleanPayload.image;
 
-            await fetch('/api/add-product', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cleanPayload)
-            });
-            console.log("Local sync requested.");
-        } catch (e) {
-            console.error("Local sync failed", e);
-        }
+        //     await fetch('/api/add-product', {
+        //         method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify(cleanPayload)
+        //     });
+        //     console.log("Local sync requested.");
+        // } catch (e) {
+        //     console.error("Local sync failed", e);
+        // }
     }
 
     async function submitToGas(url, payload) {
@@ -902,9 +897,11 @@ async function loadSettings() {
     }
 
     try {
-        const res = await fetch('/api/settings');
-        if (!res.ok) throw new Error("Failed to fetch settings");
-        const data = await res.json();
+        // GitHub Pages limitation: Cannot fetch settings from a backend API.
+        // const res = await fetch('/api/settings');
+        // if (!res.ok) throw new Error("Failed to fetch settings");
+        // const data = await res.json();
+        const data = {}; // Simulate empty settings for static host
 
         const enabled = document.getElementById('email-enabled');
         const receiver = document.getElementById('receiver-email');
@@ -924,8 +921,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisp) versionDisp.textContent = "v3.7"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v3.7";
+            if (versionDisp) versionDisp.textContent = "v3.8"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v3.8";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1115,6 +1112,11 @@ window.initUploadImages = async function () {
         let errors = [];
 
         try {
+            // GitHub Pages limitation: Image upload is disabled.
+            alert("Image upload is disabled on static GitHub Pages. Please commit images directly to your GitHub assets repository.");
+            input.value = ""; // Clear selection
+            throw new Error("Image upload disabled for static hosting.");
+
             const isLocalFile = window.location.protocol === 'file:';
             const apiBase = isLocalFile ? 'http://localhost:8000' : '';
 
@@ -1189,27 +1191,17 @@ async function loadData() {
     console.log("Admin: loadData called");
 
     try {
-        // 1. Fetch Orders from GitHub API (server proxy)
-        const ordersRes = await fetch('/api/orders');
-        let orders = [];
-        try {
-            orders = await ordersRes.json();
-            if (!Array.isArray(orders)) orders = [];
-        } catch (e) {
-            console.warn("Failed to parse orders", e);
-        }
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+
+        // 1. Fetch Orders from GAS or Fallback API
+        let ordersData = await fetchOrders(gasUrl);
+        let orders = ordersData.data || ordersData || [];
+        if (!Array.isArray(orders)) orders = [];
         window.currentOrders = orders;
 
-        // 2. Fetch Visits (Keep existing logic or update if moved to GitHub too, but user only asked for orders/offers)
-        // For now, let's keep visits as is or just empty if not critical
-        // But let's try to fetch visits from server if it supports it
-        try {
-            const visitsRes = await fetch('/api/visits');
-            const visits = await visitsRes.json();
-            window.currentVisits = { total: visits.total, daily: visits.daily, today: visits.today };
-        } catch (e) {
-            console.warn("Failed to fetch visits", e);
-        }
+        // 2. Fetch Visits from GAS or Fallback API
+        let visitsData = await fetchVisits(gasUrl);
+        window.currentVisits = visitsData || { total: 0, daily: {}, today: 0 };
 
         renderDashboardStats(window.currentOrders, window.currentVisits);
 
@@ -1381,7 +1373,7 @@ function renderOrderItems(items) {
             const driveId = window.DRIVE_MAPPING[i.sku];
             imgHtml = `<img src="https://lh3.googleusercontent.com/d/${driveId}" class="item-image" loading="lazy">`;
         } else {
-            imgHtml = `<img src="assets/products/${i.sku}.png" class="item-image" loading="lazy" onerror="handleAdminImageError(this, '${i.sku}')">`;
+            imgHtml = `<img src="${ASSETS_BASE_URL}${i.sku}.png" class="item-image" loading="lazy" onerror="handleAdminImageError(this, '${i.sku}')">`;
         }
         const safeSku = i.sku.replace(/"/g, '&quot;');
         return `
@@ -1459,7 +1451,7 @@ function renderAnalytics(orders) {
     analyticsBody.innerHTML = '';
     Object.values(itemMap).sort((a, b) => b.qty - a.qty).forEach(i => {
         const tr = document.createElement('tr');
-        let imgHtml = `<img src="assets/products/${i.id}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
+        let imgHtml = `<img src="${ASSETS_BASE_URL}${i.id}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
         tr.innerHTML = `
             <td>${imgHtml}</td>
             <td style="font-family:monospace">${i.id}</td>
@@ -1760,6 +1752,8 @@ function renderStatusSelect(id, currentStatus) {
 
 
 window.updateOrderStatus = async function (id, newStatus) {
+    alert("Updating order status is disabled on static GitHub Pages. Please update the Google Sheet directly.");
+    return;
     try {
         const res = await fetch('/api/update-order-status', {
             method: 'POST',
@@ -1781,6 +1775,8 @@ window.updateOrderStatus = async function (id, newStatus) {
 
 window.deleteOrder = async function (id) {
     if (!confirm(`Are you sure you want to delete order #${id}?`)) return;
+    alert("Deleting orders is disabled on static GitHub Pages. Please delete the row directly from your Google Sheet.");
+    return;
     try {
         const res = await fetch('/api/orders', {
             method: 'DELETE',
@@ -1873,28 +1869,36 @@ function parseItemString(str) {
 
 function handleAdminImageError(img, sku) {
     const currentSrc = img.src;
+    const retries = parseInt(img.dataset.retries || '0');
 
     // Check if it's a Drive URL or valid standard URL
-    const isStandardAsset = currentSrc.includes('assets/products/');
+    const isStandardAsset = currentSrc.includes(ASSETS_BASE_URL);
 
     if (!isStandardAsset) {
-        // If it was a Drive/Cloud URL and failed, fallback immediately to local PNG
-        // The local fallback chain (PNG->JPG->etc) will take over if PNG fails
-        img.src = `assets/products/${sku}.png`;
+        // Fallback to library
+        img.dataset.retries = '1';
+        img.src = `${ASSETS_BASE_URL}${sku}.png`;
         return;
     }
 
-    // Standard Fallback Chain for Local Assets
-    if (currentSrc.endsWith('.png')) {
-        img.src = `assets/products/${sku}.jpg`;
-    } else if (currentSrc.endsWith('.jpg')) {
-        img.src = `assets/products/${sku}.jpeg`;
-    } else if (currentSrc.endsWith('.jpeg')) {
-        img.src = `assets/products/${sku}.webp`;
+    if (retries === 0) {
+        img.dataset.retries = '1';
+        img.src = `${ASSETS_BASE_URL}${sku}.png`;
+    } else if (retries === 1) {
+        img.dataset.retries = '2';
+        img.src = `${ASSETS_BASE_URL}${sku}.jpg`;
+    } else if (retries === 2) {
+        img.dataset.retries = '3';
+        img.src = `${ASSETS_BASE_URL}${sku}.jpeg`;
+    } else if (retries === 3) {
+        img.dataset.retries = '4';
+        img.src = `${ASSETS_BASE_URL}${sku}.webp`;
     } else {
         // Final fallback: Placeholder
-        img.onerror = null; // Stop infinite loop
-        img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);">No Img</div>';
+        img.onerror = null;
+        if (img.parentNode) {
+            img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);">No Img</div>';
+        }
     }
 }
 
@@ -1903,14 +1907,15 @@ function handleAdminImageError(img, sku) {
 window.allProducts = [];
 const PRODUCT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
 
+// Assets Configuration
+const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
+
 async function initProductData() {
-    if (window.allProducts && window.allProducts.length > 0) return; // Already loaded
+    if (window.allProducts && window.allProducts.length > 0) return;
 
     return new Promise((resolve, reject) => {
         try {
             console.log("Fetching Product CSV from:", PRODUCT_CSV_URL);
-            // Use Papa Parse directly via URL if possible, or fetch text first
-            // Papa.parse supports remote files if 'download: true'
             Papa.parse(PRODUCT_CSV_URL, {
                 download: true,
                 header: true,
@@ -1918,14 +1923,11 @@ async function initProductData() {
                 complete: (results) => {
                     if (results.data) {
                         window.allProducts = results.data;
-                        console.log("Products loaded:", window.allProducts.length);
-
-                        // Initialize manualProducts for custom dropdowns
                         window.manualProducts = window.allProducts.map(p => ({
                             id: p['No'],
                             name: p['Name on Store'] || p['product name'] || p['Product Name'] || 'Unknown Name',
                             price: parseFloat(String(p['Price < 25 QTY'] || 0).replace(/[^\d.]/g, '')),
-                            image: `assets/products/${p['No']}.jpg`
+                            image: `${ASSETS_BASE_URL}${p['No']}.jpg`
                         })).filter(p => p.id && p.name);
                     }
                     resolve();
@@ -2076,7 +2078,7 @@ window.getProductDetailsHtml = function (productRaw, closeJs) {
 
     // Force Local Assets Only as requested
     // The handleAdminImageError function will handle extension fallback (png -> jpg -> etc)
-    let imageSrc = `assets/products/${p.no}.png`;
+    let imageSrc = `${ASSETS_BASE_URL}${p.no}.png`;
 
     // Add a new property 'available' based on 'Stock' or 'Availability'
     p.available = productRaw['Stock'] || productRaw['Availability'] || 'Yes';
@@ -2287,7 +2289,7 @@ window.renderProductsTable = function (data) {
         if (!row['No']) return;
 
         const tr = document.createElement('tr');
-        let imgHtml = `<img src="assets/products/${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
+        let imgHtml = `<img src="${ASSETS_BASE_URL}${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
 
         const isActive = row['Available'] === 'TRUE';
         const statusHtml = isActive
@@ -2386,6 +2388,9 @@ window.editProduct = function (no) {
 
 window.deleteProduct = async function (no) {
     if (!confirm(`Are you sure you want to delete ${no}?`)) return;
+
+    alert("Product deletion via the dashboard is disabled on static GitHub Pages. Please remove the row directly from your Google Sheet.");
+    return;
 
     try {
         const res = await fetch('/api/products', {
@@ -2559,6 +2564,9 @@ window.submitWholesaleItem = async function () {
 
     if (isNaN(specialPrice)) { alert("Please enter a valid wholesale price"); return; }
 
+    alert("Adding special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
+    return;
+
     try {
         const response = await fetch('/api/special-offers', {
             method: 'POST',
@@ -2584,6 +2592,11 @@ window.loadWholesale = async function () {
     if (!grid) return;
 
     grid.innerHTML = '<p style="color:var(--text-secondary);">Loading items...</p>';
+
+    // Static host limitation
+    console.warn("Special offers static loading disabled.");
+    grid.innerHTML = '<p style="color:var(--text-secondary); text-align:center; grid-column:1/-1; padding:2rem;">Special offers are disabled on static GitHub Pages. They require a backend API.</p>';
+    return;
 
     try {
         const response = await fetch('/api/special-offers');
@@ -2624,7 +2637,7 @@ function renderWholesaleItems(offers) {
         }
 
         const images = offer.images || [];
-        const imageSrc = images.length > 0 ? images[0] : `assets/products/${offer.item_no}.jpg`;
+        const imageSrc = images.length > 0 ? images[0] : `${ASSETS_BASE_URL}${offer.item_no}.jpg`;
         const fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232d2d35%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E";
 
         card.innerHTML = `
@@ -2708,6 +2721,11 @@ window.submitWholesaleEdit = async function () {
 
     if (isNaN(price)) { alert("Invalid price"); return; }
 
+    // Static hosting limitation
+    console.warn("Special offers update disabled on static GitHub Pages.");
+    alert("Updating special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
+    return;
+
     try {
         const res = await fetch('/api/special-offers', {
             method: 'PUT',
@@ -2728,6 +2746,11 @@ window.submitWholesaleEdit = async function () {
 
 window.confirmWholesaleDelete = async function () {
     const itemNo = document.getElementById('delete-so-item-no').value;
+    // Static host limitation
+    console.warn("Removing special offer disabled.");
+    alert("Removing special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
+    return;
+
     try {
         const response = await fetch('/api/special-offers', {
             method: 'DELETE',
@@ -3006,7 +3029,7 @@ window.setupCustomProductDropdown = function (config) {
 
         dropdown.innerHTML = matches.map(p => `
             <div class="dropdown-item" onclick="window._handleCustomSelect('${inputId}', '${dropdownId}', '${p.id}')">
-                <img src="assets/products/${p.id}.jpg" onerror="this.src='assets/products/${p.id}.png'; this.onerror=null;">
+                <img src="${ASSETS_BASE_URL}${p.id}.jpg" onerror="this.src='${ASSETS_BASE_URL}${p.id}.png'; this.onerror=null;">
                 <div style="overflow:hidden;">
                     <div class="item-name">${p.name}</div>
                     <div class="item-id">${p.id}</div>
@@ -3189,7 +3212,7 @@ window.renderManualCart = function () {
         <div style="background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
             <div style="display:flex; gap:10px; align-items:center;">
                 <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000; flex-shrink:0;">
-                    <img src="assets/products/${item.id}.jpg" onerror="this.src='assets/products/${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="${ASSETS_BASE_URL}${item.id}.jpg" onerror="this.src='${ASSETS_BASE_URL}${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
                 </div>
                 <div style="flex:1;">
                     <div style="font-weight:600; font-size:0.9rem;">${item.name}</div>
@@ -3247,7 +3270,7 @@ window.initCreateOrder = async function () {
             id: p['No'],
             name: p['Name on Store'] || p['product name'],
             price: parseFloat(p['Price < 25 QTY'] || 0),
-            image: `assets/products/${p['No']}.jpg`
+            image: `${ASSETS_BASE_URL}${p['No']}.jpg`
         })).filter(p => p.id && p.name);
 
         manualProducts.push(...mapped);
@@ -3534,7 +3557,11 @@ async function submitManualOrder() {
             }
         }
 
-        // Always save to the local API database as primary storage
+        // Always save to the local API database as primary
+        // Static hosting limitation
+        alert("Creating orders via the dashboard is disabled on static GitHub Pages. Please use the Google Sheet directly.");
+        return;
+
         const res = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3667,7 +3694,7 @@ window.loadAdminsForManagement = async function () {
                 <td><span class="status-badge status-active">Active</span></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn-icon btn-edit" title="Change Password" onclick="window.openChangePassModal('${admin.username}')">
+                        <button class="btn-icon" title="Change Password" onclick="window.openChangePassModal('${admin.username}')">
                             <i data-lucide="key" style="width:16px; height:16px; pointer-events: none;"></i>
                         </button>
                         <button class="btn-icon btn-delete" title="Remove Admin" onclick="window.handleRemoveAdmin('${admin.username}')">
@@ -3718,6 +3745,9 @@ window.handleAddAdmin = async function () {
         return;
     }
 
+    alert("Adding an admin is disabled on static GitHub Pages. Update adminCredentials.txt directly.");
+    return;
+
     try {
         const res = await fetch('/api/admins', {
             method: 'POST',
@@ -3741,6 +3771,9 @@ window.handleAddAdmin = async function () {
 
 window.handleRemoveAdmin = async function (username) {
     if (!confirm(`Are you sure you want to remove admin access for ${username}?`)) return;
+
+    alert("Deleting an admin is disabled on static GitHub Pages. Update adminCredentials.txt directly.");
+    return;
 
     try {
         const res = await fetch('/api/admins', {
@@ -3775,6 +3808,9 @@ window.handleUpdateAdmin = async function () {
         alert("Please enter a new password.");
         return;
     }
+
+    alert("Changing credentials via dashboard is disabled on static GitHub Pages. Update the adminCredentials.txt directly in your repository.");
+    return;
 
     try {
         const res = await fetch('/api/admins', {

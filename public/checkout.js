@@ -724,16 +724,21 @@ function submitOrder() {
                     paymentMethod: checkoutState.paymentMethod
                 };
 
-                // --- GITHUB PERSISTENCE ---
+                // --- GITHUB PAGES PERSISTENCE VIA GAS ---
                 const saveOrderToGithub = async () => {
                     try {
-                        await fetch('/api/place-order', {
+                        // Using the global GAS_URL if available, otherwise fallback to the user's explicit URL
+                        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+                        await fetch(gasUrl, {
                             method: 'POST',
-                            body: JSON.stringify(newOrder),
-                            headers: { "Content-Type": "application/json" }
+                            mode: 'no-cors',
+                            headers: {
+                                'Content-Type': 'text/plain;charset=utf-8',
+                            },
+                            body: JSON.stringify({ action: 'placeOrder', order: newOrder })
                         });
                     } catch (e) {
-                        console.error("Failed to save order to GitHub:", e);
+                        console.error("Failed to save order to GAS:", e);
                     }
                 };
 
