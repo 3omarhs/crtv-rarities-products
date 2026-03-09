@@ -1055,6 +1055,7 @@ function createCard(product, uiIndex) {
     // Cloud Fallbacks (Backup)
     let driveId = extractDriveId(product.image);
     if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
+    if (!driveId && product.link) driveId = extractDriveId(product.link);
 
     const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : noLinkPlaceholder;
 
