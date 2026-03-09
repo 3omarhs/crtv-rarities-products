@@ -1056,7 +1056,7 @@ function createCard(product, uiIndex) {
     let driveId = extractDriveId(product.image);
     if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
 
-    const secondaryFallback = driveId ? `https://drive.google.com/uc?export=view&id=${driveId}` : noLinkPlaceholder;
+    const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : noLinkPlaceholder;
 
     const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
     const secondaryName = (currentLang === 'ar') ? product.name : product.arabicName;
@@ -1317,11 +1317,12 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
     }
 
     // 2. Cloud Fallback: Try stable LH3 link first
-    if (retryCount === 2) { // This condition now correctly follows the local retries
+    if (retryCount === 2) {
         img.dataset.retries = 3;
         const currentDriveId = driveId || extractDriveId(fallback);
         if (currentDriveId) {
-            img.src = `https://drive.google.com/uc?export=view&id=${currentDriveId}`;
+            // Use modern LH3 endpoint to bypass GitHub Pages strict CORS blocking on uc?export=view
+            img.src = `https://lh3.googleusercontent.com/d/${currentDriveId}`;
             img.classList.add('is-doc-preview');
             return;
         }
