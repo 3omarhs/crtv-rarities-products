@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.2.5 LOADED (Secure GAS AI Proxy) !!!");
-document.title = "Admin Portal (v4.2.5)";
+console.log("!!! ADMIN JS V4.2.6 LOADED (Fix GAS Variable Scope) !!!");
+document.title = "Admin Portal (v4.2.6)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -129,7 +129,9 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            // Order must be: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
+            // Proxy Request to GAS
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+            
             const proxyPayload = {
                 action: 'proxyGemini',
                 payload: {
@@ -892,7 +894,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v4.2.5";
+    if (versionDisplay) versionDisplay.textContent = "v4.2.6";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
 
@@ -933,8 +935,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v4.2.5"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.5";
+            if (versionDisplay) versionDisplay.textContent = "v4.2.6"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.6";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
