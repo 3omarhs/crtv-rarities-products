@@ -1,6 +1,6 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 // Override console for debugging
-console.log("App.js version 1.16 loaded");
+console.log("App.js version 1.17 loaded");
 const GID = '897526080';
 // API & Data Source Configuration
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
@@ -1052,10 +1052,9 @@ function createCard(product, uiIndex) {
     const imgId = `img-${product.index}`;
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
-    // Cloud Fallbacks (Backup)
+    // Cloud Fallbacks (Backup) - ONLY for real images
     let driveId = extractDriveId(product.image);
     if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
-    if (!driveId && product.link) driveId = extractDriveId(product.link);
 
     const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : noLinkPlaceholder;
 
@@ -1317,18 +1316,15 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
         return;
     }
 
-    // 2. Cloud Fallback: Try stable LH3 link first
+    // 2. Cloud Fallback: Try stable LH3 link for product images
     if (retryCount === 2) {
         img.dataset.retries = 3;
         const currentDriveId = driveId || extractDriveId(fallback);
         if (currentDriveId) {
-            // Use modern LH3 endpoint to bypass GitHub Pages strict CORS blocking on uc?export=view
             img.src = `https://lh3.googleusercontent.com/d/${currentDriveId}`;
-            img.classList.add('is-doc-preview');
             return;
         }
         img.src = fallback;
-        img.classList.add('is-doc-preview');
         return;
     }
 
@@ -1338,7 +1334,6 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
         const currentDriveId = driveId || extractDriveId(img.src) || extractDriveId(fallback);
         if (currentDriveId) {
             img.src = `https://drive.google.com/thumbnail?id=${currentDriveId}&sz=w1000`;
-            img.classList.add('is-doc-preview');
             return;
         }
     }
