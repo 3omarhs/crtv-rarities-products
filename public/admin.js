@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.2.4 LOADED (Force Sync) !!!");
-document.title = "Admin Portal (v4.2.4)";
+console.log("!!! ADMIN JS V4.2.5 LOADED (Secure GAS AI Proxy) !!!");
+document.title = "Admin Portal (v4.2.5)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -129,117 +129,83 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            const payload = {
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inline_data: {
-                                mime_type: mimeType,
-                                data: base64Data
-                            }
-                        }
-                    ]
-                }]
+            // Order must be: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
+            const proxyPayload = {
+                action: 'proxyGemini',
+                payload: {
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: mimeType, data: base64Data } }
+                        ]
+                    }]
+                }
             };
 
-            let success = false;
-            let lastError = null;
+            try {
+                console.log("Admin: Sending AI request to secure GAS proxy...");
+                // Note: Using fetch with POST to GAS. We avoid custom headers to keep it as a "simple" request for CORS.
+                const response = await fetch(gasUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(proxyPayload)
+                });
 
-            // Try all keys
-            for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
-                const apiKey = GEMINI_API_KEYS[i];
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => {
-                    console.warn(`Admin: Gemini Key ${i} timeout after 60s`);
-                    controller.abort();
-                }, 60000); // 60s Timeout for complex vision tasks
+                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 
-                try {
-                    console.log(`Admin: Requesting Gemini with key index ${i}...`);
-                    // Use gemini-flash-latest as verified
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
+                const data = await response.json();
 
-                    const data = await response.json();
-
-                    if (data.error) {
-                        console.warn(`Key ${i} failed:`, data.error.message);
-                        lastError = data.error.message;
-                        throw new Error(data.error.message);
-                    }
-
-                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-                        console.warn("Invalid API Response (Safety filter?):", data);
-                        throw new Error("AI Generation blocked or empty response.");
-                    }
-
-                    if (data.candidates && data.candidates[0].content) {
-                        const text = data.candidates[0].content.parts[0].text;
-                        console.log("AI Response:", text);
-
-                        const parts = text.split('|||').map(p => p.trim());
-
-                        // Order: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
-                        if (parts[0]) {
-                            document.querySelector('input[name="product name"]').value = parts[0];
-                        }
-                        if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
-                        if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
-                        if (parts[3]) document.querySelector('input[name="collection"]').value = parts[3];
-                        if (parts[4]) document.querySelector('input[name="Arabic Name"]').value = parts[4];
-                        if (parts[5]) document.querySelector('input[name="target market"]').value = parts[5];
-
-                        if (label) {
-                            label.innerHTML = 'Product Image <span style="margin-left:5px; color:#10b981;">Analysis Complete! ✨</span>';
-                            setTimeout(() => {
-                                label.textContent = originalText;
-                                label.style.color = "inherit";
-                            }, 5000);
-                        }
-
-                        success = true;
-                        break; // Exit loop on success
-                    }
-
-                } catch (err) {
-                    if (err.name === 'AbortError') {
-                        lastError = "Request timed out after 60s. Please try again or check your connection.";
-                    } else {
-                        lastError = err;
-                    }
-                    console.error(`Attempt ${i} failed:`, err);
+                if (data.error) {
+                    console.warn("GAS Proxy returned error:", data.error);
+                    throw new Error(data.error);
                 }
+
+                if (data.candidates && data.candidates[0].content) {
+                    const text = data.candidates[0].content.parts[0].text;
+                    console.log("AI Proxy Response:", text);
+
+                    const parts = text.split('|||').map(p => p.trim());
+
+                    if (parts[0]) document.querySelector('input[name="product name"]').value = parts[0];
+                    if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
+                    if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
+                    if (parts[3]) document.querySelector('input[name="collection"]').value = parts[3];
+                    if (parts[4]) document.querySelector('input[name="Arabic Name"]').value = parts[4];
+                    if (parts[5]) document.querySelector('input[name="target market"]').value = parts[5];
+
+                    if (label) {
+                        label.innerHTML = 'Product Image <span style="margin-left:5px; color:#10b981;">Analysis Complete! ✨</span>';
+                        setTimeout(() => {
+                            label.textContent = originalText;
+                            label.style.color = "inherit";
+                        }, 5000);
+                    }
+                    success = true;
+                } else {
+                    throw new Error("Invalid response structure from AI proxy.");
+                }
+
+            } catch (err) {
+                lastError = err;
+                console.error("AI Proxy Attempt failed:", err);
             }
 
             if (!success) {
-                console.error("All Gemini keys failed.");
-                const errorMsg = lastError ? lastError.message : "Connection/Quota Error";
-                // alert(`AI Analysis Failed: ${errorMsg}`); // Alert is annoying if it happens often, maybe just show in fields
-
-                // Show error in fields so user knows why it disappeared
-                let errorDetails = lastError ? (lastError.message || lastError) : "Connection/Quota Error";
-                // Truncate if too long
-                if (errorDetails.length > 50) errorDetails = "Error (Check Console): " + errorDetails.substring(0, 30) + "...";
+                console.error("Secure AI Proxy failed.");
+                let errorDetails = lastError ? (lastError.message || lastError) : "Connection/Link Error";
+                if (errorDetails.toString().length > 60) errorDetails = errorDetails.toString().substring(0, 50) + "...";
 
                 const failureText = `⚠️ Failed: ${errorDetails}`;
-
                 inputsToReset.forEach(selector => {
                     const el = document.querySelector(selector);
                     if (el && el.value === loadingText) {
                         el.value = failureText;
-                        el.title = lastError ? (lastError.message || lastError) : "Check Console for details"; // Full error in tooltip
+                        el.title = lastError ? (lastError.message || lastError) : "Check Console for details";
                         el.classList.add('error-pulse');
                     }
                 });
 
                 if (label) {
-                    label.innerHTML = 'Product Image <span style="margin-left:5px; color:#ef4444;">AI Failed ❌</span>';
+                    label.innerHTML = 'Product Image <span style="margin-left:5px; color:#ef4444;">AI Proxy Failed ❌</span>';
                 }
             }
         };
@@ -926,7 +892,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v4.2.4";
+    if (versionDisplay) versionDisplay.textContent = "v4.2.5";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
 
@@ -967,8 +933,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v4.2.4"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.4";
+            if (versionDisplay) versionDisplay.textContent = "v4.2.5"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.5";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');

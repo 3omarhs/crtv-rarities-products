@@ -83,6 +83,8 @@ function handleAllActions(action, params) {
             return handleSaveSettings(params.settings || params);
         } else if (action === 'migrateData') {
             return handleMigration(params.data || params);
+        } else if (action === 'proxyGemini') {
+            return handleGeminiProxy(params.payload || params);
         }
         
         return jsonResponse({ error: 'Invalid action: ' + action });
@@ -202,4 +204,39 @@ function handleMigration(payload) {
 function doOptions(e) {
     return ContentService.createTextOutput("")
         .setMimeType(ContentService.MimeType.TEXT);
+}
+
+function handleGeminiProxy(payload) {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+        return jsonResponse({ error: 'GEMINI_API_KEY not found in Script Properties. Please add it in project settings.' });
+    }
+
+    // Support both direct payload and wrapped payload
+    const finalPayload = payload.contents ? payload : (payload.payload || payload);
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    
+    const options = {
+        'method': 'post',
+        'contentType': 'application/json',
+        'payload': JSON.stringify(finalPayload),
+        'muteHttpExceptions': true
+    };
+
+    try {
+        const response = UrlFetchApp.fetch(url, options);
+        const responseCode = response.getResponseCode();
+        const responseText = response.getContentText();
+        
+        if (responseCode !== 200) {
+            return jsonResponse({ 
+                error: 'Gemini API Error (' + responseCode + '): ' + responseText 
+            });
+        }
+        
+        return jsonResponse(JSON.parse(responseText));
+    } catch (err) {
+        return jsonResponse({ error: 'GAS Proxy Error: ' + err.toString() });
+    }
 }
