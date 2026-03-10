@@ -10,9 +10,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-L
 window.GAS_URL = GAS_URL;
 
 // Assets Configuration
-const ASSETS_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? './assets/products/'
-    : 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
+const ASSETS_BASE_URL = './assets/products/';
 
 const productGrid = document.getElementById('product-grid');
 const loadingEl = document.getElementById('loading');
@@ -1052,12 +1050,8 @@ function createCard(product, uiIndex) {
     const imgId = `img-${product.index}`;
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
-    // Cloud Fallbacks (Backup) - ONLY for real images
-    let driveId = extractDriveId(product.image);
-    if (!driveId) driveId = extractDriveId(product.link); // Fallback to link column if image is empty
-    if (!driveId && window.DRIVE_MAPPING) driveId = window.DRIVE_MAPPING[product.no] || null;
-
-    const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : noLinkPlaceholder;
+    // Always use local path for secondary fallback
+    const secondaryFallback = `${ASSETS_BASE_URL}${product.no}.jpg`;
 
     const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
     const secondaryName = (currentLang === 'ar') ? product.name : product.arabicName;
