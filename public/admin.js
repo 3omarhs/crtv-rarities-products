@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.1 LOADED (Fix Static Hosting) !!!");
-document.title = "Admin Portal (V4.1)";
+console.log("!!! ADMIN JS V4.2.0 LOADED (Fix AI Sync) !!!");
+document.title = "Admin Portal (V4.2.0)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -69,7 +69,7 @@ async function analyzeImageWithGemini(file) {
     }
 
     if (GEMINI_API_KEYS.length === 0) {
-        alert("System Error: No Gemini API Keys found. Check geminiCredintials.txt");
+        alert("System Error: No Gemini API Keys found. Please add your key in the Settings tab or your Google Sheet (gemini_keys sheet).");
         return;
     }
 
@@ -914,8 +914,21 @@ function handleWeightCalculation(e) {
 }
 
 async function loadSettings() {
-    console.log("Loading settings...");
-    // LocalStorage
+    console.log("Admin: Refreshing settings UI...");
+
+    // Sync Version Display
+    const versionDisplay = document.getElementById('app-version-display');
+    if (versionDisplay) versionDisplay.textContent = "v4.2.0";
+
+    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+
+    // Update all URL inputs
+    const inputs = ['google-script-url', 'settings-google-script-url'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = gasUrl;
+    });
+
     const keyInput = document.getElementById('gemini-api-key-input');
     if (keyInput) {
         keyInput.value = localStorage.getItem('gemini_api_key') || '';
