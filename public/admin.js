@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.2.0 LOADED (Fix AI Sync) !!!");
-document.title = "Admin Portal (V4.2.0)";
+console.log("!!! ADMIN JS V4.2.3 LOADED (Fix Dummy Key Sync) !!!");
+document.title = "Admin Portal (v4.2.3)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -51,9 +51,17 @@ async function loadGeminiCredentials() {
 
     // 2. LocalStorage Override (Optional for dev)
     const localKey = localStorage.getItem('gemini_api_key');
-    if (localKey && !GEMINI_API_KEYS.includes(localKey)) {
-        GEMINI_API_KEYS.unshift(localKey); // Add to front
-        console.log("Admin: Added local override key.");
+    if (localKey) {
+        const cleanedKey = localKey.trim();
+        const isDummy = /DUMMY|YOUR_KEY|ABC|PASTE|12345/i.test(cleanedKey) || cleanedKey.length < 20;
+        
+        if (isDummy) {
+            console.warn("Admin: Removing invalid dummy key from localStorage");
+            localStorage.removeItem('gemini_api_key');
+        } else if (!GEMINI_API_KEYS.includes(cleanedKey)) {
+            GEMINI_API_KEYS.unshift(cleanedKey); // Add to front
+            console.log("Admin: Added user-provided key from localStorage.");
+        }
     }
 }
 
@@ -918,7 +926,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v4.2.0";
+    if (versionDisplay) versionDisplay.textContent = "v4.2.3";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
 
