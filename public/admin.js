@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.0 LOADED (Fix Total Crash) !!!");
-document.title = "Admin Portal (V4.0)";
+console.log("!!! ADMIN JS V4.1 LOADED (Fix Static Hosting) !!!");
+document.title = "Admin Portal (V4.1)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -551,15 +551,19 @@ async function initAdmin() {
             handleProductSubmit(e);
         });
 
-        // AI Image Analysis Hook
+        // AI Image Analysis Hook (Manual)
+        const aiBtn = newForm.querySelector('#btn-ai-generate');
         const aiFileInput = newForm.querySelector('#product-image-upload');
-        if (aiFileInput) {
-            aiFileInput.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    analyzeImageWithGemini(e.target.files[0]);
+        if (aiBtn && aiFileInput) {
+            aiBtn.addEventListener('click', () => {
+                if (aiFileInput.files.length > 0) {
+                    analyzeImageWithGemini(aiFileInput.files[0]);
+                } else {
+                    alert("Please select an image first.");
                 }
             });
         }
+
 
         const weightInput = newForm.querySelector('input[name="Calculate on Weight"]');
         if (weightInput) {

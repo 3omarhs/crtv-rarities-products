@@ -552,9 +552,14 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Product Image</label>
-                        <input type="file" id="product-image-upload" accept="image/*">
-                        <small>Image will be uploaded to Google Drive automatically.</small>
+                        <label for="product-image-upload">Product Image</label>
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <input type="file" id="product-image-upload" accept="image/*" style="flex:1">
+                            <button type="button" id="btn-ai-generate" class="btn btn-secondary" style="white-space:nowrap; display:flex; align-items:center; gap:0.5rem;">
+                                <i data-lucide="sparkles"></i> Generate with AI
+                            </button>
+                        </div>
+                        <small>Image will be uploaded to Google Drive. AI can auto-fill fields if you click Generate.</small>
                     </div>
 
                     <div class="form-group" id="gas-url-container">
