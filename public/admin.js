@@ -31,7 +31,10 @@ async function loadGeminiCredentials() {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
             const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
-            const response = await fetch(`${gasUrl}?action=getGeminiKeys`);
+            const response = await fetch(gasUrl, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getGeminiKeys' })
+            });
             if (response.ok) {
                 const data = await response.json();
                 if (data.keys && Array.isArray(data.keys)) {
@@ -43,6 +46,7 @@ async function loadGeminiCredentials() {
             console.error("Admin: All Gemini key sources failed", gasErr);
         }
     }
+
 
 
     // 2. LocalStorage Override (Optional for dev)
@@ -1235,8 +1239,11 @@ async function fetchOrders(GAS_URL) {
     
     if (isStatic) {
         try {
-            console.log("Admin: Fetching orders from GAS (Static Mode)...");
-            const res = await fetch(`${GAS_URL}?action=getOrders`);
+            console.log("Admin: Fetching orders from GAS (Static Mode/POST)...");
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getOrders' })
+            });
             if (res.ok) return await res.json();
         } catch (e) {
             console.warn("Admin: GAS orders fetch failed", e);
@@ -1255,7 +1262,10 @@ async function fetchOrders(GAS_URL) {
     // Final GAS attempt if not static but local failed
     if (!isStatic) {
         try {
-            const res = await fetch(`${GAS_URL}?action=getOrders`);
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getOrders' })
+            });
             if (res.ok) return await res.json();
         } catch (e) {
             console.error("Admin: All order fetches failed", e);
@@ -1266,13 +1276,17 @@ async function fetchOrders(GAS_URL) {
 }
 
 
+
 async function fetchVisits(GAS_URL) {
     const isStatic = window.location.hostname.includes('github.io');
 
     if (isStatic) {
         try {
-            console.log("Admin: Fetching visits from GAS (Static Mode)...");
-            const res = await fetch(`${GAS_URL}?action=getVisits`);
+            console.log("Admin: Fetching visits from GAS (Static Mode/POST)...");
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getVisits' })
+            });
             if (res.ok) return await res.json();
         } catch (e) {
             console.warn("Admin: GAS visits fetch failed", e);
@@ -1288,7 +1302,10 @@ async function fetchVisits(GAS_URL) {
 
     if (!isStatic) {
         try {
-            const res = await fetch(`${GAS_URL}?action=getVisits`);
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getVisits' })
+            });
             if (res.ok) return await res.json();
         } catch (e) {
             console.error("Admin: All visit fetches failed", e);
@@ -1297,6 +1314,7 @@ async function fetchVisits(GAS_URL) {
 
     return { total: 0, daily: {}, today: 0 };
 }
+
 
 
 function renderDashboardStats(orders, visitsData) {

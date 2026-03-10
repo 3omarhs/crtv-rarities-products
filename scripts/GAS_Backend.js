@@ -1,5 +1,5 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.0
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.1
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
@@ -12,11 +12,28 @@
 
 const SPREADSHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 
+// Handles GET requests (Standard, but can have CORS issues in some browsers)
 function doGet(e) {
     const action = e.parameter.action;
+    return handleAllActions(action, e.parameter);
+}
+
+// Handles POST requests (Bypasses some CORS issues for data retrieval if action in body)
+function doPost(e) {
+    try {
+        const data = JSON.parse(e.postData.contents);
+        const action = data.action;
+        return handleAllActions(action, data);
+    } catch (error) {
+        return jsonResponse({ status: 'error', message: error.toString() });
+    }
+}
+
+function handleAllActions(action, params) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     
     try {
+        // --- DATA RETRIEVAL (GET-STYLE via POST/GET) ---
         if (action === 'getOrders') {
             const sheet = ss.getSheetByName('orders');
             const data = sheet.getDataRange().getValues();
@@ -33,12 +50,13 @@ function doGet(e) {
             let total = 0;
             let daily = {};
             data.slice(1).forEach(row => {
-                const date = row[0] instanceof Date ? row[0].toISOString().split('T')[0] : row[0];
+                const date = row[0] instanceof Date ? row[0].toISOString().split('T')[0] : String(row[0]);
                 const count = Number(row[1]);
                 total += count;
                 daily[date] = count;
             });
-            return jsonResponse({ total: total, daily: daily, today: daily[new Date().toISOString().split('T')[0]] || 0 });
+            const today = new Date().toISOString().split('T')[0];
+            return jsonResponse({ total: total, daily: daily, today: daily[today] || 0 });
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
             if (!sheet) return jsonResponse({ keys: [] });
@@ -53,31 +71,21 @@ function doGet(e) {
             data.slice(1).forEach(row => { if(row[0]) settings[row[0]] = row[1]; });
             return jsonResponse(settings);
         }
-        
-        return jsonResponse({ error: 'Invalid GET action' });
-    } catch (err) {
-        return jsonResponse({ error: err.toString() });
-    }
-}
 
-function doPost(e) {
-    try {
-        const data = JSON.parse(e.postData.contents);
-        const action = data.action;
-
+        // --- DATA UPDATE (POST-STYLE) ---
         if (action === 'placeOrder' || action === 'addOrder') {
-            return handleNewOrder(data.order || data);
+            return handleNewOrder(params.order || params);
         } else if (action === 'recordVisit') {
             return handleVisit();
         } else if (action === 'addProduct' || action === 'updateProduct') {
-            return handleProductUpdate(data.product || data);
+            return handleProductUpdate(params.product || params);
         } else if (action === 'saveSettings') {
-            return handleSaveSettings(data.settings || data);
+            return handleSaveSettings(params.settings || params);
         }
-
-        return jsonResponse({ status: 'error', message: 'Unknown action: ' + action });
-    } catch (error) {
-        return jsonResponse({ status: 'error', message: error.toString() });
+        
+        return jsonResponse({ error: 'Invalid action: ' + action });
+    } catch (err) {
+        return jsonResponse({ error: err.toString() });
     }
 }
 
@@ -105,7 +113,7 @@ function handleVisit() {
     const data = sheet.getDataRange().getValues();
     let found = false;
     for (let i = 1; i < data.length; i++) {
-        const date = data[i][0] instanceof Date ? data[i][0].toISOString().split('T')[0] : data[i][0];
+        const date = data[i][0] instanceof Date ? data[i][0].toISOString().split('T')[0] : String(data[i][0]);
         if (date === today) {
             sheet.getRange(i + 1, 2).setValue(Number(data[i][1]) + 1);
             found = true;
@@ -117,8 +125,6 @@ function handleVisit() {
 }
 
 function handleProductUpdate(product) {
-    // Note: 'products' data is usually read-only via CSV_URL in this app, 
-    // but we can record changes to a 'product_updates' sheet or similar.
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     let sheet = ss.getSheetByName('product_updates');
     if (!sheet) {
@@ -133,7 +139,7 @@ function handleSaveSettings(settings) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('settings');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Settings sheet not found' });
     
-    // Clear and Rewrite or Update? Let's Simple update.
+    // Simple key-value update
     const data = sheet.getDataRange().getValues();
     for (let key in settings) {
         let found = false;
