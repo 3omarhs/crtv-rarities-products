@@ -81,6 +81,8 @@ function handleAllActions(action, params) {
             return handleProductUpdate(params.product || params);
         } else if (action === 'saveSettings') {
             return handleSaveSettings(params.settings || params);
+        } else if (action === 'migrateData') {
+            return handleMigration(params.data || params);
         }
         
         return jsonResponse({ error: 'Invalid action: ' + action });
@@ -158,6 +160,43 @@ function handleSaveSettings(settings) {
 function jsonResponse(data) {
     return ContentService.createTextOutput(JSON.stringify(data))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleMigration(payload) {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const results = {};
+
+    if (payload.visits) {
+        const sheet = ss.getSheetByName('visits');
+        if (sheet) {
+            sheet.clearContents();
+            sheet.appendRow(['date', 'count']);
+            payload.visits.forEach(v => {
+                if (v.date && v.count) sheet.appendRow([v.date, v.count]);
+            });
+            results.visits = 'imported ' + payload.visits.length;
+        }
+    }
+
+    if (payload.orders) {
+        const sheet = ss.getSheetByName('orders');
+        if (sheet) {
+            sheet.clearContents();
+            const headers = ['address','currency','customerName','customerPhone','date','id','items','method','paymentMethod','selectedCompany','selectedRegion','status','timestamp','total'];
+            sheet.appendRow(headers);
+            payload.orders.forEach(o => {
+                const row = headers.map(h => {
+                    let val = o[h];
+                    if (h === 'items' && Array.isArray(val)) return val.join(' | ');
+                    return val || '';
+                });
+                sheet.appendRow(row);
+            });
+            results.orders = 'imported ' + payload.orders.length;
+        }
+    }
+
+    return jsonResponse({ status: 'success', results: results });
 }
 
 function doOptions(e) {
