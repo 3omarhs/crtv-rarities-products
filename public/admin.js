@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.2.3 LOADED (Fix Dummy Key Sync) !!!");
-document.title = "Admin Portal (v4.2.3)";
+console.log("!!! ADMIN JS V4.2.4 LOADED (Force Sync) !!!");
+document.title = "Admin Portal (v4.2.4)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -926,7 +926,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v4.2.3";
+    if (versionDisplay) versionDisplay.textContent = "v4.2.4";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
 
@@ -967,8 +967,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisp) versionDisp.textContent = "v4.2.3"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.3";
+            if (versionDisplay) versionDisplay.textContent = "v4.2.4"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.4";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');

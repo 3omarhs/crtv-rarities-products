@@ -1,6 +1,6 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
-// Override console for debugging
-console.log("App.js version 4.1.5 loaded");
+// Override console// Product Catalog Logic - v4.1.6
+console.log("Creative Rarities Storefront v4.1.6 (GAS v4.2 Sync)");
 const GID = '897526080';
 // API & Data Source Configuration
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
