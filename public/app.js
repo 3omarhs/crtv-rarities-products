@@ -1,6 +1,6 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 // Override console for debugging
-console.log("App.js version 4.0 loaded");
+console.log("App.js version 4.1.5 loaded");
 const GID = '897526080';
 // API & Data Source Configuration
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
@@ -1059,7 +1059,7 @@ function createCard(product, uiIndex) {
     const imgId = `img-${product.index}`;
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
-    // Always use local path for secondary fallback
+    // Image Fallbacks logic
     const driveId = extractDriveId(product.image); 
     const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : `${ASSETS_BASE_URL}${product.no}.jpg`;
 
