@@ -946,8 +946,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisp) versionDisp.textContent = "v3.8"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v3.8";
+            if (versionDisp) versionDisp.textContent = "v4.1.1"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v4.1.1";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
