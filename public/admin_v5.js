@@ -234,12 +234,12 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
             // --- Reset UI on failure ---
             if (!success) {
                 console.error("All AI attempts failed.");
-                let errorDetails = lastError ? (lastError.message || lastError) : "Multiple failures";
+                let userFriendlyErr = lastError;
                 
-                let userFriendlyErr = errorDetails;
-                if (errorDetails.toString().includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
-                if (errorDetails.toString().includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
-                if (errorDetails.toString().includes('404')) userFriendlyErr = "API Key Invalid/Leaked or Model not found (404).";
+                // Keep simplified messages for common issues but show the real error for transparency
+                if (lastError.includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
+                if (lastError.includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
+                // Removed the generic 404 catch to show the real error from GAS Proxy
 
                 if (label) label.innerHTML = `Product Image <span style="color:var(--danger);">${userFriendlyErr}</span>`;
                 
