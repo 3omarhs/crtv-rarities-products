@@ -1,10 +1,25 @@
-$port = 8000
+$port = 8080
 $root = "d:\GitHub\crtv-rarities-products\public"
 $dataDir = "d:\GitHub\crtv-rarities-products\data"
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Start()
-Write-Host "API-Enabled Static Server Listening on http://localhost:$port/"
+Write-Output "API-Enabled Static Server Listening on http://localhost:$port/"
+
+function Decrypt-Key($encBase64) {
+    if ([string]::IsNullOrWhiteSpace($encBase64)) { return $encBase64 }
+    try {
+        $encBytes = [System.Convert]::FromBase64String($encBase64)
+        $keyBytes = [System.Text.Encoding]::UTF8.GetBytes("crtv_secure_2026")
+        $resBytes = New-Object byte[] $encBytes.Length
+        for ($i=0; $i -lt $encBytes.Length; $i++) {
+            $resBytes[$i] = $encBytes[$i] -bxor $keyBytes[$i % $keyBytes.Length]
+        }
+        $dec = [System.Text.Encoding]::UTF8.GetString($resBytes)
+        if ($dec -match "^AIza") { return $dec }
+        return $encBase64
+    } catch { return $encBase64 }
+}
 
 function Convert-CsvToJson($csvPath) {
     if (Test-Path $csvPath) {
@@ -29,6 +44,7 @@ while ($listener.IsListening) {
         }
 
         $path = $request.Url.LocalPath
+        Write-Output "Request: $($request.HttpMethod) $path"
         if ($path -eq "/" -or $path -eq "") { $path = "/index.html" }
         
         $localPath = Join-Path $root $path.Replace("/", "\")
@@ -71,10 +87,77 @@ while ($listener.IsListening) {
                 $json = $set | ConvertTo-Json
             } elseif ($path -eq "/api/gemini-keys") {
                 $keysRaw = Import-Csv (Join-Path $dataDir "gemini_keys.csv")
-                $keys = $keysRaw | ForEach-Object { $_.key }
+                $keys = $keysRaw | ForEach-Object { Decrypt-Key $_.key }
                 $json = @{ keys = $keys } | ConvertTo-Json
             } elseif ($path -eq "/api/products") {
                 $json = Convert-CsvToJson (Join-Path $dataDir "products.csv")
+            } elseif ($path -eq "/api/proxy-gemini" -and $request.HttpMethod -eq "POST") {
+                try {
+                    $reader = New-Object System.IO.StreamReader($request.InputStream)
+                    $postData = $reader.ReadToEnd() | ConvertFrom-Json
+                    $response.StatusCode = 200
+                    
+                    # Get API Keys
+                    $keysRaw = Import-Csv (Join-Path $dataDir "gemini_keys.csv")
+                    $apiKeys = @()
+                    foreach ($row in $keysRaw) { if ($row.key) { $apiKeys += Decrypt-Key $row.key } }
+                    
+                    if ($apiKeys.Count -eq 0) {
+                        # Try settings.csv fallback
+                        $settings = Import-Csv (Join-Path $dataDir "settings.csv")
+                        $geminiRow = $settings | Where-Object { $_.key -eq "gemini_credentials_raw" }
+                        if ($geminiRow -and $geminiRow.value -match "Gemini API Key: ([A-Za-z0-9_-]+)") {
+                            $apiKeys += Decrypt-Key $Matches[1]
+                        }
+                    }
+
+                    if ($apiKeys.Count -eq 0) { throw "No Gemini API Key found in gemini_keys.csv or settings.csv" }
+
+                    $models = @("gemini-2.0-flash-exp", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-pro-vision", "gemini-pro")
+                    $success = $false
+                    $lastErr = ""
+
+                    foreach ($apiKey in $apiKeys) {
+                        foreach ($model in $models) {
+                            try {
+                                Write-Output "Attempting Gemini API with model: $model (Key: $($apiKey.Substring(0, 8)))..."
+                                $url = "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent"
+                                $headers = @{ "x-goog-api-key" = $apiKey; "Content-Type" = "application/json" }
+                                $payload = @{
+                                    contents = @(
+                                        @{
+                                            parts = @(
+                                                @{ text = $postData.prompt },
+                                                @{ inline_data = @{ mime_type = $postData.mimeType; data = $postData.image } }
+                                            )
+                                        }
+                                    )
+                                }
+                                
+                                $apiResponse = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body ($payload | ConvertTo-Json -Depth 10)
+                                $json = $apiResponse | ConvertTo-Json -Depth 10
+                                $success = $true
+                                break
+                            } catch {
+                                $lastErr = $_.Exception.Message
+                                Write-Output "Gemini API Error with model $model : $lastErr"
+                                if ($_.Exception.Response) {
+                                    $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                                    $errorBody = $reader.ReadToEnd()
+                                    Write-Output "Error Body: $errorBody"
+                                }
+                            }
+                        }
+                        if ($success) { break }
+                    }
+
+                    if (-not $success) {
+                        throw "All Gemini API keys failed. Last error: $lastErr"
+                    }
+                } catch {
+                    $response.StatusCode = 500
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json
+                }
             } else {
                 $response.StatusCode = 404
                 $json = "{`"error`": `"Endpoint not implemented`"}"
@@ -83,7 +166,6 @@ while ($listener.IsListening) {
             $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
             $response.ContentLength64 = $bytes.Length
             $response.OutputStream.Write($bytes, 0, $bytes.Length)
-            $response.StatusCode = 200
         } elseif (Test-Path $localPath -PathType Leaf) {
             $ext = [System.IO.Path]::GetExtension($localPath).ToLower()
             $mime = "application/octet-stream"
@@ -111,6 +193,6 @@ while ($listener.IsListening) {
         }
         $response.Close()
     } catch {
-        Write-Host "Error: $_"
+        Write-Output "Error: $_"
     }
 }

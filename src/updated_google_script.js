@@ -177,6 +177,33 @@ function doPost(e) {
             return ContentService.createTextOutput(JSON.stringify({ "result": "success", "visits": newTotal })).setMimeType(ContentService.MimeType.JSON);
         }
 
+        if (action === 'proxyGemini') {
+            const keysSheet = ss.getSheetByName("gemini_keys");
+            let apiKey = "";
+            if (keysSheet) {
+                const keys = keysSheet.getDataRange().getValues();
+                if (keys.length > 1) {
+                    // Simple rotation: pick a random key or use the first valid one
+                    apiKey = keys[Math.floor(Math.random() * (keys.length - 1)) + 1][0];
+                }
+            }
+
+            if (!apiKey) {
+                return ContentService.createTextOutput(JSON.stringify({ "error": "No Gemini API Key found in sheet 'gemini_keys'" })).setMimeType(ContentService.MimeType.JSON);
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const options = {
+                method: 'post',
+                contentType: 'application/json',
+                payload: JSON.stringify(data.payload),
+                muteHttpExceptions: true
+            };
+
+            const response = UrlFetchApp.fetch(url, options);
+            return ContentService.createTextOutput(response.getContentText()).setMimeType(ContentService.MimeType.JSON);
+        }
+
     } catch (ex) {
         return ContentService.createTextOutput(JSON.stringify({ "result": "error", "error": ex.toString() })).setMimeType(ContentService.MimeType.JSON);
     }

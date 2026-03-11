@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V4.2.6 LOADED (Fix GAS Variable Scope) !!!");
-document.title = "Admin Portal (v4.2.6)";
+console.log("!!! ADMIN JS V5.0.0 LOADED (Fix GAS Variable Scope) !!!");
+document.title = "Admin Portal (v5.0.0)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -112,6 +112,8 @@ async function analyzeImageWithGemini(file) {
         reader.onloadend = async () => {
             const base64Data = reader.result.split(',')[1];
             const mimeType = file.type;
+            let success = false;
+            let lastError = null;
 
             const prompt = `You are a product management assistant. Analyze the image and provide the following details based exactly on this structure:
 "name this product, only reply with the name and suggest one only the closest one to the product don't talk alot
@@ -129,42 +131,40 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            // Proxy Request to GAS
-            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
-            
-            const proxyPayload = {
-                action: 'proxyGemini',
-                payload: {
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inline_data: { mime_type: mimeType, data: base64Data } }
-                        ]
-                    }]
-                }
-            };
-
+            // --- STRATEGY: Use Local Proxy Only ---
             try {
-                console.log("Admin: Sending AI request to secure GAS proxy...");
-                // Note: Using fetch with POST to GAS. We avoid custom headers to keep it as a "simple" request for CORS.
-                const response = await fetch(gasUrl, {
+                const proxyUrl = '/api/proxy-gemini';
+                console.log(`Admin: Attempting AI request via ${proxyUrl}...`);
+                const response = await fetch(proxyUrl, {
                     method: 'POST',
-                    body: JSON.stringify(proxyPayload)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, image: base64Data, mimeType })
                 });
 
-                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-
-                const data = await response.json();
-
-                if (data.error) {
-                    console.warn("GAS Proxy returned error:", data.error);
-                    throw new Error(data.error);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText}`);
                 }
 
-                if (data.candidates && data.candidates[0].content) {
-                    const text = data.candidates[0].content.parts[0].text;
-                    console.log("AI Proxy Response:", text);
+                const data = await response.json();
+                if (data.error || (data.result === 'error')) {
+                    const errMsg = data.error || data.message || "Proxy error";
+                    console.warn(`Admin: API at ${proxyUrl} reported error:`, errMsg);
+                    throw new Error(`API: ${errMsg}`);
+                }
 
+                // Handle response parsing
+                let text = "";
+                if (data.candidates && data.candidates[0].content) {
+                    text = data.candidates[0].content.parts[0].text;
+                } else if (data.text) {
+                    text = data.text;
+                } else {
+                    throw new Error("Invalid response structure");
+                }
+
+                if (text) {
+                    console.log("AI Response:", text);
                     const parts = text.split('|||').map(p => p.trim());
 
                     if (parts[0]) document.querySelector('input[name="product name"]').value = parts[0];
@@ -182,33 +182,31 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                         }, 5000);
                     }
                     success = true;
-                } else {
-                    throw new Error("Invalid response structure from AI proxy.");
                 }
-
             } catch (err) {
-                lastError = err;
-                console.error("AI Proxy Attempt failed:", err);
+                lastError = err.message || err.toString();
+                console.error(`AI Attempt failed:`, err);
             }
 
-            if (!success) {
-                console.error("Secure AI Proxy failed.");
-                let errorDetails = lastError ? (lastError.message || lastError) : "Connection/Link Error";
-                if (errorDetails.toString().length > 60) errorDetails = errorDetails.toString().substring(0, 50) + "...";
 
-                const failureText = `⚠️ Failed: ${errorDetails}`;
-                inputsToReset.forEach(selector => {
-                    const el = document.querySelector(selector);
-                    if (el && el.value === loadingText) {
-                        el.value = failureText;
-                        el.title = lastError ? (lastError.message || lastError) : "Check Console for details";
-                        el.classList.add('error-pulse');
+            // --- Reset UI on failure ---
+            if (!success) {
+                console.error("All AI attempts failed.");
+                let errorDetails = lastError ? (lastError.message || lastError) : "Multiple failures";
+                
+                let userFriendlyErr = errorDetails;
+                if (errorDetails.toString().includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
+                if (errorDetails.toString().includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
+                if (errorDetails.toString().includes('404')) userFriendlyErr = "API Key Invalid/Leaked or Model not found (404).";
+
+                if (label) label.innerHTML = `Product Image <span style="color:var(--danger);">${userFriendlyErr}</span>`;
+                
+                // Broad reset: find any input/textarea containing "Generated by AI" and clear it
+                document.querySelectorAll('input, textarea').forEach(el => {
+                    if (el.value && el.value.includes('Generated by AI')) {
+                        el.value = "";
                     }
                 });
-
-                if (label) {
-                    label.innerHTML = 'Product Image <span style="margin-left:5px; color:#ef4444;">AI Proxy Failed ❌</span>';
-                }
             }
         };
 
@@ -894,7 +892,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v4.2.6";
+    if (versionDisplay) versionDisplay.textContent = "v5.0.0";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
 
@@ -935,8 +933,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v4.2.6"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v4.2.6";
+            if (versionDisplay) versionDisplay.textContent = "v5.0.0"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.0.0";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
