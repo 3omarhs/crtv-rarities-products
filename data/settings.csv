@@ -1,8 +1,7 @@
 key,value
 gemini_credentials_raw,"# Paste your Gemini API Keys here (one per line).
 # The system will automatically rotate through them if one quota is exceeded.
-Gemini API Key: AIzaSyDsZ93bej2UhTNaUBj5aW4a6xDTSKlePEc
-Gemini API Key: AIzaSyDaWoBWbl2H-7L6AtWyKcpVjBWgCmdaAjk
+Gemini API Key: AIzaSyDNDCb82ygt8XBSZWAdJUP672T6-MtYWbs
 # Add more as needed...
 "
 test_key,test_val

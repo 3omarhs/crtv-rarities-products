@@ -97,23 +97,36 @@ while ($listener.IsListening) {
                     $postData = $reader.ReadToEnd() | ConvertFrom-Json
                     $response.StatusCode = 200
                     
-                    # Get API Keys
-                    $keysRaw = Import-Csv (Join-Path $dataDir "gemini_keys.csv")
+                    # Get API Keys from all sources
                     $apiKeys = @()
-                    foreach ($row in $keysRaw) { if ($row.key) { $apiKeys += Decrypt-Key $row.key } }
                     
-                    if ($apiKeys.Count -eq 0) {
-                        # Try settings.csv fallback
+                    # 1. From gemini_keys.csv
+                    if (Test-Path (Join-Path $dataDir "gemini_keys.csv")) {
+                        $keysRaw = Import-Csv (Join-Path $dataDir "gemini_keys.csv")
+                        foreach ($row in $keysRaw) { if ($row.key) { $apiKeys += Decrypt-Key $row.key } }
+                    }
+                    
+                    # 2. From settings.csv fallback
+                    if (Test-Path (Join-Path $dataDir "settings.csv")) {
                         $settings = Import-Csv (Join-Path $dataDir "settings.csv")
-                        $geminiRow = $settings | Where-Object { $_.key -eq "gemini_credentials_raw" }
-                        if ($geminiRow -and $geminiRow.value -match "Gemini API Key: ([A-Za-z0-9_-]+)") {
-                            $apiKeys += Decrypt-Key $Matches[1]
+                        # Try both specific keys and raw credentials block
+                        $geminiRow = $settings | Where-Object { $_.key -eq "gemini_credentials_raw" -or $_.key -eq "gemini_api_key" }
+                        foreach ($row in $geminiRow) {
+                            if ($row.value -match "Gemini API Key: ([A-Za-z0-9_-]+)") {
+                                $apiKeys += Decrypt-Key $Matches[1]
+                            } elseif ($row.value -match "^AIza") {
+                                $apiKeys += Decrypt-Key $row.value
+                            }
                         }
                     }
 
+                    # Remove duplicates and empty keys
+                    $apiKeys = $apiKeys | Where-Object { $_ } | Select-Object -Unique
+
                     if ($apiKeys.Count -eq 0) { throw "No Gemini API Key found in gemini_keys.csv or settings.csv" }
 
-                    $models = @("gemini-2.0-flash-exp", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-pro-vision", "gemini-pro")
+                    # Updated robust model list
+                    $models = @("gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-flash-latest", "gemini-2.0-flash-exp")
                     $success = $false
                     $lastErr = ""
 
@@ -121,17 +134,20 @@ while ($listener.IsListening) {
                         foreach ($model in $models) {
                             try {
                                 Write-Output "Attempting Gemini API with model: $model (Key: $($apiKey.Substring(0, 8)))..."
-                                $url = "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent"
-                                $headers = @{ "x-goog-api-key" = $apiKey; "Content-Type" = "application/json" }
+                                $url = "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}"
+                                $headers = @{ "Content-Type" = "application/json" }
                                 $payload = @{
                                     contents = @(
                                         @{
                                             parts = @(
-                                                @{ text = $postData.prompt },
-                                                @{ inline_data = @{ mime_type = $postData.mimeType; data = $postData.image } }
+                                                @{ text = $postData.prompt }
                                             )
                                         }
                                     )
+                                }
+                                # Add image if present
+                                if ($postData.image -and $postData.mimeType) {
+                                    $payload.contents[0].parts += @{ inline_data = @{ mime_type = $postData.mimeType; data = $postData.image } }
                                 }
                                 
                                 $apiResponse = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body ($payload | ConvertTo-Json -Depth 10)

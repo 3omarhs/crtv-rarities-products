@@ -1046,7 +1046,7 @@ Instructions:
             let success = false;
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
                 const API_KEY = GEMINI_API_KEYS[i];
-                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
 
                 try {
                     const response = await fetch(API_URL, {
