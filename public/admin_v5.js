@@ -1369,6 +1369,44 @@ async function fetchOrders(GAS_URL) {
 
 
 async function fetchVisits(GAS_URL) {
+    // 1. Try Supabase first (if configured)
+    if (window.supabaseClient) {
+        try {
+            console.log("Admin: Fetching visits from Supabase...");
+            
+            // Get today's date YYYY-MM-DD in local time
+            const today = new Date();
+            const offset = today.getTimezoneOffset() * 60000;
+            const localDate = new Date(today.getTime() - offset).toISOString().split('T')[0];
+
+            // Fetch all visits to calculate total and today's stats
+            const { data, error } = await window.supabaseClient.from('visits').select('date, count');
+            
+            if (error) throw error;
+            
+            if (data) {
+                let total = 0;
+                let daily = {};
+                let todayCount = 0;
+                
+                data.forEach(row => {
+                    const count = parseInt(row.count, 10) || 0;
+                    total += count;
+                    daily[row.date] = count;
+                    if (row.date === localDate) {
+                        todayCount = count;
+                    }
+                });
+                
+                console.log(`Admin: Supabase visits loaded. Total: ${total}, Today: ${todayCount}`);
+                return { total: total, daily: daily, today: todayCount };
+            }
+        } catch (e) {
+            console.warn("Admin: Supabase visits fetch failed, falling back to legacy...", e);
+        }
+    }
+
+    // 2. Fallbacks
     const isStatic = window.location.hostname.includes('github.io');
 
     if (isStatic) {
