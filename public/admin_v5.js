@@ -190,7 +190,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 const data = await response.json();
                 if (data.error || (data.result === 'error')) {
                     const errMsg = data.error || data.message || "Proxy error";
-                    console.warn(`Admin: API at ${proxyUrl} reported error:`, errMsg);
+                    const endpointUsed = isStatic ? 'GAS Proxy' : '/api/proxy-gemini';
+                    console.warn(`Admin: API at ${endpointUsed} reported error:`, errMsg);
                     throw new Error(`API: ${errMsg}`);
                 }
 
