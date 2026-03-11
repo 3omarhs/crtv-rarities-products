@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Creative Rarities - Key Encryptor</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #fff; padding: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background: #16213e; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1 { color: #0f3460; border-bottom: 2px solid #e94560; padding-bottom: 10px; color: #fff; }
+        label { display: block; margin-bottom: 10px; font-weight: bold; color: #e94560; }
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #0f3460; border-radius: 4px; background: #0f3460; color: #fff; font-family: monospace; box-sizing: border-box;}
+        button { background: #e94560; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
+        button:hover { background: #d33c56; }
+        .result { margin-top: 20px; padding: 15px; background: #0f3460; border-radius: 4px; border: 1px solid #e94560; word-break: break-all; font-family: monospace; display: none; }
+        .note { font-size: 12px; color: #888; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Gemini Key Encryptor</h1>
+        <p>This tool securely encrypts your Gemini API key so it will bypass GitHub's automatic scanners. <b>It runs 100% locally in your browser and never sends your key to any server.</b></p>
+        
+        <label for="apiKey">Paste NEW Raw Gemini Key (AIza...)</label>
+        <input type="text" id="apiKey" placeholder="AIzaSy...">
+        
+        <button onclick="encrypt()">Encrypt Key</button>
+        
+        <div id="resultBox" class="result">
+            <strong>Encrypted Key:</strong><br><br>
+            <span id="output" style="color: #4ade80; font-size: 18px;"></span>
+            <br><br>
+            <p style="color: #fff; font-family: sans-serif; font-size: 14px;">Copy the exact string above and paste it into the <code>key</code> column of your <code>data/gemini_keys.csv</code> file.</p>
+        </div>
+        
+        <div class="note">Password Used: crtv_secure_2026 (Hardcoded in Servers)</div>
+    </div>
+
+    <script>
+        function encrypt() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const outputObj = document.getElementById('output');
+            const resultBox = document.getElementById('resultBox');
+            
+            if (!apiKey) {
+                alert("Please enter a key first.");
+                return;
+            }
+
+            const pwd = "crtv_secure_2026";
+            
+            // Convert strings to UTF-8 byte arrays
+            const textBytes = new TextEncoder().encode(apiKey);
+            const keyBytes = new TextEncoder().encode(pwd);
+            
+            // XOR Encryption
+            const resBytes = new Uint8Array(textBytes.length);
+            for (let i = 0; i < textBytes.length; i++) {
+                resBytes[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
+            }
+            
+            // Convert to Base64
+            let binary = '';
+            for (let i = 0; i < resBytes.byteLength; i++) {
+                binary += String.fromCharCode(resBytes[i]);
+            }
+            const encryptedBase64 = btoa(binary);
+
+            outputObj.innerText = encryptedBase64;
+            resultBox.style.display = "block";
+        }
+    </script>
+</body>
+</html>

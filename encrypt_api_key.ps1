@@ -34,12 +34,22 @@ if ([string]::IsNullOrWhiteSpace($ApiKey)) {
 
 if ([string]::IsNullOrWhiteSpace($ApiKey)) {
     Write-Host "No key provided. Exiting." -ForegroundColor Red
+    Write-Host "Press Enter to exit..."
+    Read-Host
     exit
 }
 
-$encrypted = Encrypt-Key -plainText $ApiKey.Trim() -pwd $pwd
-Write-Host "ENCRYPTED_KEY: $encrypted"
+try {
+    $encrypted = Encrypt-Key -plainText $ApiKey.Trim() -pwd $pwd
+    Write-Host "`n✔ Encryption Successful!" -ForegroundColor Green
+    Write-Host "`nCopy the following text and paste it under the 'key' column in data\gemini_keys.csv:" -ForegroundColor Yellow
+    Write-Host "--------------------------------------------------------------------------------"
+    Write-Host $encrypted -ForegroundColor Magenta
+    Write-Host "--------------------------------------------------------------------------------"
+} catch {
+    Write-Host "`n❌ An error occurred: $($_.Exception.Message)" -ForegroundColor Red
+}
+
 Write-Host " "
 Write-Host "Press Enter to exit..."
 Read-Host
-
