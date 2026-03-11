@@ -7,8 +7,23 @@ document.title = "Admin Portal (v5.0.0)";
 
 let ADMIN_USERS = [];
 let GEMINI_API_KEYS = []; // Array for rotation
-// Derived from app.js for consistency
-// const PRODUCT_CSV_URL = '...'; // Removed duplicate
+
+// Decode Function for API Keys
+function decodeApiKey(encoded) {
+    if (!encoded || encoded.length < 20) return encoded; // Might be raw/dummy
+    try {
+        const pwd = 'crtv_secure_2026';
+        let raw = atob(encoded);
+        let decoded = '';
+        for (let i = 0; i < raw.length; i++) {
+            decoded += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+        }
+        return decoded;
+    } catch(e) {
+        console.warn("Failed to decode key", e);
+        return encoded;
+    }
+}
 
 async function loadGeminiCredentials() {
     GEMINI_API_KEYS = [];
@@ -20,7 +35,7 @@ async function loadGeminiCredentials() {
         if (response.ok) {
             const data = await response.json();
             if (data.keys && Array.isArray(data.keys)) {
-                GEMINI_API_KEYS = data.keys;
+                GEMINI_API_KEYS = data.keys.map(decodeApiKey);
                 console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from DB.`);
             }
         } else {
@@ -38,7 +53,7 @@ async function loadGeminiCredentials() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.keys && Array.isArray(data.keys)) {
-                    GEMINI_API_KEYS = data.keys;
+                    GEMINI_API_KEYS = data.keys.map(decodeApiKey);
                     console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from GAS.`);
                 }
             }
@@ -53,13 +68,14 @@ async function loadGeminiCredentials() {
     const localKey = localStorage.getItem('gemini_api_key');
     if (localKey) {
         const cleanedKey = localKey.trim();
-        const isDummy = /DUMMY|YOUR_KEY|ABC|PASTE|12345/i.test(cleanedKey) || cleanedKey.length < 20;
+        const decodedKey = decodeApiKey(cleanedKey);
+        const isDummy = /DUMMY|YOUR_KEY|ABC|PASTE|12345/i.test(decodedKey) || decodedKey.length < 20;
         
         if (isDummy) {
             console.warn("Admin: Removing invalid dummy key from localStorage");
             localStorage.removeItem('gemini_api_key');
-        } else if (!GEMINI_API_KEYS.includes(cleanedKey)) {
-            GEMINI_API_KEYS.unshift(cleanedKey); // Add to front
+        } else if (!GEMINI_API_KEYS.includes(decodedKey)) {
+            GEMINI_API_KEYS.unshift(decodedKey); // Add to front
             console.log("Admin: Added user-provided key from localStorage.");
         }
     }
@@ -76,11 +92,13 @@ async function analyzeImageWithGemini(file) {
         await loadGeminiCredentials();
     }
 
-    if (GEMINI_API_KEYS.length === 0) {
-        alert("System Error: No Gemini API Keys found. Please add your key in the Settings tab or your Google Sheet (gemini_keys sheet).");
+    const isStatic = window.location.hostname.includes('github.io');
+    
+    if (!isStatic && GEMINI_API_KEYS.length === 0) {
+        alert("System Error: No Gemini API Keys found locally. Please add your key in the Settings tab.");
         return;
     }
-
+    
     const label = document.querySelector('label[for="product-image-upload"]');
     const originalText = "Product Image";
 
@@ -131,15 +149,38 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            // --- STRATEGY: Use Local Proxy Only ---
+            // --- STRATEGY: Use Local Proxy or GAS Proxy ---
             try {
-                const proxyUrl = '/api/proxy-gemini';
-                console.log(`Admin: Attempting AI request via ${proxyUrl}...`);
-                const response = await fetch(proxyUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, image: base64Data, mimeType })
-                });
+                const isStatic = window.location.hostname.includes('github.io');
+                let response;
+
+                if (isStatic) {
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+                    console.log(`Admin: Attempting AI request via GAS proxy...`);
+                    // GAS doesn't require Content-Type: application/json, and using text/plain avoids CORS preflight
+                    response = await fetch(gasUrl, {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            action: 'proxyGemini', 
+                            payload: { 
+                                contents: [{ 
+                                    parts: [
+                                        { text: prompt },
+                                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                                    ] 
+                                }] 
+                            }
+                        })
+                    });
+                } else {
+                    const proxyUrl = '/api/proxy-gemini';
+                    console.log(`Admin: Attempting AI request via ${proxyUrl}...`);
+                    response = await fetch(proxyUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, image: base64Data, mimeType })
+                    });
+                }
 
                 if (!response.ok) {
                     const errText = await response.text();
