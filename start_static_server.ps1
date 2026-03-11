@@ -91,6 +91,36 @@ while ($listener.IsListening) {
                 $json = @{ keys = $keys } | ConvertTo-Json
             } elseif ($path -eq "/api/products") {
                 $json = Convert-CsvToJson (Join-Path $dataDir "products.csv")
+            } elseif ($path -eq "/api/record-visit" -and $request.HttpMethod -eq "POST") {
+                try {
+                    $csvPath = Join-Path $dataDir "visits.csv"
+                    $todayStr = Get-Date -Format "yyyy-MM-dd"
+                    $visits = @()
+                    if (Test-Path $csvPath) { $visits = Import-Csv $csvPath }
+                    
+                    $found = $false
+                    foreach ($v in $visits) {
+                        if ($v.date -eq $todayStr) {
+                            $v.count = ([int]$v.count + 1).ToString()
+                            $found = $true
+                            break
+                        }
+                    }
+                    
+                    if (-not $found) {
+                        $newVisit = New-Object PSObject -Property @{ count = "1"; date = $todayStr }
+                        $visits += $newVisit
+                    }
+                    
+                    $lines = @("count,date")
+                    foreach ($v in $visits) { $lines += "$($v.count),$($v.date)" }
+                    $lines | Set-Content -Path $csvPath -Encoding UTF8
+                    
+                    $json = @{ status = "success"; date = $todayStr } | ConvertTo-Json
+                } catch {
+                    $response.StatusCode = 500
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json
+                }
             } elseif ($path -eq "/api/proxy-gemini" -and $request.HttpMethod -eq "POST") {
                 try {
                     $reader = New-Object System.IO.StreamReader($request.InputStream)

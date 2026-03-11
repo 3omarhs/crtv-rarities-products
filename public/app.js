@@ -614,19 +614,29 @@ async function init() {
 
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
-        console.log("Attempting to track visit via GAS...");
-
-        // Track via GAS (Primary for static tracking)
-        fetch(GAS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify({ action: 'recordVisit' })
-        })
+        const isStatic = window.location.hostname.includes('github.io');
+        
+        if (isStatic) {
+            console.log("Attempting to track visit via GAS (Static/GitHub)...");
+            fetch(GAS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'recordVisit' })
+            })
             .then(() => console.log("Visit recorded (GAS)."))
             .catch(e => console.error("Could not track visit via GAS:", e));
+        } else {
+            console.log("Attempting to track visit via Local API...");
+            fetch('/api/record-visit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'recordVisit' })
+            })
+            .then(res => res.json())
+            .then(data => console.log("Visit recorded (Local):", data))
+            .catch(e => console.warn("Local visit tracking failed, trying GAS fallback:", e));
+        }
     }
 }
 

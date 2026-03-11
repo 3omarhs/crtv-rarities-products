@@ -106,6 +106,35 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(res).encode())
 
+    def serve_record_visit(self):
+        path = os.path.join(DATA_DIR, 'visits.csv')
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        rows = []
+        found = False
+        
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get('date') == today_str:
+                        row['count'] = str(int(row.get('count', 0)) + 1)
+                        found = True
+                    rows.append(row)
+        
+        if not found:
+            rows.append({'count': '1', 'date': today_str})
+        
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['count', 'date'])
+            writer.writeheader()
+            writer.writerows(rows)
+            
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "success", "date": today_str}).encode())
+
     def serve_settings(self):
         path = os.path.join(DATA_DIR, 'settings.csv')
         settings = {}
@@ -143,6 +172,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/api/proxy-gemini':
             self.serve_proxy_gemini()
+        elif self.path == '/api/record-visit':
+            self.serve_record_visit()
         else:
             self.send_response(404)
             self.end_headers()
