@@ -601,8 +601,10 @@ async function initAdmin() {
 
             // Save Gemini Key to LocalStorage
             const keyInput = document.getElementById('gemini-api-key-input');
+            let keyToSave = '';
             if (keyInput) {
                 const key = keyInput.value.trim();
+                keyToSave = key;
                 if (key) {
                     localStorage.setItem('gemini_api_key', key);
                     await loadGeminiCredentials(); // Reload immediately
@@ -610,6 +612,38 @@ async function initAdmin() {
                     localStorage.removeItem('gemini_api_key');
                 }
             }
+
+            let supabaseSuccess = false;
+            if (window.supabaseClient) {
+                try {
+                    console.log("Saving settings to Supabase...");
+                    const { error } = await window.supabaseClient.from('settings').upsert({
+                        id: 1,
+                        enabled: enabled,
+                        receiver_email: receiver,
+                        sender_email: sender,
+                        sender_pass: pass,
+                        google_script_url: document.getElementById('settings-google-script-url')?.value.trim() || ''
+                    });
+                    
+                    if (keyToSave) {
+                        try {
+                            const encodedKey = btoa(keyToSave);
+                            await window.supabaseClient.from('gemini_keys').upsert({ id: Date.now(), key_value: encodedKey, is_active: true });
+                        } catch(e) { console.warn("Supabase Gemini Key error:", e); }
+                    }
+                    
+                    if (error) throw error;
+                    supabaseSuccess = true;
+                    msg.textContent = "Settings saved to Supabase!";
+                    msg.classList.remove('hidden');
+                    setTimeout(() => msg.classList.add('hidden'), 3000);
+                } catch(e) {
+                    console.error("Supabase settings error", e);
+                }
+            }
+
+            if (supabaseSuccess) return;
 
             try {
                 // Static hosting limitation: Cannot save settings to backend API
@@ -791,24 +825,48 @@ async function handleProductSubmit(e) {
             gasData.imageName = newFileName;
             gasData.mimeType = file.type;
 
-            // Local image upload is disabled for static hosting
-            // try {
-            //     const localRes = await fetch('/api/upload-image', {
-            //         method: 'POST',
-            //         body: file,
-            //         headers: { 'X-Filename': newFileName }
-            //     });
-            // } catch (uploadErr) {
-            //     console.error("Local upload error", uploadErr);
-            // }
-
-            // submitToLocal(gasData); // Local DB sync is disabled for static hosting
+            await submitToSupabase(gasData);
             submitToGas(gasUrl, gasData);
         };
         reader.readAsDataURL(file);
     } else {
-        // submitToLocal(gasData); // Local DB sync is disabled for static hosting
-        submitToGas(gasUrl, gasData);
+        submitToSupabase(gasData).then(() => {
+            submitToGas(gasUrl, gasData);
+        });
+    }
+
+    async function submitToSupabase(payload) {
+        if (!window.supabaseClient) return;
+        try {
+            console.log("Syncing to Supabase...");
+            const dbPayload = {
+                no: payload['No'],
+                name_on_store: payload['Name on Store'],
+                product_name: payload['Product Name'],
+                arabic_name: payload['Arabic Name'],
+                category: payload['category'],
+                collection: payload['collection'],
+                description: payload['description (80 word)'],
+                colors: payload['Colors'],
+                dimensions: payload['Dimensions(mm) x y z'],
+                price_under_25: payload['Price < 25 QTY'],
+                price_over_25: payload['Price >=25 QTY'],
+                target_market: payload['target market'],
+                document_link: payload['Document Link'],
+                weight_calc: payload['Calculate on Weight'],
+                available: payload['Available'],
+                hidden: payload['Hidden'],
+                active: payload['Active'],
+                image_base64: payload.image,
+                image_name: payload.imageName,
+                mime_type: payload.mimeType
+            };
+            const { data, error } = await window.supabaseClient.from('products').upsert(dbPayload, { onConflict: 'no' });
+            if (error) throw error;
+            console.log("Supabase sync complete.");
+        } catch (e) {
+            console.error("Supabase sync failed:", e);
+        }
     }
 
     async function submitToLocal(payload) {
@@ -2653,6 +2711,27 @@ window.submitWholesaleItem = async function () {
 
     if (isNaN(specialPrice)) { alert("Please enter a valid wholesale price"); return; }
 
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Adding special offer to Supabase...");
+            const { error } = await window.supabaseClient.from('wholesale').upsert({
+                item_no: itemNo,
+                special_price: specialPrice,
+                category: category || null
+            }, { onConflict: 'item_no' });
+            if (error) throw error;
+            console.log("Special offer added to Supabase.");
+            supabaseSuccess = true;
+            window.closeWholesaleModal();
+            alert("Special offer saved to Supabase.");
+        } catch (e) {
+            console.error("Supabase Add Wholesale Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
+
     alert("Adding special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
     return;
 
@@ -2810,6 +2889,26 @@ window.submitWholesaleEdit = async function () {
 
     if (isNaN(price)) { alert("Invalid price"); return; }
 
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Updating special offer in Supabase...");
+            const { error } = await window.supabaseClient.from('wholesale').update({
+                special_price: price,
+                category: category || null
+            }).eq('item_no', itemNo);
+            if (error) throw error;
+            console.log("Special offer updated in Supabase.");
+            supabaseSuccess = true;
+            window.closeEditWholesaleModal();
+            alert("Special offer updated in Supabase.");
+        } catch (e) {
+            console.error("Supabase Edit Wholesale Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
+
     // Static hosting limitation
     console.warn("Special offers update disabled on static GitHub Pages.");
     alert("Updating special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
@@ -2835,6 +2934,24 @@ window.submitWholesaleEdit = async function () {
 
 window.confirmWholesaleDelete = async function () {
     const itemNo = document.getElementById('delete-so-item-no').value;
+
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Removing special offer from Supabase...");
+            const { error } = await window.supabaseClient.from('wholesale').delete().eq('item_no', itemNo);
+            if (error) throw error;
+            console.log("Special offer removed from Supabase.");
+            supabaseSuccess = true;
+            window.closeDeleteWholesaleModal();
+            alert("Special offer removed from Supabase.");
+        } catch (e) {
+            console.error("Supabase Delete Wholesale Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
+
     // Static host limitation
     console.warn("Removing special offer disabled.");
     alert("Removing special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
@@ -3834,6 +3951,30 @@ window.handleAddAdmin = async function () {
         return;
     }
 
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Saving admin to Supabase...");
+            const { error } = await window.supabaseClient.from('admins').insert({ username, password });
+            if (error) throw error;
+            console.log("Admin added to Supabase.");
+            supabaseSuccess = true;
+            
+            // Update local array for immediate viewing
+            ADMIN_USERS.push({ email: username, pass: password });
+            alert("Admin added successfully.");
+            const m = document.getElementById('add-admin-modal');
+            m.classList.remove('open');
+            setTimeout(() => m.classList.add('hidden'), 300);
+            window.loadAdminsForManagement();
+            loadCredentials();
+        } catch (e) {
+            console.error("Supabase Add Admin Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
+
     alert("Adding an admin is disabled on static GitHub Pages. Update adminCredentials.txt directly.");
     return;
 
@@ -3860,6 +4001,28 @@ window.handleAddAdmin = async function () {
 
 window.handleRemoveAdmin = async function (username) {
     if (!confirm(`Are you sure you want to remove admin access for ${username}?`)) return;
+
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Removing admin from Supabase...");
+            const { error } = await window.supabaseClient.from('admins').delete().eq('username', username);
+            if (error) throw error;
+            console.log("Admin removed from Supabase.");
+            supabaseSuccess = true;
+            
+            // Remove from local array
+            const index = ADMIN_USERS.findIndex(u => u.email === username);
+            if (index > -1) ADMIN_USERS.splice(index, 1);
+            
+            window.loadAdminsForManagement();
+            loadCredentials();
+        } catch (e) {
+            console.error("Supabase Remove Admin Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
 
     alert("Deleting an admin is disabled on static GitHub Pages. Update adminCredentials.txt directly.");
     return;
@@ -3897,6 +4060,31 @@ window.handleUpdateAdmin = async function () {
         alert("Please enter a new password.");
         return;
     }
+
+    let supabaseSuccess = false;
+    if (window.supabaseClient) {
+        try {
+            console.log("Updating admin in Supabase...");
+            const { error } = await window.supabaseClient.from('admins').update({ password: newPassword }).eq('username', username);
+            if (error) throw error;
+            console.log("Admin updated in Supabase.");
+            supabaseSuccess = true;
+            
+            // Update local array
+            const user = ADMIN_USERS.find(u => u.email === username);
+            if (user) user.pass = newPassword;
+            
+            alert("Password updated successfully.");
+            const m = document.getElementById('change-pass-modal');
+            m.classList.remove('open');
+            setTimeout(() => m.classList.add('hidden'), 300);
+            loadCredentials();
+        } catch (e) {
+            console.error("Supabase Update Admin Error:", e);
+        }
+    }
+
+    if (supabaseSuccess) return;
 
     alert("Changing credentials via dashboard is disabled on static GitHub Pages. Update the adminCredentials.txt directly in your repository.");
     return;

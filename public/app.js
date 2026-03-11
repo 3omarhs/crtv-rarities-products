@@ -616,6 +616,37 @@ async function init() {
         sessionStorage.setItem('visited_session', 'true');
         const isStatic = window.location.hostname.includes('github.io');
         
+        // --- 1. Supabase Visit Tracking ---
+        try {
+            if (window.supabaseClient) {
+                console.log("Tracking visit to Supabase...");
+                // Get local date YYYY-MM-DD
+                const today = new Date();
+                const offset = today.getTimezoneOffset() * 60000;
+                const localDate = new Date(today.getTime() - offset).toISOString().split('T')[0];
+                
+                window.supabaseClient
+                    .from('visits')
+                    .select('count')
+                    .eq('date', localDate)
+                    .single()
+                    .then(({data, error}) => {
+                        let newCount = 1;
+                        if (data && data.count) {
+                            newCount = parseInt(data.count, 10) + 1;
+                        }
+                        return window.supabaseClient.from('visits').upsert({ date: localDate, count: newCount }, { onConflict: 'date' });
+                    })
+                    .then(({error}) => {
+                        if (error) console.error("Supabase visit track error:", error);
+                        else console.log("Visit tracked to Supabase.");
+                    });
+            }
+        } catch(e) {
+            console.error("Supabase visit error:", e);
+        }
+
+        // --- 2. Fallbacks (GAS / Local API) ---
         if (isStatic) {
             console.log("Attempting to track visit via GAS (Static/GitHub)...");
             fetch(GAS_URL, {
