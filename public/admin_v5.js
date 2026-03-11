@@ -45,7 +45,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
             const response = await fetch(gasUrl, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'getGeminiKeys' })
@@ -155,7 +155,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 let response;
 
                 if (isStatic) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
                     console.log(`Admin: Attempting AI request via GAS proxy...`);
                     // GAS doesn't require Content-Type: application/json, and using text/plain avoids CORS preflight
                     response = await fetch(gasUrl, {
@@ -994,7 +994,7 @@ async function loadSettings() {
     const versionDisplay = document.getElementById('app-version-display');
     if (versionDisplay) versionDisplay.textContent = "v5.0.0";
 
-    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
 
     // Update all URL inputs
     const inputs = ['google-script-url', 'settings-google-script-url'];
@@ -1303,7 +1303,7 @@ async function loadData() {
     console.log("Admin: loadData called");
 
     try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbxpzqWhgL17l6J_nKZl4n_LlugnbXyT3ACE127tTn6Dmr0-x9Hmt6EiBjSh5bMc9OHtxw/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
 
         // 1. Fetch Orders from GAS or Fallback API
         let ordersData = await fetchOrders(gasUrl);
