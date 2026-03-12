@@ -1,6 +1,6 @@
 // Admin Portal Logic
 console.log("!!! ADMIN JS V5.0.0 LOADED (Fix GAS Variable Scope) !!!");
-document.title = "Admin Portal (v5.1.0)";
+document.title = "Admin Portal (v5.1.1)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -45,7 +45,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
             const response = await fetch(gasUrl, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'getGeminiKeys' })
@@ -155,7 +155,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 let response;
 
                 if (isStatic) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     console.log(`Admin: Attempting AI request via GAS proxy...`);
                     // GAS doesn't require Content-Type: application/json, and using text/plain avoids CORS preflight
                     response = await fetch(gasUrl, {
@@ -1000,9 +1000,9 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.0";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.1";
 
-    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
+    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
     // Update all URL inputs
     const inputs = ['google-script-url', 'settings-google-script-url'];
@@ -1311,7 +1311,7 @@ async function loadData() {
     console.log("Admin: loadData called");
 
     try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbx4s8PU0ZsmIslY3vs8xKUEoxj065BsF83CvZ9jdqmHIGR3tGBCHzFIXw_1k92TpQRrOA/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
         // 1. Fetch Orders from GAS or Fallback API
         let ordersData = await fetchOrders(gasUrl);
