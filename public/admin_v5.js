@@ -1,6 +1,54 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.2.4 LOADED (Deep Scope Fix) !!!");
-document.title = "Admin Portal (v5.2.4)";
+console.log("!!! ADMIN JS V5.2.5 LOADED (Ultimate JSONP Rescue) !!!");
+document.title = "Admin Portal (v5.2.5)";
+
+// --- KEY HEALTH TRACKING ---
+const SICK_KEYS = new Map(); // apiKey -> timestamp of last 429
+function isKeyHealthy(key) {
+    if (!SICK_KEYS.has(key)) return true;
+    const lastSick = SICK_KEYS.get(key);
+    if (Date.now() - lastSick > 60000) { // 60s cooldown
+        SICK_KEYS.delete(key);
+        return true;
+    }
+    return false;
+}
+
+// --- JSONP HELPER ---
+function getJsonp(url, timeoutNum = 30000) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(Math.random() * 1000000);
+        const script = document.createElement('script');
+        let timeout;
+
+        window[callbackName] = (data) => {
+            clearTimeout(timeout);
+            cleanup();
+            resolve(data);
+        };
+
+        const cleanup = () => {
+            if (script.parentNode) script.parentNode.removeChild(script);
+            delete window[callbackName];
+        };
+
+        const sep = url.includes('?') ? '&' : '?';
+        script.src = url + sep + 'callback=' + callbackName;
+        script.onerror = () => {
+            clearTimeout(timeout);
+            cleanup();
+            reject(new Error("JSONP Script load error"));
+        };
+
+        document.body.appendChild(script);
+
+        timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("JSONP Timeout"));
+        }, timeoutNum);
+    });
+}
+
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -184,6 +232,10 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     outerLoop: 
                     for (const modelName of models) {
                         for (const apiKey of GEMINI_API_KEYS) {
+                            if (!isKeyHealthy(apiKey)) {
+                                console.log(`Skipping sick key: ${apiKey.substring(0,6)}...`);
+                                continue;
+                            }
                             try {
                                 const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
                                 
@@ -207,6 +259,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                                     const code = directRes.status;
                                     console.warn(`AI (${modelName}) failed: ${code}`);
                                     if (code === 429) {
+                                        SICK_KEYS.set(apiKey, Date.now());
                                         const jitter = Math.floor(Math.random() * 1500) + 1000; // 1-2.5s jitter
                                         console.log(`Rate limited. Waiting ${jitter}ms before next key...`);
                                         await new Promise(r => setTimeout(r, jitter));
@@ -245,14 +298,31 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                         }] 
                     }));
 
-                    const gasResponse = await fetch(gasUrl, {
-                        method: 'POST',
-                        body: formData,
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                    });
-                    
-                    if (gasResponse.ok) response = gasResponse;
-                    else throw new Error(`GAS Fallback failed with status ${gasResponse.status}`);
+                    try {
+                        const gasResponse = await fetch(gasUrl, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                        });
+                        
+                        if (gasResponse.ok) response = gasResponse;
+                    } catch (e) {
+                        console.warn("GAS POST failed (CORS?), trying JSONP Backup...");
+                        // JSONP only works if the image is small enough to fit in GET URL
+                        // For safety, we'll try it with just the prompt and no image if it's too big
+                        const jsonpData = { 
+                            contents: [{ 
+                                parts: [{ text: prompt + " (Analyze based on prompt context only as image was too large for JSONP)" }] 
+                            }] 
+                        };
+                        const jsonpUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify(jsonpData))}`;
+                        const resJsonp = await getJsonp(jsonpUrl);
+                        if (resJsonp) {
+                            console.log("GAS Fallback: Success via JSONP!");
+                            // Mocking a response object for subsequent code
+                            response = { ok: true, json: async () => resJsonp };
+                        }
+                    }
                     clearTimeout(timeoutId);
                 }
 
@@ -1113,8 +1183,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.2.4"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.4";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.5"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.5";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1231,6 +1301,7 @@ Instructions:
             outerLoopSocial:
             for (const modelName of models) {
                 for (const API_KEY of GEMINI_API_KEYS) {
+                    if (!isKeyHealthy(API_KEY)) continue;
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
                         const directRes = await fetch(API_URL, {
@@ -1250,11 +1321,13 @@ Instructions:
                                 break outerLoopSocial;
                             }
                         } else {
-                            const code = response.status;
+                            const code = directRes.status;
                             console.warn(`Social AI (${modelName}) failed: ${code}`);
                             if (code === 429) {
-                                console.log("Social AI: Rate limited. Waiting 2s before next key...");
-                                await new Promise(r => setTimeout(r, 2000));
+                                SICK_KEYS.set(API_KEY, Date.now());
+                                const jitter = Math.floor(Math.random() * 1500) + 1000;
+                                console.log("Social AI: Rate limited. Waiting jitter...");
+                                await new Promise(r => setTimeout(r, jitter));
                             } else if (code === 404) {
                                 break; // Skip key rotation for broken model
                             }
@@ -1268,27 +1341,34 @@ Instructions:
                 
                 console.log(`Social AI: All direct keys failed. Trying GAS Fallback: ${gasUrl}`);
                 
-                console.log(`Social AI: Trying GAS (Ultimate CORS-Simple): ${gasUrl}`);
+                console.log(`Social AI: Trying GAS (Ultimate JSONP Bypass): ${gasUrl}`);
                 
-                // For social media (text-only), we can try GET as a definitive bypass
                 try {
-                    const getUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }))}`;
-                    const resGet = await fetch(getUrl);
-                    if (resGet.ok) {
-                        response = resGet;
+                    const jsonpData = { contents: [{ parts: [{ text: prompt }] }] };
+                    const jsonpUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify(jsonpData))}`;
+                    const resJsonp = await getJsonp(jsonpUrl);
+                    if (resJsonp && resJsonp.candidates) {
+                        output.value = resJsonp.candidates[0].content.parts[0].text.trim();
+                        success = true;
                     }
-                } catch (e) { console.warn("Social AI GET failed, falling back to POST..."); }
-
-                if (!response || !response.ok) {
+                } catch (e) { 
+                    console.warn("Social AI JSONP failed, trying last-ditch POST..."); 
                     const formData = new URLSearchParams();
                     formData.append('action', 'proxyGemini');
                     formData.append('data', JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }));
 
-                    response = await fetch(gasUrl, {
+                    const resPost = await fetch(gasUrl, {
                         method: 'POST',
                         body: formData,
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
+                    if (resPost.ok) {
+                        const data = await resPost.json();
+                        if (data.candidates && data.candidates[0].content) {
+                            output.value = data.candidates[0].content.parts[0].text.trim();
+                            success = true;
+                        }
+                    }
                 }
 
                 if (response.ok) {

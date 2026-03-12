@@ -1,5 +1,5 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.4 (ULTIMATE CORS STABLE)
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.5 (JSONP STABLE)
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
@@ -12,35 +12,45 @@
 
 const SPREADSHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 
-// Handles GET requests (Definitively bypasses CORS for small payloads)
+// Handles GET requests (JSONP support for definitive CORS bypass)
 function doGet(e) {
-    if (e.parameter.action === 'proxyGemini') {
-        return handleGeminiProxy(JSON.parse(e.parameter.data));
+    let result;
+    try {
+        if (e.parameter.action === 'proxyGemini') {
+            result = handleGeminiProxy(JSON.parse(e.parameter.data));
+        } else if (e.parameter.action) {
+            result = handleAllActions(e.parameter.action, e.parameter);
+        } else {
+            result = { status: "active", version: "4.5" };
+        }
+    } catch (err) {
+        result = { result: "error", error: err.toString() };
     }
-    if (e.parameter.action) {
-        return handleAllActions(e.parameter.action, e.parameter);
+
+    // JSONP Support: Wrap in callback if provided
+    if (e.parameter.callback) {
+        const jsonp = e.parameter.callback + '(' + JSON.stringify(result) + ')';
+        return ContentService.createTextOutput(jsonp)
+            .setMimeType(ContentService.MimeType.JAVASCRIPT);
     }
-    return ContentService.createTextOutput(JSON.stringify({ status: "active", version: "4.4" }))
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
 }
 
-// Handles POST requests (Supports JSON and Form-Encoded)
+// Handles POST requests
 function doPost(e) {
     try {
         let action, data;
-        
-        // Handle application/x-www-form-urlencoded or text/plain
         if (e.parameter && e.parameter.action) {
             action = e.parameter.action;
             data = e.parameter.data ? JSON.parse(e.parameter.data) : e.parameter;
         } else {
-            // Handle raw JSON
             const contents = JSON.parse(e.postData.contents);
             action = contents.action;
             data = contents;
         }
-        
-        return handleAllActions(action, data);
+        return jsonResponse(handleAllActions(action, data));
     } catch (error) {
         return jsonResponse({ result: "error", error: "doPost Error: " + error.toString() });
     }
@@ -60,7 +70,7 @@ function handleAllActions(action, params) {
                 headers.forEach((h, i) => obj[h] = row[i]);
                 return obj;
             });
-            return jsonResponse(orders);
+            return orders;
         } else if (action === 'getVisits') {
             const sheet = ss.getSheetByName('visits');
             const data = sheet.getDataRange().getValues();
@@ -73,20 +83,20 @@ function handleAllActions(action, params) {
                 daily[date] = count;
             });
             const today = new Date().toISOString().split('T')[0];
-            return jsonResponse({ total: total, daily: daily, today: daily[today] || 0 });
+            return { total: total, daily: daily, today: daily[today] || 0 };
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
-            if (!sheet) return jsonResponse({ keys: [] });
+            if (!sheet) return { keys: [] };
             const data = sheet.getDataRange().getValues();
             const keys = data.slice(1).map(row => row[0]).filter(k => k);
-            return jsonResponse({ keys: keys });
+            return { keys: keys };
         } else if (action === 'getSettings') {
             const sheet = ss.getSheetByName('settings');
-            if (!sheet) return jsonResponse({});
+            if (!sheet) return {};
             const data = sheet.getDataRange().getValues();
             let settings = {};
             data.slice(1).forEach(row => { if(row[0]) settings[row[0]] = row[1]; });
-            return jsonResponse(settings);
+            return settings;
         }
 
         // --- DATA UPDATE ---
@@ -104,15 +114,15 @@ function handleAllActions(action, params) {
             return handleGeminiProxy(params.payload || params);
         }
         
-        return jsonResponse({ result: "error", error: 'Invalid action: ' + action });
+        return { result: "error", error: 'Invalid action: ' + action };
     } catch (err) {
-        return jsonResponse({ result: "error", error: err.toString() });
+        return { result: "error", error: err.toString() };
     }
 }
 
 function handleNewOrder(order) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
-    if (!sheet) return jsonResponse({ result: 'error', message: 'Orders sheet not found' });
+    if (!sheet) return { result: 'error', message: 'Orders sheet not found' };
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rowData = headers.map(header => {
         let val = order[header];
@@ -121,12 +131,12 @@ function handleNewOrder(order) {
         return val || '';
     });
     sheet.appendRow(rowData);
-    return jsonResponse({ result: 'success', message: 'Order recorded' });
+    return { result: 'success', message: 'Order recorded' };
 }
 
 function handleVisit() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('visits');
-    if (!sheet) return jsonResponse({ result: 'error', message: 'Visits sheet not found' });
+    if (!sheet) return { result: 'error', message: 'Visits sheet not found' };
     const today = new Date().toISOString().split('T')[0];
     const data = sheet.getDataRange().getValues();
     let found = false;
@@ -139,7 +149,7 @@ function handleVisit() {
         }
     }
     if (!found) sheet.appendRow([today, 1]);
-    return jsonResponse({ result: 'success', message: 'Visit recorded' });
+    return { result: 'success', message: 'Visit recorded' };
 }
 
 function handleProductUpdate(product) {
@@ -150,12 +160,12 @@ function handleProductUpdate(product) {
         sheet.appendRow(['Timestamp', 'Action', 'No', 'Data']);
     }
     sheet.appendRow([new Date(), 'update', product.No || 'N/A', JSON.stringify(product)]);
-    return jsonResponse({ result: 'success', message: 'Product change logged' });
+    return { result: 'success', message: 'Product change logged' };
 }
 
 function handleSaveSettings(settings) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('settings');
-    if (!sheet) return jsonResponse({ result: 'error', message: 'Settings sheet not found' });
+    if (!sheet) return { result: 'error', message: 'Settings sheet not found' };
     const data = sheet.getDataRange().getValues();
     for (let key in settings) {
         let found = false;
@@ -168,7 +178,7 @@ function handleSaveSettings(settings) {
         }
         if (!found) sheet.appendRow([key, settings[key]]);
     }
-    return jsonResponse({ result: 'success' });
+    return { result: 'success' };
 }
 
 function handleMigration(payload) {
@@ -200,14 +210,14 @@ function handleMigration(payload) {
             results.orders = 'imported ' + payload.orders.length;
         }
     }
-    return jsonResponse({ result: 'success', results: results });
+    return { result: 'success', results: results };
 }
 
 function handleGeminiProxy(payload) {
     const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) return jsonResponse({ result: "error", error: 'GEMINI_API_KEY not found in Script Properties.' });
+    if (!apiKey) return { result: "error", error: 'GEMINI_API_KEY not found in Script Properties.' };
     let finalPayload = payload.contents ? payload : (payload.payload || payload);
-    if (!finalPayload.contents) return jsonResponse({ result: "error", error: 'Invalid payload' });
+    if (!finalPayload.contents) return { result: "error", error: 'Invalid payload' };
 
     const tiers = [
         { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash' },
@@ -227,11 +237,11 @@ function handleGeminiProxy(payload) {
             });
             const code = response.getResponseCode();
             const text = response.getContentText();
-            if (code === 200) return jsonResponse(JSON.parse(text));
+            if (code === 200) return JSON.parse(text);
             errors.push(`${tier.model} (${code}): ${text}`);
         } catch (err) { errors.push(`${tier.model} Error: ${err.toString()}`); }
     }
-    return jsonResponse({ result: "error", error: 'All AI tiers failed', details: errors });
+    return { result: "error", error: 'All AI tiers failed', details: errors };
 }
 
 function jsonResponse(data) {
