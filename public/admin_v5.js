@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.6 LOADED (Supercharged AI) !!!");
-document.title = "Admin Portal (v5.1.6)";
+console.log("!!! ADMIN JS V5.1.7 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.7)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -176,25 +176,19 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
-                    const endpoint = 'v1beta'; // Verified most stable for these
+                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+                    const endpoint = 'v1beta'; 
                     
-                    console.log(`Admin: Starting fast-optimized rotation through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
+                    console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
                     
                     outerLoop: 
                     for (const modelName of models) {
                         for (const apiKey of GEMINI_API_KEYS) {
                             try {
                                 const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
-                                console.log(`Admin: AI [${modelName}] - Key [${apiKey.substr(0,4)}...]`);
-                                
-                                // Fetch with 5s timeout
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 6000);
                                 
                                 const directRes = await fetch(directUrl, {
                                     method: 'POST',
-                                    signal: controller.signal,
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         contents: [{ 
@@ -205,15 +199,17 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                                         }]
                                     })
                                 });
-                                clearTimeout(timeoutId);
                                 
                                 if (directRes.ok) {
                                     response = directRes;
                                     break outerLoop;
                                 } else {
                                     const code = directRes.status;
-                                    console.warn(`AI (${modelName}) failed with status: ${code}`);
-                                    if (code === 404) break; // If model doesn't exist, don't try other keys
+                                    console.warn(`AI (${modelName}) failed: ${code}`);
+                                    if (code === 429) {
+                                        console.log("Rate limited. Waiting 2s before next key...");
+                                        await new Promise(r => setTimeout(r, 2000));
+                                    }
                                 }
                             } catch (e) {
                                 console.warn(`AI Attempt Error:`, e.name === 'AbortError' ? 'Timeout' : e.message);
