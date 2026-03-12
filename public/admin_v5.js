@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.7 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.7)";
+console.log("!!! ADMIN JS V5.1.8 LOADED (Full AI Sync) !!!");
+document.title = "Admin Portal (v5.1.8)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -1103,8 +1103,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.6"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.6";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.8"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.8";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1222,18 +1222,13 @@ Instructions:
                 for (const API_KEY of GEMINI_API_KEYS) {
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 6000);
-                        
                         const response = await fetch(API_URL, {
                             method: 'POST',
-                            signal: controller.signal,
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [{ parts: [{ text: prompt }] }]
                             })
                         });
-                        clearTimeout(timeoutId);
                         
                         if (response.ok) {
                             const data = await response.json();
@@ -1242,13 +1237,20 @@ Instructions:
                                 success = true;
                                 break outerLoopSocial;
                             }
-                        } else if (response.status === 404) {
-                            break; // Skip key rotation for broken model
+                        } else {
+                            const code = response.status;
+                            console.warn(`Social AI (${modelName}) failed: ${code}`);
+                            if (code === 429) {
+                                console.log("Social AI: Rate limited. Waiting 2s before next key...");
+                                await new Promise(r => setTimeout(r, 2000));
+                            } else if (code === 404) {
+                                break; // Skip key rotation for broken model
+                            }
                         }
-                    } catch (e) { }
+                    } catch (e) { console.warn("Social AI Error:", e); }
                 }
             }
-            if (!success) throw new Error("All optimized AI attempts failed/timed out.");
+            if (!success) throw new Error("All AI keys/models failed for Social Media.");
 
         } catch (e) {
             output.value = "Error: " + e.message;
