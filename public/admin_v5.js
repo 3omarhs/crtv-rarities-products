@@ -236,10 +236,18 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 console.error("All AI attempts failed.");
                 let userFriendlyErr = lastError;
                 
-                // Keep simplified messages for common issues but show the real error for transparency
-                if (lastError.includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
-                if (lastError.includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
-                // Removed the generic 404 catch to show the real error from GAS Proxy
+                // If we got a complex error object from GAS, format it
+                if (typeof lastError === 'object' && lastError.error) {
+                    userFriendlyErr = lastError.error;
+                    if (lastError.details && Array.isArray(lastError.details)) {
+                        userFriendlyErr += "<br><small style='display:block; margin-top:5px; font-size:0.8em; opacity:0.8;'>" + 
+                                         lastError.details.join("<br>") + "</small>";
+                    }
+                } else {
+                    // Keep simplified messages for common issues
+                    if (lastError.includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
+                    if (lastError.includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
+                }
 
                 if (label) label.innerHTML = `Product Image <span style="color:var(--danger);">${userFriendlyErr}</span>`;
                 
