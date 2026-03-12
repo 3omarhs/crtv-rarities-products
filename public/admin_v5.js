@@ -45,11 +45,21 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-            const response = await fetch(gasUrl, {
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+            
+            // Try POST first with text/plain (avoids CORS preflight)
+            let response = await fetch(gasUrl, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getGeminiKeys' })
             });
+
+            // If POST fails, try GET as ultimate fallback
+            if (!response.ok) {
+                console.warn("GAS POST failed, trying GET...");
+                response = await fetch(`${gasUrl}?action=getGeminiKeys`);
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 if (data.keys && Array.isArray(data.keys)) {
@@ -157,9 +167,12 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 if (isStatic) {
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     console.log(`Admin: Attempting AI request via GAS proxy...`);
-                    // GAS doesn't require Content-Type: application/json, and using text/plain avoids CORS preflight
+                    // IMPORTANT: Using 'text/plain' and 'omit' credentials helps bypass CORS and preflight blocks on GAS
                     response = await fetch(gasUrl, {
                         method: 'POST',
+                        mode: 'cors',
+                        credentials: 'omit',
+                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ 
                             action: 'proxyGemini', 
                             payload: { 
