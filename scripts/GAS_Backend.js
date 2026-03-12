@@ -213,30 +213,76 @@ function handleGeminiProxy(payload) {
     }
 
     // Support both direct payload and wrapped payload
-    const finalPayload = payload.contents ? payload : (payload.payload || payload);
-
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    let finalPayload = payload.contents ? payload : (payload.payload || payload);
     
-    const options = {
-        'method': 'post',
-        'contentType': 'application/json',
-        'payload': JSON.stringify(finalPayload),
-        'muteHttpExceptions': true
-    };
+    // Ensure contents exists
+    if (!finalPayload.contents) {
+        return jsonResponse({ error: 'Invalid payload: missing contents' });
+    }
 
-    try {
-        const response = UrlFetchApp.fetch(url, options);
-        const responseCode = response.getResponseCode();
-        const responseText = response.getContentText();
-        
-        if (responseCode !== 200) {
-            return jsonResponse({ 
-                error: 'Gemini API Error (' + responseCode + '): ' + responseText 
-            });
+    // Comprehensive tier fallback using VERIFIED models from your listModels diagnostic
+    const tiers = [
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash' },
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', model: 'gemini-flash-latest' },
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', model: 'gemini-2.5-flash' },
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash (v1)' }
+    ];
+
+    let errors = [];
+
+    for (let tier of tiers) {
+        const url = tier.url + '?key=' + apiKey;
+        const options = {
+            'method': 'post',
+            'contentType': 'application/json',
+            'payload': JSON.stringify(finalPayload),
+            'muteHttpExceptions': true
+        };
+
+        try {
+            const response = UrlFetchApp.fetch(url, options);
+            const responseCode = response.getResponseCode();
+            const responseText = response.getContentText();
+            
+            if (responseCode === 200) {
+                const result = JSON.parse(responseText);
+                result.debug_model = tier.model; // Tag which one worked
+                return jsonResponse(result);
+            } else {
+                let msg = responseText;
+                try {
+                    const errJson = JSON.parse(responseText);
+                    msg = errJson.error ? errJson.error.message : responseText;
+                } catch(e) {}
+                errors.push(`${tier.model} (${responseCode}): ${msg}`);
+            }
+        } catch (err) {
+            errors.push(`${tier.model} (GAS Error): ${err.toString()}`);
         }
-        
-        return jsonResponse(JSON.parse(responseText));
-    } catch (err) {
-        return jsonResponse({ error: 'GAS Proxy Error: ' + err.toString() });
+    }
+
+    return jsonResponse({ 
+        error: 'Gemini API Error: All model tiers failed.',
+        details: errors,
+        note: 'Check if Generative Language API is enabled in Google Cloud Console for your API Key.'
+    });
+}
+
+function listModels() {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+        Logger.log("ERROR: No API Key found in Script Properties!");
+        return "No API Key found";
+    }
+    
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey;
+    try {
+        const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+        const text = response.getContentText();
+        Logger.log("Available Models: " + text);
+        return text;
+    } catch (e) {
+        Logger.log("GAS Error: " + e.toString());
+        return e.toString();
     }
 }
