@@ -48,9 +48,9 @@ async function loadGeminiCredentials() {
             const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
             
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
-            if (window.supabase) {
+            if (window.supabaseClient) {
                 console.log("Admin: Trying to fetch Gemini keys from Supabase...");
-                const { data: supaKeys, error } = await window.supabase.from('gemini_keys').select('key');
+                const { data: supaKeys, error } = await window.supabaseClient.from('gemini_keys').select('key');
                 if (!error && supaKeys && supaKeys.length > 0) {
                     GEMINI_API_KEYS = supaKeys.map(item => decodeApiKey(item.key));
                     console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} keys from Supabase.`);
