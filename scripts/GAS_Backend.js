@@ -1,5 +1,5 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.3
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.4 (ULTIMATE CORS STABLE)
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
@@ -12,23 +12,37 @@
 
 const SPREADSHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 
-// Handles GET requests
+// Handles GET requests (Definitively bypasses CORS for small payloads)
 function doGet(e) {
+    if (e.parameter.action === 'proxyGemini') {
+        return handleGeminiProxy(JSON.parse(e.parameter.data));
+    }
     if (e.parameter.action) {
         return handleAllActions(e.parameter.action, e.parameter);
     }
-    return ContentService.createTextOutput(JSON.stringify({ status: "active", version: "4.3" }))
+    return ContentService.createTextOutput(JSON.stringify({ status: "active", version: "4.4" }))
         .setMimeType(ContentService.MimeType.JSON);
 }
 
-// Handles POST requests
+// Handles POST requests (Supports JSON and Form-Encoded)
 function doPost(e) {
     try {
-        const data = JSON.parse(e.postData.contents);
-        const action = data.action;
+        let action, data;
+        
+        // Handle application/x-www-form-urlencoded or text/plain
+        if (e.parameter && e.parameter.action) {
+            action = e.parameter.action;
+            data = e.parameter.data ? JSON.parse(e.parameter.data) : e.parameter;
+        } else {
+            // Handle raw JSON
+            const contents = JSON.parse(e.postData.contents);
+            action = contents.action;
+            data = contents;
+        }
+        
         return handleAllActions(action, data);
     } catch (error) {
-        return jsonResponse({ result: "error", error: error.toString() });
+        return jsonResponse({ result: "error", error: "doPost Error: " + error.toString() });
     }
 }
 

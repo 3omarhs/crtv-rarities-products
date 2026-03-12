@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.2.2 LOADED (Extreme Rescue) !!!");
-document.title = "Admin Portal (v5.2.2)";
+console.log("!!! ADMIN JS V5.2.3 LOADED (Final Extreme Rescue) !!!");
+document.title = "Admin Portal (v5.2.3)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -207,8 +207,9 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                                     const code = directRes.status;
                                     console.warn(`AI (${modelName}) failed: ${code}`);
                                     if (code === 429) {
-                                        console.log("Rate limited. Waiting 2s before next key...");
-                                        await new Promise(r => setTimeout(r, 2000));
+                                        const jitter = Math.floor(Math.random() * 1500) + 1000; // 1-2.5s jitter
+                                        console.log(`Rate limited. Waiting ${jitter}ms before next key...`);
+                                        await new Promise(r => setTimeout(r, jitter));
                                     }
                                 }
                             } catch (e) {
@@ -226,44 +227,27 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     console.log(`Add Product AI: Direct keys limited. Waiting 2s for fallback...`);
                     await new Promise(r => setTimeout(r, 2000)); // Breathing room
                     
-                    console.log(`Add Product AI: Trying GAS (CORS-Simple Strategy): ${gasUrl}`);
+                    console.log(`Add Product AI: Trying GAS (Ultimate CORS-Simple Strategy): ${gasUrl}`);
                     
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 25000); 
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); 
                     
+                    // Simple Request via Form Encoding (Bypasses preflight entirely)
+                    const formData = new URLSearchParams();
+                    formData.append('action', 'proxyGemini');
+                    formData.append('data', JSON.stringify({ 
+                        contents: [{ 
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: mimeType, data: base64Data } }
+                            ] 
+                        }] 
+                    }));
+
                     response = await fetch(gasUrl, {
                         method: 'POST',
-                        mode: 'no-cors', // Standard fetch to GAS often needs to start without custom headers
-                        headers: { 'Content-Type': 'text/plain' }, // "Simple Request" to bypass preflight OPTIONS
-                        body: JSON.stringify({ 
-                            action: 'proxyGemini', 
-                            payload: { 
-                                contents: [{ 
-                                    parts: [
-                                        { text: prompt },
-                                        { inlineData: { mimeType: mimeType, data: base64Data } }
-                                    ] 
-                                }] 
-                            }
-                        })
-                    });
-                    
-                    // If no-cors is used, we can't read response. Let's try standard but with simple headers first.
-                    // Actually, for GAS specifically, 'text/plain' POST is the magic bullet.
-                    response = await fetch(gasUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' }, // Simple header
-                        body: JSON.stringify({ 
-                            action: 'proxyGemini', 
-                            payload: { 
-                                contents: [{ 
-                                    parts: [
-                                        { text: prompt },
-                                        { inlineData: { mimeType: mimeType, data: base64Data } }
-                                    ] 
-                                }] 
-                            }
-                        })
+                        body: formData, // URLSearchParams triggers application/x-www-form-urlencoded
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' } // Simple Request
                     });
                     clearTimeout(timeoutId);
                 }
@@ -1125,8 +1109,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.2.2"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.2";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.3"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.3";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1278,17 +1262,28 @@ Instructions:
                 
                 console.log(`Social AI: All direct keys failed. Trying GAS Fallback: ${gasUrl}`);
                 
-                console.log(`Social AI: Direct keys limited. Trying GAS (CORS-Simple): ${gasUrl}`);
-                const response = await fetch(gasUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' }, // Simple Request to bypass preflight
-                    body: JSON.stringify({ 
-                        action: 'proxyGemini', 
-                        payload: { 
-                            contents: [{ parts: [{ text: prompt }] }] 
-                        }
-                    })
-                });
+                console.log(`Social AI: Trying GAS (Ultimate CORS-Simple): ${gasUrl}`);
+                
+                // For social media (text-only), we can try GET as a definitive bypass
+                try {
+                    const getUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }))}`;
+                    const resGet = await fetch(getUrl);
+                    if (resGet.ok) {
+                        response = resGet;
+                    }
+                } catch (e) { console.warn("Social AI GET failed, falling back to POST..."); }
+
+                if (!response || !response.ok) {
+                    const formData = new URLSearchParams();
+                    formData.append('action', 'proxyGemini');
+                    formData.append('data', JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }));
+
+                    response = await fetch(gasUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                    });
+                }
 
                 if (response.ok) {
                     const data = await response.json();
