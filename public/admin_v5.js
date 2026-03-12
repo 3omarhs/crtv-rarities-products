@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.3.1 LOADED (AI Tiered & Data Fix) !!!");
-document.title = "Admin Portal (v5.1.3.1)";
+console.log("!!! ADMIN JS V5.1.4 LOADED (Universal AI Fix) !!!");
+document.title = "Admin Portal (v5.1.4)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -169,53 +169,60 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            // --- STRATEGY: Direct Gemini Call (Fastest/CORS Free) or Proxy (Secure Fallback) ---
+            // --- STRATEGY: Universal Rotation (Keys x Models x Endpoints) ---
             try {
                 const isStatic = window.location.hostname.includes('github.io');
                 let response;
 
-                // 1. Try Direct Gemini Call if keys are available (Bypasses GAS CORS)
+                // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const apiKey = GEMINI_API_KEYS[0]; 
-                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'];
+                    const endpoints = ['v1beta', 'v1'];
                     
-                    for (const modelName of models) {
-                        try {
-                            const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-                            console.log(`Admin: Attempting Direct Gemini API call (${modelName})...`);
-                            
-                            const directRes = await fetch(directUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ 
-                                        parts: [
-                                            { text: prompt },
-                                            { inlineData: { mimeType: mimeType, data: base64Data } }
-                                        ] 
-                                    }]
-                                })
-                            });
-                            
-                            if (directRes.ok) {
-                                response = directRes;
-                                break;
-                            } else {
-                                const errDetail = await directRes.text();
-                                console.warn(`Direct AI (${modelName}) failed: ${directRes.status}`, errDetail);
+                    console.log(`Admin: Starting rotation through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
+                    
+                    outerLoop: 
+                    for (const apiKey of GEMINI_API_KEYS) {
+                        for (const modelName of models) {
+                            for (const apiVer of endpoints) {
+                                try {
+                                    const directUrl = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${apiKey}`;
+                                    console.log(`Admin: Attempting AI [${modelName}] via [${apiVer}]...`);
+                                    
+                                    const directRes = await fetch(directUrl, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            contents: [{ 
+                                                parts: [
+                                                    { text: prompt },
+                                                    { inlineData: { mimeType: mimeType, data: base64Data } }
+                                                ] 
+                                            }]
+                                        })
+                                    });
+                                    
+                                    if (directRes.ok) {
+                                        response = directRes;
+                                        break outerLoop;
+                                    } else {
+                                        const errDetail = await directRes.text();
+                                        console.warn(`AI Attempt [${modelName}] failed (${directRes.status})`);
+                                        // Continue to next model/endpoint
+                                    }
+                                } catch (e) {
+                                    console.warn(`AI Fetch Error [${modelName}]:`, e);
+                                }
                             }
-                        } catch (e) {
-                            console.warn(`Direct AI (${modelName}) fetch error:`, e);
                         }
                     }
                 }
 
-                // 2. Fallback to GAS Proxy if direct failed or no keys
+                // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    if (response) console.warn(`Direct AI failed (${response.status}), falling back to GAS...`);
+                    if (response) console.warn(`Universal Direct AI failed, extreme fallback to GAS...`);
                     
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-                    console.log(`Admin: Attempting AI request via GAS proxy...`);
                     
                     response = await fetch(gasUrl, {
                         method: 'POST',
@@ -689,7 +696,7 @@ async function initAdmin() {
                     if (keyToSave) {
                         try {
                             const encodedKey = btoa(keyToSave);
-                            await window.supabaseClient.from('gemini_keys').upsert({ id: Date.now(), key_value: encodedKey, is_active: true });
+                            await window.supabaseClient.from('gemini_keys').upsert({ key: encodedKey }); // Use correct column from schema
                         } catch(e) { console.warn("Supabase Gemini Key error:", e); }
                     }
                     
@@ -1092,8 +1099,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.3.1"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.3.1";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.4"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.4";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1203,36 +1210,38 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+            const endpoints = ['v1beta', 'v1'];
             
+            console.log(`Social AI: Rotating through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
+
+            outerLoopSocial:
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
                 const API_KEY = GEMINI_API_KEYS[i];
-                
                 for (const modelName of models) {
-                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${API_KEY}`;
-                    try {
-                        const response = await fetch(API_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: prompt }] }]
-                            })
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.candidates && data.candidates[0].content) {
-                                output.value = data.candidates[0].content.parts[0].text.trim();
-                                success = true;
-                                break;
+                    for (const apiVer of endpoints) {
+                        const API_URL = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${API_KEY}`;
+                        try {
+                            const response = await fetch(API_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: prompt }] }]
+                                })
+                            });
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.candidates && data.candidates[0].content) {
+                                    output.value = data.candidates[0].content.parts[0].text.trim();
+                                    success = true;
+                                    break outerLoopSocial;
+                                }
                             }
-                        } else {
-                            console.warn(`Social AI (${modelName}) failed: ${response.status}`);
-                        }
-                    } catch (e) { console.warn(`Social AI Key ${i}/${modelName} failed`, e); }
+                        } catch (e) { }
+                    }
                 }
-                if (success) break;
             }
-            if (!success) throw new Error("All API keys and models failed.");
+            if (!success) throw new Error("All AI keys and models failed.");
 
         } catch (e) {
             output.value = "Error: " + e.message;
