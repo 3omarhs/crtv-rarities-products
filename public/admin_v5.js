@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.8 LOADED (Full AI Sync) !!!");
-document.title = "Admin Portal (v5.1.8)";
+console.log("!!! ADMIN JS V5.1.9 LOADED (Final AI Shield) !!!");
+document.title = "Admin Portal (v5.1.9)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -1103,8 +1103,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.8"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.8";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.9"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.9";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1250,7 +1250,32 @@ Instructions:
                     } catch (e) { console.warn("Social AI Error:", e); }
                 }
             }
-            if (!success) throw new Error("All AI keys/models failed for Social Media.");
+            if (!success) {
+                console.log("Social AI: All direct keys failed. Trying GAS Fallback...");
+                const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                
+                const response = await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ 
+                        action: 'proxyGemini', 
+                        payload: { 
+                            contents: [{ parts: [{ text: prompt }] }] 
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.candidates && data.candidates[0].content) {
+                        output.value = data.candidates[0].content.parts[0].text.trim();
+                        success = true;
+                    }
+                }
+            }
+
+            if (!success) throw new Error("All AI keys/models and GAS fallback failed for Social Media.");
 
         } catch (e) {
             output.value = "Error: " + e.message;
