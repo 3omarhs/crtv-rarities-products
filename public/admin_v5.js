@@ -1,5 +1,5 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.0.0 LOADED (Fix GAS Variable Scope) !!!");
+console.log("!!! ADMIN JS V5.1.1 LOADED (Supabase Orders Fix) !!!");
 document.title = "Admin Portal (v5.1.1)";
 
 // Global handler for item clicks to avoid inline JS issues
@@ -1041,8 +1041,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.0"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.0";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.1"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.1";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1333,6 +1333,25 @@ async function loadData() {
 }
 
 async function fetchOrders(GAS_URL) {
+    // 1. Try Supabase first (if configured)
+    if (window.supabaseClient) {
+        try {
+            console.log("Admin: Fetching orders from Supabase...");
+            const { data, error } = await window.supabaseClient
+                .from('orders')
+                .select('*')
+                .order('date', { ascending: false });
+            
+            if (error) throw error;
+            if (data) {
+                console.log(`Admin: Supabase orders loaded (${data.length} records).`);
+                return data;
+            }
+        } catch (e) {
+            console.warn("Admin: Supabase orders fetch failed, falling back...", e);
+        }
+    }
+
     // On static hosting (GitHub Pages), try GAS first as local /api/ will 404
     const isStatic = window.location.hostname.includes('github.io');
     
