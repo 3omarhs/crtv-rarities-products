@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.4 LOADED (Universal AI Fix) !!!");
-document.title = "Admin Portal (v5.1.4)";
+console.log("!!! ADMIN JS V5.1.5 LOADED (Universal 2.5 AI) !!!");
+document.title = "Admin Portal (v5.1.5)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -176,8 +176,17 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash-8b'];
-                    const endpoints = ['v1beta', 'v1'];
+                    const models = [
+                        'gemini-2.0-flash', 
+                        'gemini-2.0-flash-exp', 
+                        'gemini-2.0-pro-exp-02-05',
+                        'gemini-2.5-flash', 
+                        'gemini-2.5-pro',
+                        'gemini-1.5-flash-latest', 
+                        'gemini-1.5-flash', 
+                        'gemini-1.5-pro'
+                    ];
+                    const endpoints = ['v1', 'v1beta'];
                     
                     console.log(`Admin: Starting rotation through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
                     
@@ -1099,8 +1108,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.4"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.4";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.5"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.5";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1210,8 +1219,16 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro'];
-            const endpoints = ['v1beta', 'v1'];
+            const models = [
+                'gemini-2.0-flash', 
+                'gemini-2.0-flash-exp', 
+                'gemini-2.5-flash', 
+                'gemini-2.5-pro',
+                'gemini-1.5-flash-latest', 
+                'gemini-1.5-flash', 
+                'gemini-1.5-pro'
+            ];
+            const endpoints = ['v1', 'v1beta'];
             
             console.log(`Social AI: Rotating through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
 
