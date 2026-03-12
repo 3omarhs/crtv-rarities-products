@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.3 LOADED (Direct AI & Mapping Fix) !!!");
-document.title = "Admin Portal (v5.1.3)";
+console.log("!!! ADMIN JS V5.1.3.1 LOADED (AI Tiered & Data Fix) !!!");
+document.title = "Admin Portal (v5.1.3.1)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -176,22 +176,38 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 1. Try Direct Gemini Call if keys are available (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const apiKey = GEMINI_API_KEYS[0]; // Use the first available key
-                    const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    const apiKey = GEMINI_API_KEYS[0]; 
+                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
                     
-                    console.log("Admin: Attempting Direct Gemini API call...");
-                    response = await fetch(directUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ 
-                                parts: [
-                                    { text: prompt },
-                                    { inlineData: { mimeType: mimeType, data: base64Data } }
-                                ] 
-                            }]
-                        })
-                    });
+                    for (const modelName of models) {
+                        try {
+                            const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                            console.log(`Admin: Attempting Direct Gemini API call (${modelName})...`);
+                            
+                            const directRes = await fetch(directUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ 
+                                        parts: [
+                                            { text: prompt },
+                                            { inlineData: { mimeType: mimeType, data: base64Data } }
+                                        ] 
+                                    }]
+                                })
+                            });
+                            
+                            if (directRes.ok) {
+                                response = directRes;
+                                break;
+                            } else {
+                                const errDetail = await directRes.text();
+                                console.warn(`Direct AI (${modelName}) failed: ${directRes.status}`, errDetail);
+                            }
+                        } catch (e) {
+                            console.warn(`Direct AI (${modelName}) fetch error:`, e);
+                        }
+                    }
                 }
 
                 // 2. Fallback to GAS Proxy if direct failed or no keys
@@ -1076,8 +1092,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.3"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.3";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.3.1"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.3.1";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1187,27 +1203,36 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+            
             for (let i = 0; i < GEMINI_API_KEYS.length; i++) {
                 const API_KEY = GEMINI_API_KEYS[i];
-                const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
-
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-                    const data = await response.json();
-                    if (data.candidates && data.candidates[0].content) {
-                        output.value = data.candidates[0].content.parts[0].text.trim();
-                        success = true;
-                        break;
-                    }
-                } catch (e) { console.warn(`Key ${i} failed`, e); }
+                
+                for (const modelName of models) {
+                    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${API_KEY}`;
+                    try {
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }] }]
+                            })
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.candidates && data.candidates[0].content) {
+                                output.value = data.candidates[0].content.parts[0].text.trim();
+                                success = true;
+                                break;
+                            }
+                        } else {
+                            console.warn(`Social AI (${modelName}) failed: ${response.status}`);
+                        }
+                    } catch (e) { console.warn(`Social AI Key ${i}/${modelName} failed`, e); }
+                }
+                if (success) break;
             }
-            if (!success) throw new Error("All API keys failed.");
+            if (!success) throw new Error("All API keys and models failed.");
 
         } catch (e) {
             output.value = "Error: " + e.message;
@@ -1352,6 +1377,36 @@ async function loadData() {
         let ordersData = await fetchOrders(gasUrl);
         let orders = ordersData.data || ordersData || [];
         if (!Array.isArray(orders)) orders = [];
+
+        // --- UNIFIED ORDER ITEM PARSING (v5.1.3.1) ---
+        orders.forEach(o => {
+            if (typeof o.items === 'string') {
+                try {
+                    // Try parsing as JSON first (Supabase JSONB sometimes returns as stringified array)
+                    if (o.items.trim().startsWith('[') || o.items.trim().startsWith('{')) {
+                        o.items = JSON.parse(o.items);
+                    }
+                } catch (e) {
+                    // Not JSON, keep as string (legacy CSV format)
+                }
+            }
+            
+            // Ensure o.items is an array for consistent consumption
+            if (o.items && !Array.isArray(o.items)) {
+                o.items = [o.items];
+            }
+            
+            // Pre-parse the members of the array into objects if they are strings
+            if (Array.isArray(o.items)) {
+                o.items = o.items.map(item => {
+                    if (typeof item === 'string') return parseItemString(item);
+                    return item; // Already an object
+                });
+            } else {
+                o.items = []; // Fallback
+            }
+        });
+
         window.currentOrders = orders;
 
         // 2. Fetch Visits from GAS or Fallback API
@@ -1685,17 +1740,14 @@ function renderOrderInfo(o) {
 function renderAnalytics(orders) {
     const itemMap = {};
     orders.forEach(o => {
-        if (typeof o.items === 'string' && o.items.startsWith('[')) {
-            try { o.items = JSON.parse(o.items); } catch (e) { }
-        }
+        // o.items is already pre-parsed into objects by loadData() in v5.1.3.1
         if (o.items && Array.isArray(o.items)) {
-            o.items.forEach(item => {
-                const i = parseItemString(item); // Reuse parser
+            o.items.forEach(i => {
                 if (!itemMap[i.sku]) {
                     itemMap[i.sku] = { id: i.sku, name: i.name, qty: 0, rev: 0 };
                 }
-                itemMap[i.sku].qty += parseInt(i.qty);
-                itemMap[i.sku].rev += (parseFloat(i.price) * parseInt(i.qty));
+                itemMap[i.sku].qty += parseInt(i.qty || 1);
+                itemMap[i.sku].rev += (parseFloat(i.price || 0) * parseInt(i.qty || 1));
             });
         }
     });
@@ -1844,31 +1896,11 @@ function initDashboard(orders, visitsData) {
     // 3. Process Top Products
     const prodMap = {};
     orders.forEach(o => {
+        // o.items is already pre-parsed into objects by loadData() in v5.1.3.1
         if (o.items) {
             o.items.forEach(item => {
-                // Try to extract simplified name
-                // Format: "Name - Price - [ID] (Qty: X)" OR just string
-                let name = item;
-                let qty = 1;
-
-                if (typeof item === 'string' && item.includes('[') && item.includes(']')) {
-                    // Extract SKU from brackets [SKU]
-                    // Format: "1. [TRND-1225-129] ..."
-                    const skuMatch = item.match(/\[(.*?)\]/);
-                    if (skuMatch) {
-                        name = skuMatch[1]; // Use SKU as the name/key
-                    }
-                } else if (typeof item === 'object' && item !== null) {
-                    name = item.id || item.sku || item.name || 'Unknown';
-                }
-
-                // Extract Qty
-                if (typeof item === 'string') {
-                    const qtyMatch = item.match(/\(Qty:\s*(\d+)\)/);
-                    if (qtyMatch) qty = parseInt(qtyMatch[1]);
-                } else if (typeof item === 'object' && item !== null) {
-                    qty = parseInt(item.qty || 1);
-                }
+                let name = item.id || item.sku || item.name || 'Unknown';
+                let qty = parseInt(item.qty || 1);
 
                 if (!prodMap[name]) prodMap[name] = 0;
                 prodMap[name] += qty;
