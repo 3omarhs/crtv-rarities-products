@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.2 LOADED (Supabase & CORS Final Fix) !!!");
-document.title = "Admin Portal (v5.1.2)";
+console.log("!!! ADMIN JS V5.1.3 LOADED (Direct AI & Mapping Fix) !!!");
+document.title = "Admin Portal (v5.1.3)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -169,26 +169,42 @@ DO NOT include labels like "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
-            // --- STRATEGY: Use Local Proxy or GAS Proxy ---
+            // --- STRATEGY: Direct Gemini Call (Fastest/CORS Free) or Proxy (Secure Fallback) ---
             try {
                 const isStatic = window.location.hostname.includes('github.io');
                 let response;
 
-                if (isStatic) {
+                // 1. Try Direct Gemini Call if keys are available (Bypasses GAS CORS)
+                if (GEMINI_API_KEYS.length > 0) {
+                    const apiKey = GEMINI_API_KEYS[0]; // Use the first available key
+                    const directUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    console.log("Admin: Attempting Direct Gemini API call...");
+                    response = await fetch(directUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ 
+                                parts: [
+                                    { text: prompt },
+                                    { inlineData: { mimeType: mimeType, data: base64Data } }
+                                ] 
+                            }]
+                        })
+                    });
+                }
+
+                // 2. Fallback to GAS Proxy if direct failed or no keys
+                if (!response || !response.ok) {
+                    if (response) console.warn(`Direct AI failed (${response.status}), falling back to GAS...`);
+                    
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     console.log(`Admin: Attempting AI request via GAS proxy...`);
                     
-                    // ULTIMATE CORS WORKAROUND FOR GAS: 
-                    // Use 'no-cors' for pre-flight avoidance or ensure it's a 'simple' request
-                    // Actually, for GAS POST, we must follow the 302 redirect. Browsers block this if origin is set.
-                    // We'll try to use a more permissive fetch call.
                     response = await fetch(gasUrl, {
                         method: 'POST',
-                        mode: 'cors', // Essential to read response
-                        headers: { 
-                            // Omit custom headers to keep it a "simple request" if possible
-                            // But we need to send JSON. GAS handles text/plain as the contents.
-                        },
+                        mode: 'cors',
+                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ 
                             action: 'proxyGemini', 
                             payload: { 
@@ -201,14 +217,6 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                             }
                         })
                     });
-                } else {
-                    const proxyUrl = '/api/proxy-gemini';
-                    console.log(`Admin: Attempting AI request via ${proxyUrl}...`);
-                    response = await fetch(proxyUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, image: base64Data, mimeType })
-                    });
                 }
 
                 if (!response.ok) {
@@ -219,8 +227,6 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 const data = await response.json();
                 if (data.error || (data.result === 'error')) {
                     const errMsg = data.error || data.message || "Proxy error";
-                    const endpointUsed = isStatic ? 'GAS Proxy' : '/api/proxy-gemini';
-                    console.warn(`Admin: API at ${endpointUsed} reported error:`, errMsg);
                     throw new Error(`API: ${errMsg}`);
                 }
 
@@ -1070,8 +1076,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.2"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.2";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.3"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.3";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
