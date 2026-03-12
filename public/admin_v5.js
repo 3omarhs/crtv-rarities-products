@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.2.3 LOADED (Final Extreme Rescue) !!!");
-document.title = "Admin Portal (v5.2.3)";
+console.log("!!! ADMIN JS V5.2.4 LOADED (Deep Scope Fix) !!!");
+document.title = "Admin Portal (v5.2.4)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -233,6 +233,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     const timeoutId = setTimeout(() => controller.abort(), 30000); 
                     
                     // Simple Request via Form Encoding (Bypasses preflight entirely)
+                    console.log("Add Product AI: Sending Form-Encoded request to GAS...");
                     const formData = new URLSearchParams();
                     formData.append('action', 'proxyGemini');
                     formData.append('data', JSON.stringify({ 
@@ -244,11 +245,14 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                         }] 
                     }));
 
-                    response = await fetch(gasUrl, {
+                    const gasResponse = await fetch(gasUrl, {
                         method: 'POST',
-                        body: formData, // URLSearchParams triggers application/x-www-form-urlencoded
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' } // Simple Request
+                        body: formData,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
+                    
+                    if (gasResponse.ok) response = gasResponse;
+                    else throw new Error(`GAS Fallback failed with status ${gasResponse.status}`);
                     clearTimeout(timeoutId);
                 }
 
@@ -1109,8 +1113,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.2.3"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.3";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.4"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.4";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1192,6 +1196,7 @@ window.initSocialGenerator = async function () {
                 throw new Error("No Gemini API Keys found. Please configure in Settings.");
             }
 
+            let response; // Declare scope outer
             const name = product['Name on Store'] || product['product name'];
             const description = product['description (80 word)'] || '';
             const price = parseFloat(String(product['Price < 25 QTY'] || product['Price'] || 0).replace(/[^\d.]/g, '')).toFixed(3);
@@ -1228,7 +1233,7 @@ Instructions:
                 for (const API_KEY of GEMINI_API_KEYS) {
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
-                        const response = await fetch(API_URL, {
+                        const directRes = await fetch(API_URL, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1236,7 +1241,8 @@ Instructions:
                             })
                         });
                         
-                        if (response.ok) {
+                        if (directRes.ok) {
+                            response = directRes;
                             const data = await response.json();
                             if (data.candidates && data.candidates[0].content) {
                                 output.value = data.candidates[0].content.parts[0].text.trim();
