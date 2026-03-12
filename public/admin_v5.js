@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.9 LOADED (Final AI Shield) !!!");
-document.title = "Admin Portal (v5.1.9)";
+console.log("!!! ADMIN JS V5.2.0 LOADED (Emergency AI Recovery) !!!");
+document.title = "Admin Portal (v5.2.0)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -220,11 +220,13 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-                    console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
+                    const manualUrl = document.getElementById('google-script-url')?.value.trim();
+                    const gasUrl = manualUrl || window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    
+                    console.log(`Universal Direct AI failure (or rate-limited). Falling back to GAS: ${gasUrl}`);
                     
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s for GAS
+                    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s for GAS
                     
                     response = await fetch(gasUrl, {
                         method: 'POST',
@@ -1062,7 +1064,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.1";
+    if (versionDisplay) versionDisplay.textContent = "v5.2.0";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1103,8 +1105,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.9"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.9";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.0"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.0";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1214,7 +1216,7 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-8b'];
             const endpoint = 'v1beta';
 
             outerLoopSocial:
@@ -1251,8 +1253,10 @@ Instructions:
                 }
             }
             if (!success) {
-                console.log("Social AI: All direct keys failed. Trying GAS Fallback...");
-                const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                const manualUrl = document.getElementById('google-script-url')?.value.trim();
+                const gasUrl = manualUrl || window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                
+                console.log(`Social AI: All direct keys failed. Trying GAS Fallback: ${gasUrl}`);
                 
                 const response = await fetch(gasUrl, {
                     method: 'POST',
