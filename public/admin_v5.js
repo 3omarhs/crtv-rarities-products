@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.2.0 LOADED (Emergency AI Recovery) !!!");
-document.title = "Admin Portal (v5.2.0)";
+console.log("!!! ADMIN JS V5.2.1 LOADED (Deep Rescue) !!!");
+document.title = "Admin Portal (v5.2.1)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -176,10 +176,10 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.5-flash'];
                     const endpoint = 'v1beta'; 
                     
-                    console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
+                    console.log(`Admin: Rotation through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
                     
                     outerLoop: 
                     for (const modelName of models) {
@@ -223,16 +223,13 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     const manualUrl = document.getElementById('google-script-url')?.value.trim();
                     const gasUrl = manualUrl || window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     
-                    console.log(`Universal Direct AI failure (or rate-limited). Falling back to GAS: ${gasUrl}`);
+                    console.log(`Add Product AI: Direct keys limited. Trying GAS: ${gasUrl}`);
                     
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s for GAS
+                    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s for GAS
                     
                     response = await fetch(gasUrl, {
                         method: 'POST',
-                        mode: 'cors',
-                        signal: controller.signal,
-                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ 
                             action: 'proxyGemini', 
                             payload: { 
@@ -255,8 +252,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 const data = await response.json();
                 if (data.error || (data.result === 'error')) {
-                    const errMsg = data.error || data.message || "Proxy error";
-                    throw new Error(`API: ${errMsg}`);
+                    const errMsg = data.error || data.message || "AI keys exhausted or proxy error";
+                    throw new Error(errMsg);
                 }
 
                 // Handle response parsing
@@ -1064,7 +1061,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.2.0";
+    if (versionDisplay) versionDisplay.textContent = "v5.2.1";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1105,8 +1102,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.2.0"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.0";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.1"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.1";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1216,7 +1213,7 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-8b'];
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.1-flash'];
             const endpoint = 'v1beta';
 
             outerLoopSocial:
@@ -1260,8 +1257,6 @@ Instructions:
                 
                 const response = await fetch(gasUrl, {
                     method: 'POST',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ 
                         action: 'proxyGemini', 
                         payload: { 

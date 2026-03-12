@@ -1,5 +1,5 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.2 (CORS STABLE)
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.3
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
@@ -17,8 +17,8 @@ function doGet(e) {
     if (e.parameter.action) {
         return handleAllActions(e.parameter.action, e.parameter);
     }
-    return ContentService.createTextOutput("Creative Rarities API is active (v4.2).")
-        .setMimeType(ContentService.MimeType.TEXT);
+    return ContentService.createTextOutput(JSON.stringify({ status: "active", version: "4.3" }))
+        .setMimeType(ContentService.MimeType.JSON);
 }
 
 // Handles POST requests
@@ -28,7 +28,7 @@ function doPost(e) {
         const action = data.action;
         return handleAllActions(action, data);
     } catch (error) {
-        return jsonResponse({ status: 'error', message: error.toString() });
+        return jsonResponse({ result: "error", error: error.toString() });
     }
 }
 
@@ -90,15 +90,15 @@ function handleAllActions(action, params) {
             return handleGeminiProxy(params.payload || params);
         }
         
-        return jsonResponse({ error: 'Invalid action: ' + action });
+        return jsonResponse({ result: "error", error: 'Invalid action: ' + action });
     } catch (err) {
-        return jsonResponse({ error: err.toString() });
+        return jsonResponse({ result: "error", error: err.toString() });
     }
 }
 
 function handleNewOrder(order) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
-    if (!sheet) return jsonResponse({ status: 'error', message: 'Orders sheet not found' });
+    if (!sheet) return jsonResponse({ result: 'error', message: 'Orders sheet not found' });
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rowData = headers.map(header => {
         let val = order[header];
@@ -107,12 +107,12 @@ function handleNewOrder(order) {
         return val || '';
     });
     sheet.appendRow(rowData);
-    return jsonResponse({ status: 'success', message: 'Order recorded' });
+    return jsonResponse({ result: 'success', message: 'Order recorded' });
 }
 
 function handleVisit() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('visits');
-    if (!sheet) return jsonResponse({ status: 'error', message: 'Visits sheet not found' });
+    if (!sheet) return jsonResponse({ result: 'error', message: 'Visits sheet not found' });
     const today = new Date().toISOString().split('T')[0];
     const data = sheet.getDataRange().getValues();
     let found = false;
@@ -125,7 +125,7 @@ function handleVisit() {
         }
     }
     if (!found) sheet.appendRow([today, 1]);
-    return jsonResponse({ status: 'success', message: 'Visit recorded' });
+    return jsonResponse({ result: 'success', message: 'Visit recorded' });
 }
 
 function handleProductUpdate(product) {
@@ -136,12 +136,12 @@ function handleProductUpdate(product) {
         sheet.appendRow(['Timestamp', 'Action', 'No', 'Data']);
     }
     sheet.appendRow([new Date(), 'update', product.No || 'N/A', JSON.stringify(product)]);
-    return jsonResponse({ status: 'success', message: 'Product change logged' });
+    return jsonResponse({ result: 'success', message: 'Product change logged' });
 }
 
 function handleSaveSettings(settings) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('settings');
-    if (!sheet) return jsonResponse({ status: 'error', message: 'Settings sheet not found' });
+    if (!sheet) return jsonResponse({ result: 'error', message: 'Settings sheet not found' });
     const data = sheet.getDataRange().getValues();
     for (let key in settings) {
         let found = false;
@@ -154,7 +154,7 @@ function handleSaveSettings(settings) {
         }
         if (!found) sheet.appendRow([key, settings[key]]);
     }
-    return jsonResponse({ status: 'success' });
+    return jsonResponse({ result: 'success' });
 }
 
 function handleMigration(payload) {
@@ -186,14 +186,14 @@ function handleMigration(payload) {
             results.orders = 'imported ' + payload.orders.length;
         }
     }
-    return jsonResponse({ status: 'success', results: results });
+    return jsonResponse({ result: 'success', results: results });
 }
 
 function handleGeminiProxy(payload) {
     const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) return jsonResponse({ error: 'GEMINI_API_KEY not found in Script Properties.' });
+    if (!apiKey) return jsonResponse({ result: "error", error: 'GEMINI_API_KEY not found in Script Properties.' });
     let finalPayload = payload.contents ? payload : (payload.payload || payload);
-    if (!finalPayload.contents) return jsonResponse({ error: 'Invalid payload' });
+    if (!finalPayload.contents) return jsonResponse({ result: "error", error: 'Invalid payload' });
 
     const tiers = [
         { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash' },
@@ -217,7 +217,7 @@ function handleGeminiProxy(payload) {
             errors.push(`${tier.model} (${code}): ${text}`);
         } catch (err) { errors.push(`${tier.model} Error: ${err.toString()}`); }
     }
-    return jsonResponse({ error: 'All AI tiers failed', details: errors });
+    return jsonResponse({ result: "error", error: 'All AI tiers failed', details: errors });
 }
 
 function jsonResponse(data) {
