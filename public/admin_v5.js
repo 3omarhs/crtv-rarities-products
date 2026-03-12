@@ -47,16 +47,26 @@ async function loadGeminiCredentials() {
         try {
             const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
             
-            // Try POST first with text/plain (avoids CORS preflight)
+            // --- TRY SUPABASE FIRST (Reliable CORS) ---
+            if (window.supabase) {
+                console.log("Admin: Trying to fetch Gemini keys from Supabase...");
+                const { data: supaKeys, error } = await window.supabase.from('gemini_keys').select('key');
+                if (!error && supaKeys && supaKeys.length > 0) {
+                    GEMINI_API_KEYS = supaKeys.map(item => decodeApiKey(item.key));
+                    console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} keys from Supabase.`);
+                    return; 
+                }
+            }
+
+            // --- GAS FALLBACK ---
+            console.log("Admin: Trying GAS for keys...");
             let response = await fetch(gasUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getGeminiKeys' })
             });
 
-            // If POST fails, try GET as ultimate fallback
             if (!response.ok) {
-                console.warn("GAS POST failed, trying GET...");
                 response = await fetch(`${gasUrl}?action=getGeminiKeys`);
             }
 
