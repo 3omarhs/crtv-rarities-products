@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.1 LOADED (Supabase Orders Fix) !!!");
-document.title = "Admin Portal (v5.1.1)";
+console.log("!!! ADMIN JS V5.1.2 LOADED (Supabase & CORS Final Fix) !!!");
+document.title = "Admin Portal (v5.1.2)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -167,12 +167,18 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                 if (isStatic) {
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     console.log(`Admin: Attempting AI request via GAS proxy...`);
-                    // IMPORTANT: Using 'text/plain' and 'omit' credentials helps bypass CORS and preflight blocks on GAS
+                    
+                    // ULTIMATE CORS WORKAROUND FOR GAS: 
+                    // Use 'no-cors' for pre-flight avoidance or ensure it's a 'simple' request
+                    // Actually, for GAS POST, we must follow the 302 redirect. Browsers block this if origin is set.
+                    // We'll try to use a more permissive fetch call.
                     response = await fetch(gasUrl, {
                         method: 'POST',
-                        mode: 'cors',
-                        credentials: 'omit',
-                        headers: { 'Content-Type': 'text/plain' },
+                        mode: 'cors', // Essential to read response
+                        headers: { 
+                            // Omit custom headers to keep it a "simple request" if possible
+                            // But we need to send JSON. GAS handles text/plain as the contents.
+                        },
                         body: JSON.stringify({ 
                             action: 'proxyGemini', 
                             payload: { 
@@ -1054,8 +1060,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.1"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.1";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.2"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.2";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1524,10 +1530,12 @@ function renderActivityLog(orders) {
     const recentOrders = [...orders].reverse().slice(0, 5);
     recentOrders.forEach(o => {
         const tr = document.createElement('tr');
+        const customerName = o.customerName || o.customername || 'Anonymous';
+        const total = o.total || '0';
         tr.innerHTML = `
             <td><span style="color:var(--success)">New Order</span></td>
-            <td>${o.customerName} - ${o.total}</td>
-            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(o.date).toLocaleTimeString()}</td>
+            <td>${customerName} - ${total}</td>
+            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(o.date || o.timestamp).toLocaleTimeString()}</td>
         `;
         logBody.appendChild(tr);
     });
@@ -1542,6 +1550,10 @@ function renderOrdersTable(orders) {
         tr.className = 'order-row';
         const idStr = String(o.id);
         const detailsId = `details-${o.id}`;
+        
+        // Handle case-sensitivity from Supabase/SQL
+        const customerName = o.customerName || o.customername || o.customerName || 'Anonymous';
+        const customerPhone = o.customerPhone || o.customerphone || o.customerPhone || '-';
 
         tr.onclick = (e) => {
             if (e.target.tagName === 'SELECT') return;
@@ -1550,7 +1562,7 @@ function renderOrdersTable(orders) {
 
         tr.innerHTML = `
             <td style="font-family:monospace">#${idStr.substr(0, 8)}</td>
-            <td>${o.customerName}<br><span style="font-size:0.8em;color:grey">${o.customerPhone}</span></td>
+            <td>${customerName}<br><span style="font-size:0.8em;color:grey">${customerPhone}</span></td>
             <td>${o.items ? o.items.length : 0} Items</td>
             <td>${o.total}</td>
             <td>${new Date(o.date).toLocaleDateString()}</td>
