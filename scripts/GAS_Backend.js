@@ -1,10 +1,10 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.1
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.2 (CORS STABLE)
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
  * 2. Click Extensions > Apps Script.
- * 3. Delete any code there and paste ALL hereof this code.
+ * 3. Delete ANY code there and paste ALL of this code.
  * 4. Ensure you have sheets named: 'orders', 'visits', 'settings', 'gemini_keys'.
  * 5. Click Deploy > New deployment (Web app, Me, Anyone).
  * 6. Copy the URL and paste into Admin Settings.
@@ -12,13 +12,16 @@
 
 const SPREADSHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 
-// Handles GET requests (Standard, but can have CORS issues in some browsers)
+// Handles GET requests
 function doGet(e) {
-    const action = e.parameter.action;
-    return handleAllActions(action, e.parameter);
+    if (e.parameter.action) {
+        return handleAllActions(e.parameter.action, e.parameter);
+    }
+    return ContentService.createTextOutput("Creative Rarities API is active (v4.2).")
+        .setMimeType(ContentService.MimeType.TEXT);
 }
 
-// Handles POST requests (Bypasses some CORS issues for data retrieval if action in body)
+// Handles POST requests
 function doPost(e) {
     try {
         const data = JSON.parse(e.postData.contents);
@@ -33,7 +36,7 @@ function handleAllActions(action, params) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     
     try {
-        // --- DATA RETRIEVAL (GET-STYLE via POST/GET) ---
+        // --- DATA RETRIEVAL ---
         if (action === 'getOrders') {
             const sheet = ss.getSheetByName('orders');
             const data = sheet.getDataRange().getValues();
@@ -72,7 +75,7 @@ function handleAllActions(action, params) {
             return jsonResponse(settings);
         }
 
-        // --- DATA UPDATE (POST-STYLE) ---
+        // --- DATA UPDATE ---
         if (action === 'placeOrder' || action === 'addOrder') {
             return handleNewOrder(params.order || params);
         } else if (action === 'recordVisit') {
@@ -96,7 +99,6 @@ function handleAllActions(action, params) {
 function handleNewOrder(order) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Orders sheet not found' });
-
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rowData = headers.map(header => {
         let val = order[header];
@@ -104,7 +106,6 @@ function handleNewOrder(order) {
         if (header === 'date' && !val) return new Date().toISOString();
         return val || '';
     });
-
     sheet.appendRow(rowData);
     return jsonResponse({ status: 'success', message: 'Order recorded' });
 }
@@ -112,7 +113,6 @@ function handleNewOrder(order) {
 function handleVisit() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('visits');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Visits sheet not found' });
-
     const today = new Date().toISOString().split('T')[0];
     const data = sheet.getDataRange().getValues();
     let found = false;
@@ -136,14 +136,12 @@ function handleProductUpdate(product) {
         sheet.appendRow(['Timestamp', 'Action', 'No', 'Data']);
     }
     sheet.appendRow([new Date(), 'update', product.No || 'N/A', JSON.stringify(product)]);
-    return jsonResponse({ status: 'success', message: 'Product change logged to spreadsheet' });
+    return jsonResponse({ status: 'success', message: 'Product change logged' });
 }
 
 function handleSaveSettings(settings) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('settings');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Settings sheet not found' });
-    
-    // Simple key-value update
     const data = sheet.getDataRange().getValues();
     for (let key in settings) {
         let found = false;
@@ -159,27 +157,18 @@ function handleSaveSettings(settings) {
     return jsonResponse({ status: 'success' });
 }
 
-function jsonResponse(data) {
-    return ContentService.createTextOutput(JSON.stringify(data))
-        .setMimeType(ContentService.MimeType.JSON);
-}
-
 function handleMigration(payload) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const results = {};
-
     if (payload.visits) {
         const sheet = ss.getSheetByName('visits');
         if (sheet) {
             sheet.clearContents();
             sheet.appendRow(['date', 'count']);
-            payload.visits.forEach(v => {
-                if (v.date && v.count) sheet.appendRow([v.date, v.count]);
-            });
+            payload.visits.forEach(v => {if (v.date && v.count) sheet.appendRow([v.date, v.count]);});
             results.visits = 'imported ' + payload.visits.length;
         }
     }
-
     if (payload.orders) {
         const sheet = ss.getSheetByName('orders');
         if (sheet) {
@@ -197,92 +186,41 @@ function handleMigration(payload) {
             results.orders = 'imported ' + payload.orders.length;
         }
     }
-
     return jsonResponse({ status: 'success', results: results });
-}
-
-function doOptions(e) {
-    return ContentService.createTextOutput("")
-        .setMimeType(ContentService.MimeType.TEXT);
 }
 
 function handleGeminiProxy(payload) {
     const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) {
-        return jsonResponse({ error: 'GEMINI_API_KEY not found in Script Properties. Please add it in project settings.' });
-    }
-
-    // Support both direct payload and wrapped payload
+    if (!apiKey) return jsonResponse({ error: 'GEMINI_API_KEY not found in Script Properties.' });
     let finalPayload = payload.contents ? payload : (payload.payload || payload);
-    
-    // Ensure contents exists
-    if (!finalPayload.contents) {
-        return jsonResponse({ error: 'Invalid payload: missing contents' });
-    }
+    if (!finalPayload.contents) return jsonResponse({ error: 'Invalid payload' });
 
-    // Comprehensive tier fallback using VERIFIED models from your listModels diagnostic
     const tiers = [
-        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent', model: 'gemini-2.5-flash' },
         { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash' },
-        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent', model: 'gemini-2.5-pro' },
-        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', model: 'gemini-1.5-flash' }
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent', model: 'gemini-1.5-flash' },
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent', model: 'gemini-1.5-flash-8b' }
     ];
 
     let errors = [];
-
     for (let tier of tiers) {
         const url = tier.url + '?key=' + apiKey;
-        const options = {
-            'method': 'post',
-            'contentType': 'application/json',
-            'payload': JSON.stringify(finalPayload),
-            'muteHttpExceptions': true
-        };
-
         try {
-            const response = UrlFetchApp.fetch(url, options);
-            const responseCode = response.getResponseCode();
-            const responseText = response.getContentText();
-            
-            if (responseCode === 200) {
-                const result = JSON.parse(responseText);
-                result.debug_model = tier.model; // Tag which one worked
-                return jsonResponse(result);
-            } else {
-                let msg = responseText;
-                try {
-                    const errJson = JSON.parse(responseText);
-                    msg = errJson.error ? errJson.error.message : responseText;
-                } catch(e) {}
-                errors.push(`${tier.model} (${responseCode}): ${msg}`);
-            }
-        } catch (err) {
-            errors.push(`${tier.model} (GAS Error): ${err.toString()}`);
-        }
+            const response = UrlFetchApp.fetch(url, {
+                'method': 'post',
+                'contentType': 'application/json',
+                'payload': JSON.stringify(finalPayload),
+                'muteHttpExceptions': true
+            });
+            const code = response.getResponseCode();
+            const text = response.getContentText();
+            if (code === 200) return jsonResponse(JSON.parse(text));
+            errors.push(`${tier.model} (${code}): ${text}`);
+        } catch (err) { errors.push(`${tier.model} Error: ${err.toString()}`); }
     }
-
-    return jsonResponse({ 
-        error: 'Gemini API Error: All model tiers failed.',
-        details: errors,
-        note: 'Check if Generative Language API is enabled in Google Cloud Console for your API Key.'
-    });
+    return jsonResponse({ error: 'All AI tiers failed', details: errors });
 }
 
-function listModels() {
-    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) {
-        Logger.log("ERROR: No API Key found in Script Properties!");
-        return "No API Key found";
-    }
-    
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey;
-    try {
-        const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-        const text = response.getContentText();
-        Logger.log("Available Models: " + text);
-        return text;
-    } catch (e) {
-        Logger.log("GAS Error: " + e.toString());
-        return e.toString();
-    }
+function jsonResponse(data) {
+    return ContentService.createTextOutput(JSON.stringify(data))
+        .setMimeType(ContentService.MimeType.JSON);
 }
