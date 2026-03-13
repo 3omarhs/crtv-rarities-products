@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.9 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.9)";
+console.log("!!! ADMIN JS V5.1.10 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.10)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -988,7 +988,7 @@ async function handleProductSubmit(e) {
                 }
             }
 
-            if (json.result === 'success') {
+            if (json.result === 'success' || json.status === 'success') {
                 if (msg) {
                     msg.textContent = "Product sent! Redirecting... 🚀";
                     msg.classList.remove('hidden');
@@ -1084,7 +1084,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.9";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.10";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1125,8 +1125,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.9"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.9";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.10"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.10";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
