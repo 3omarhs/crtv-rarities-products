@@ -2277,7 +2277,7 @@ function handleAdminImageError(img, sku) {
 // --- PRODUCT MODAL LOGIC & HELPERS ---
 
 window.allProducts = [];
-const PRODUCT_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+const PRODUCT_CSV_URL = 'data/products.csv';
 
 // Assets Configuration
 const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
@@ -2288,7 +2288,7 @@ async function initProductData() {
     return new Promise((resolve, reject) => {
         try {
             console.log("Fetching Product CSV from:", PRODUCT_CSV_URL);
-            Papa.parse(PRODUCT_CSV_URL, {
+            Papa.parse(PRODUCT_CSV_URL + '?v=' + Date.now(), {
                 download: true,
                 header: true,
                 skipEmptyLines: true,

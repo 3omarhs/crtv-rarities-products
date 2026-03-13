@@ -3,7 +3,7 @@ const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 console.log("Creative Rarities Storefront v4.1.6 (GAS v4.2 Sync)");
 const GID = '897526080';
 // API & Data Source Configuration
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
+const CSV_URL = 'data/products.csv';
 
 // IMPORTANT: Replace this URL with your new Google Apps Script Web App URL!
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
@@ -763,7 +763,7 @@ async function fetchSheetData() {
             return;
         }
         console.log("Fetching Product data from Google Sheets CSV...");
-        Papa.parse(CSV_URL, {
+        Papa.parse(CSV_URL + '?v=' + Date.now(), {
             download: true,
             header: true,
             skipEmptyLines: true,
