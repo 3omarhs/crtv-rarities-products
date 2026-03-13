@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.7 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.7)";
+console.log("!!! ADMIN JS V5.1.8 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.8)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -62,6 +62,8 @@ async function loadGeminiCredentials() {
             console.log("Admin: Trying GAS for keys...");
             let response = await fetch(gasUrl, {
                 method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getGeminiKeys' })
             });
@@ -189,6 +191,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                                 
                                 const directRes = await fetch(directUrl, {
                                     method: 'POST',
+                                    mode: 'cors',
+                                    redirect: 'follow',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         contents: [{ 
@@ -229,6 +233,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     response = await fetch(gasUrl, {
                         method: 'POST',
                         mode: 'cors',
+                        redirect: 'follow',
                         signal: controller.signal,
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({ 
@@ -897,12 +902,12 @@ async function handleProductSubmit(e) {
             gasData.mimeType = file.type;
 
             await submitToSupabase(gasData);
-            submitToGas(gasUrl, gasData);
+            await submitToGas(gasUrl, gasData);
         };
         reader.readAsDataURL(file);
     } else {
-        submitToSupabase(gasData).then(() => {
-            submitToGas(gasUrl, gasData);
+        submitToSupabase(gasData).then(async () => {
+            await submitToGas(gasUrl, gasData);
         });
     }
 
@@ -966,6 +971,8 @@ async function handleProductSubmit(e) {
             console.log("[DEBUG] Submitting to GAS.");
             const res = await fetch(url, {
                 method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
                 body: JSON.stringify(payload),
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
             });
@@ -1062,7 +1069,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.1";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.8";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1103,8 +1110,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.6"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.6";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.8"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.8";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1466,6 +1473,8 @@ async function fetchOrders(GAS_URL) {
             console.log("Admin: Fetching orders from GAS (Static Mode/POST)...");
             const res = await fetch(GAS_URL, {
                 method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
                 body: JSON.stringify({ action: 'getOrders' })
             });
             if (res.ok) return await res.json();
@@ -1547,6 +1556,8 @@ async function fetchVisits(GAS_URL) {
             console.log("Admin: Fetching visits from GAS (Static Mode/POST)...");
             const res = await fetch(GAS_URL, {
                 method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
                 body: JSON.stringify({ action: 'getVisits' })
             });
             if (res.ok) return await res.json();
