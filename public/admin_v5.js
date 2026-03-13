@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.10 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.10)";
+console.log("!!! ADMIN JS V5.1.11 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.11)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -853,7 +853,7 @@ async function handleProductSubmit(e) {
         'name on store': data['Name on Store'],
         'store name': data['Name on Store'],
 
-        'Arabic Name': data['Arabic Name'],
+        'Arabic Name': data['Arabic Name'] || data['Name on Store'],
         'category': data['category'],
         'collection': data['collection'],
         'description (80 word)': data['description (80 word)'],
@@ -870,6 +870,19 @@ async function handleProductSubmit(e) {
         'Available': form.querySelector('[name="Available"]').checked ? "TRUE" : "FALSE",
         'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
         'Active': form.querySelector('[name="Active"]').checked ? "TRUE" : "FALSE",
+    };
+
+    // UI Feedbacks
+    const msg = document.getElementById('add-product-msg');
+    const err = document.getElementById('add-product-err');
+    if (msg) msg.classList.add('hidden');
+    if (err) err.classList.add('hidden');
+
+    // Handle Image & Sync
+    const doSync = async (finalPayload) => {
+        await submitToSupabase(finalPayload);
+        await submitToGas(gasUrl, finalPayload);
+        await submitToLocal(finalPayload);
     };
 
     // 3. Handle Image (Convert to Base64)
@@ -901,14 +914,11 @@ async function handleProductSubmit(e) {
             gasData.imageName = newFileName;
             gasData.mimeType = file.type;
 
-            await submitToSupabase(gasData);
-            await submitToGas(gasUrl, gasData);
+            await doSync(gasData);
         };
         reader.readAsDataURL(file);
     } else {
-        submitToSupabase(gasData).then(async () => {
-            await submitToGas(gasUrl, gasData);
-        });
+        doSync(gasData);
     }
 
     async function submitToSupabase(payload) {
@@ -919,7 +929,7 @@ async function handleProductSubmit(e) {
                 no: payload['No'],
                 name_on_store: payload['Name on Store'],
                 product_name: payload['Product Name'],
-                arabic_name: payload['Arabic Name'],
+                arabic_name: payload['Arabic Name'] || payload['Name on Store'],
                 category: payload['category'],
                 collection: payload['collection'],
                 description: payload['description (80 word)'],
@@ -937,7 +947,7 @@ async function handleProductSubmit(e) {
                 image_name: payload.imageName,
                 mime_type: payload.mimeType
             };
-            const { data, error } = await window.supabaseClient.from('products').upsert(dbPayload, { onConflict: 'no' });
+            const { data, error } = await window.supabaseClient.from('products').upsert(dbPayload, { onConflict: 'id' });
             if (error) throw error;
             console.log("Supabase sync complete.");
         } catch (e) {
@@ -990,7 +1000,7 @@ async function handleProductSubmit(e) {
 
             if (json.result === 'success' || json.status === 'success') {
                 if (msg) {
-                    msg.textContent = "Product sent! Redirecting... 🚀";
+                    msg.innerHTML = "Product sent! Redirecting... 🚀<br><small style='font-size:0.8em; opacity:0.8;'>(Note: Google Sheets might take 5 mins to refresh the live store)</small>";
                     msg.classList.remove('hidden');
                 }
 
@@ -1084,7 +1094,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.10";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.11";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1125,8 +1135,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.10"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.10";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.11"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.11";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
