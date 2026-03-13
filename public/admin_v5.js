@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.8 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.8)";
+console.log("!!! ADMIN JS V5.1.9 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.9)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -968,7 +968,7 @@ async function handleProductSubmit(e) {
 
     async function submitToGas(url, payload) {
         try {
-            console.log("[DEBUG] Submitting to GAS.");
+            console.log("[DEBUG] Submitting to GAS:", url);
             const res = await fetch(url, {
                 method: 'POST',
                 mode: 'cors',
@@ -978,8 +978,15 @@ async function handleProductSubmit(e) {
             });
 
             const text = await res.text();
+            console.log("[DEBUG] Raw GAS Response:", text);
             let json = {};
-            try { json = JSON.parse(text); } catch (e) { }
+            try { 
+                json = JSON.parse(text); 
+            } catch (e) { 
+                if (text && text.trim().toLowerCase().includes('success')) {
+                    json = { result: 'success' };
+                }
+            }
 
             if (json.result === 'success') {
                 if (msg) {
@@ -1022,7 +1029,11 @@ async function handleProductSubmit(e) {
                 }, 1000);
 
             } else {
-                throw new Error("GAS Error: " + (json.error || res.status));
+                let errDetail = json.error || json.message || res.status;
+                if (!json.result && text.length > 0) {
+                    errDetail += " (Response: " + text.substring(0, 100).replace(/[<>]/g, '') + ")";
+                }
+                throw new Error("GAS Error: " + errDetail);
             }
         } catch (ex) {
             console.error("GAS Sync Error Details:", ex);
@@ -1073,7 +1084,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.8";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.9";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1114,8 +1125,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.8"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.8";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.9"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.9";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
