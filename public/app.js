@@ -786,14 +786,12 @@ function normalizeKey(key) {
 function extractDriveId(url) {
     if (!url) return null;
 
-    // Skip known document/PDF/spreadsheet patterns that result in snapshots rather than photos
-    // This is the core fix for "never show the product document instead of image"
-    if (url.includes('view?usp=drive_link') || 
-        url.includes('view?usp=sharing') || 
-        url.includes('/file/d/') ||
-        url.includes('docs.google.com/document') ||
-        url.includes('docs.google.com/spreadsheet')) {
-        return null; // Return null to trigger local asset fallback or placeholder
+    // Only skip types that are definitely NOT images (docs, sheets, forms)
+    if (url.includes('docs.google.com/document') ||
+        url.includes('docs.google.com/spreadsheet') ||
+        url.includes('docs.google.com/presentation') ||
+        url.includes('docs.google.com/forms')) {
+        return null; 
     }
 
     let match = url.match(/\/(?:file\/)?d\/([a-zA-Z0-9_-]+)/);
