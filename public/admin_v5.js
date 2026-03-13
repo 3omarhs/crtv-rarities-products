@@ -897,12 +897,12 @@ async function handleProductSubmit(e) {
             gasData.mimeType = file.type;
 
             await submitToSupabase(gasData);
-            submitToGas(gasUrl, gasData);
+            await submitToGas(gasUrl, gasData);
         };
         reader.readAsDataURL(file);
     } else {
-        submitToSupabase(gasData).then(() => {
-            submitToGas(gasUrl, gasData);
+        submitToSupabase(gasData).then(async () => {
+            await submitToGas(gasUrl, gasData);
         });
     }
 
@@ -966,6 +966,8 @@ async function handleProductSubmit(e) {
             console.log("[DEBUG] Submitting to GAS.");
             const res = await fetch(url, {
                 method: 'POST',
+                mode: 'cors',
+                redirect: 'follow',
                 body: JSON.stringify(payload),
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
             });
