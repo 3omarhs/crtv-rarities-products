@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.12 LOADED (Sync Fix) !!!");
-document.title = "Admin Portal (v5.1.12)";
+console.log("!!! ADMIN JS V5.1.13 LOADED (Action Fix) !!!");
+document.title = "Admin Portal (v5.1.13)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -830,7 +830,10 @@ async function handleProductSubmit(e) {
     submitBtn.innerText = "Processing...";
 
     // 2. Prepare Data for GAS
-    const action = document.getElementById('product-action').value || 'addProduct';
+    // Defensive action check to prevent price corruption
+    const actionVal = document.getElementById('product-action')?.value;
+    const action = actionVal === 'updateProduct' ? 'updateProduct' : 'addProduct';
+    
     const gasData = {
         'action': action,
         'No': no,
@@ -922,7 +925,7 @@ async function handleProductSubmit(e) {
             
             // Map payload keys to exact Supabase schema (snake_case)
             const dbPayload = {
-                id: payload.id || Date.now().toString(), // Use existing ID or generate one
+                id: payload.id || Date.now().toString(),
                 item_no: payload['No'],
                 name: payload['Product Name'],
                 store_name: payload['Name on Store'],
@@ -937,10 +940,9 @@ async function handleProductSubmit(e) {
                 target_market: payload['target market'],
                 document_link: payload['Document Link'],
                 weight_calc: payload['Calculate on Weight'],
-                available: payload['Available'], // 'TRUE' / 'FALSE'
-                hidden: payload['Hidden'],       // 'TRUE' / 'FALSE'
-                active: payload['Active'],       // 'TRUE' / 'FALSE'
-                // Optional: image_name: payload.imageName, mime_type: payload.mimeType
+                available: String(payload['Available']), // Ensure string
+                hidden: String(payload['Hidden'])         // Ensure string
+                // Note: 'active' column removed as it's missing in DB schema
             };
 
             const { data, error } = await window.supabaseClient.from('products').upsert(dbPayload, { onConflict: 'id' });
@@ -1090,7 +1092,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.12";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.13";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1131,8 +1133,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.12"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.12";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.13"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.13";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
