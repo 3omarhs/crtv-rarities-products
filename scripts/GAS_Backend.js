@@ -1,10 +1,10 @@
 /**
- * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.5 (JSONP STABLE)
+ * CREATIVE RARITIES - GOOGLE APPS SCRIPT BACKEND V4.1
  * 
  * INSTRUCTIONS:
  * 1. Go to your Google Sheet.
  * 2. Click Extensions > Apps Script.
- * 3. Delete ANY code there and paste ALL of this code.
+ * 3. Delete any code there and paste ALL hereof this code.
  * 4. Ensure you have sheets named: 'orders', 'visits', 'settings', 'gemini_keys'.
  * 5. Click Deploy > New deployment (Web app, Me, Anyone).
  * 6. Copy the URL and paste into Admin Settings.
@@ -12,47 +12,20 @@
 
 const SPREADSHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
 
-// Handles GET requests (JSONP support for definitive CORS bypass)
+// Handles GET requests (Standard, but can have CORS issues in some browsers)
 function doGet(e) {
-    let result;
-    try {
-        if (e.parameter.action === 'proxyGemini') {
-            result = handleGeminiProxy(JSON.parse(e.parameter.data));
-        } else if (e.parameter.action) {
-            result = handleAllActions(e.parameter.action, e.parameter);
-        } else {
-            result = { status: "active", version: "4.5" };
-        }
-    } catch (err) {
-        result = { result: "error", error: err.toString() };
-    }
-
-    // JSONP Support: Wrap in callback if provided
-    if (e.parameter.callback) {
-        const jsonp = e.parameter.callback + '(' + JSON.stringify(result) + ')';
-        return ContentService.createTextOutput(jsonp)
-            .setMimeType(ContentService.MimeType.JAVASCRIPT);
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
+    const action = e.parameter.action;
+    return handleAllActions(action, e.parameter);
 }
 
-// Handles POST requests
+// Handles POST requests (Bypasses some CORS issues for data retrieval if action in body)
 function doPost(e) {
     try {
-        let action, data;
-        if (e.parameter && e.parameter.action) {
-            action = e.parameter.action;
-            data = e.parameter.data ? JSON.parse(e.parameter.data) : e.parameter;
-        } else {
-            const contents = JSON.parse(e.postData.contents);
-            action = contents.action;
-            data = contents;
-        }
-        return jsonResponse(handleAllActions(action, data));
+        const data = JSON.parse(e.postData.contents);
+        const action = data.action;
+        return handleAllActions(action, data);
     } catch (error) {
-        return jsonResponse({ result: "error", error: "doPost Error: " + error.toString() });
+        return jsonResponse({ status: 'error', message: error.toString() });
     }
 }
 
@@ -60,7 +33,7 @@ function handleAllActions(action, params) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     
     try {
-        // --- DATA RETRIEVAL ---
+        // --- DATA RETRIEVAL (GET-STYLE via POST/GET) ---
         if (action === 'getOrders') {
             const sheet = ss.getSheetByName('orders');
             const data = sheet.getDataRange().getValues();
@@ -70,7 +43,7 @@ function handleAllActions(action, params) {
                 headers.forEach((h, i) => obj[h] = row[i]);
                 return obj;
             });
-            return orders;
+            return jsonResponse(orders);
         } else if (action === 'getVisits') {
             const sheet = ss.getSheetByName('visits');
             const data = sheet.getDataRange().getValues();
@@ -83,23 +56,23 @@ function handleAllActions(action, params) {
                 daily[date] = count;
             });
             const today = new Date().toISOString().split('T')[0];
-            return { total: total, daily: daily, today: daily[today] || 0 };
+            return jsonResponse({ total: total, daily: daily, today: daily[today] || 0 });
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
-            if (!sheet) return { keys: [] };
+            if (!sheet) return jsonResponse({ keys: [] });
             const data = sheet.getDataRange().getValues();
             const keys = data.slice(1).map(row => row[0]).filter(k => k);
-            return { keys: keys };
+            return jsonResponse({ keys: keys });
         } else if (action === 'getSettings') {
             const sheet = ss.getSheetByName('settings');
-            if (!sheet) return {};
+            if (!sheet) return jsonResponse({});
             const data = sheet.getDataRange().getValues();
             let settings = {};
             data.slice(1).forEach(row => { if(row[0]) settings[row[0]] = row[1]; });
-            return settings;
+            return jsonResponse(settings);
         }
 
-        // --- DATA UPDATE ---
+        // --- DATA UPDATE (POST-STYLE) ---
         if (action === 'placeOrder' || action === 'addOrder') {
             return handleNewOrder(params.order || params);
         } else if (action === 'recordVisit') {
@@ -114,15 +87,16 @@ function handleAllActions(action, params) {
             return handleGeminiProxy(params.payload || params);
         }
         
-        return { result: "error", error: 'Invalid action: ' + action };
+        return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
-        return { result: "error", error: err.toString() };
+        return jsonResponse({ error: err.toString() });
     }
 }
 
 function handleNewOrder(order) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
-    if (!sheet) return { result: 'error', message: 'Orders sheet not found' };
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Orders sheet not found' });
+
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rowData = headers.map(header => {
         let val = order[header];
@@ -130,13 +104,15 @@ function handleNewOrder(order) {
         if (header === 'date' && !val) return new Date().toISOString();
         return val || '';
     });
+
     sheet.appendRow(rowData);
-    return { result: 'success', message: 'Order recorded' };
+    return jsonResponse({ status: 'success', message: 'Order recorded' });
 }
 
 function handleVisit() {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('visits');
-    if (!sheet) return { result: 'error', message: 'Visits sheet not found' };
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Visits sheet not found' });
+
     const today = new Date().toISOString().split('T')[0];
     const data = sheet.getDataRange().getValues();
     let found = false;
@@ -149,7 +125,7 @@ function handleVisit() {
         }
     }
     if (!found) sheet.appendRow([today, 1]);
-    return { result: 'success', message: 'Visit recorded' };
+    return jsonResponse({ status: 'success', message: 'Visit recorded' });
 }
 
 function handleProductUpdate(product) {
@@ -160,12 +136,14 @@ function handleProductUpdate(product) {
         sheet.appendRow(['Timestamp', 'Action', 'No', 'Data']);
     }
     sheet.appendRow([new Date(), 'update', product.No || 'N/A', JSON.stringify(product)]);
-    return { result: 'success', message: 'Product change logged' };
+    return jsonResponse({ status: 'success', message: 'Product change logged to spreadsheet' });
 }
 
 function handleSaveSettings(settings) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('settings');
-    if (!sheet) return { result: 'error', message: 'Settings sheet not found' };
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Settings sheet not found' });
+    
+    // Simple key-value update
     const data = sheet.getDataRange().getValues();
     for (let key in settings) {
         let found = false;
@@ -178,21 +156,30 @@ function handleSaveSettings(settings) {
         }
         if (!found) sheet.appendRow([key, settings[key]]);
     }
-    return { result: 'success' };
+    return jsonResponse({ status: 'success' });
+}
+
+function jsonResponse(data) {
+    return ContentService.createTextOutput(JSON.stringify(data))
+        .setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleMigration(payload) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const results = {};
+
     if (payload.visits) {
         const sheet = ss.getSheetByName('visits');
         if (sheet) {
             sheet.clearContents();
             sheet.appendRow(['date', 'count']);
-            payload.visits.forEach(v => {if (v.date && v.count) sheet.appendRow([v.date, v.count]);});
+            payload.visits.forEach(v => {
+                if (v.date && v.count) sheet.appendRow([v.date, v.count]);
+            });
             results.visits = 'imported ' + payload.visits.length;
         }
     }
+
     if (payload.orders) {
         const sheet = ss.getSheetByName('orders');
         if (sheet) {
@@ -210,41 +197,92 @@ function handleMigration(payload) {
             results.orders = 'imported ' + payload.orders.length;
         }
     }
-    return { result: 'success', results: results };
+
+    return jsonResponse({ status: 'success', results: results });
+}
+
+function doOptions(e) {
+    return ContentService.createTextOutput("")
+        .setMimeType(ContentService.MimeType.TEXT);
 }
 
 function handleGeminiProxy(payload) {
     const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!apiKey) return { result: "error", error: 'GEMINI_API_KEY not found in Script Properties.' };
-    let finalPayload = payload.contents ? payload : (payload.payload || payload);
-    if (!finalPayload.contents) return { result: "error", error: 'Invalid payload' };
+    if (!apiKey) {
+        return jsonResponse({ error: 'GEMINI_API_KEY not found in Script Properties. Please add it in project settings.' });
+    }
 
+    // Support both direct payload and wrapped payload
+    let finalPayload = payload.contents ? payload : (payload.payload || payload);
+    
+    // Ensure contents exists
+    if (!finalPayload.contents) {
+        return jsonResponse({ error: 'Invalid payload: missing contents' });
+    }
+
+    // Comprehensive tier fallback using VERIFIED models from your listModels diagnostic
     const tiers = [
+        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent', model: 'gemini-2.5-flash' },
         { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent', model: 'gemini-2.0-flash' },
-        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent', model: 'gemini-1.5-flash' },
-        { url: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent', model: 'gemini-1.5-flash-8b' }
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent', model: 'gemini-2.5-pro' },
+        { url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', model: 'gemini-1.5-flash' }
     ];
 
     let errors = [];
+
     for (let tier of tiers) {
         const url = tier.url + '?key=' + apiKey;
+        const options = {
+            'method': 'post',
+            'contentType': 'application/json',
+            'payload': JSON.stringify(finalPayload),
+            'muteHttpExceptions': true
+        };
+
         try {
-            const response = UrlFetchApp.fetch(url, {
-                'method': 'post',
-                'contentType': 'application/json',
-                'payload': JSON.stringify(finalPayload),
-                'muteHttpExceptions': true
-            });
-            const code = response.getResponseCode();
-            const text = response.getContentText();
-            if (code === 200) return JSON.parse(text);
-            errors.push(`${tier.model} (${code}): ${text}`);
-        } catch (err) { errors.push(`${tier.model} Error: ${err.toString()}`); }
+            const response = UrlFetchApp.fetch(url, options);
+            const responseCode = response.getResponseCode();
+            const responseText = response.getContentText();
+            
+            if (responseCode === 200) {
+                const result = JSON.parse(responseText);
+                result.debug_model = tier.model; // Tag which one worked
+                return jsonResponse(result);
+            } else {
+                let msg = responseText;
+                try {
+                    const errJson = JSON.parse(responseText);
+                    msg = errJson.error ? errJson.error.message : responseText;
+                } catch(e) {}
+                errors.push(`${tier.model} (${responseCode}): ${msg}`);
+            }
+        } catch (err) {
+            errors.push(`${tier.model} (GAS Error): ${err.toString()}`);
+        }
     }
-    return { result: "error", error: 'All AI tiers failed', details: errors };
+
+    return jsonResponse({ 
+        error: 'Gemini API Error: All model tiers failed.',
+        details: errors,
+        note: 'Check if Generative Language API is enabled in Google Cloud Console for your API Key.'
+    });
 }
 
-function jsonResponse(data) {
-    return ContentService.createTextOutput(JSON.stringify(data))
-        .setMimeType(ContentService.MimeType.JSON);
+function listModels() {
+    const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!apiKey) {
+        Logger.log("ERROR: No API Key found in Script Properties!");
+        return "No API Key found";
+    }
+    
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey;
+    try {
+        const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+        const text = response.getContentText();
+        Logger.log("Available Models: " + text);
+        return text;
+    } catch (e) {
+        Logger.log("GAS Error: " + e.toString());
+        return e.toString();
+    }
 }
