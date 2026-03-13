@@ -1062,6 +1062,10 @@ async function handleProductSubmit(e) {
                     if (actionInput) actionInput.value = 'addProduct';
                     const editNoInput = document.getElementById('edit-product-no');
                     if (editNoInput) editNoInput.value = '';
+                    
+                    // CLEAR the GAS URL input so it doesn't persist a stale/hardcoded value
+                    const gasUrlInput = document.getElementById('google-script-url');
+                    if (gasUrlInput) gasUrlInput.value = '';
 
                     if (typeof loadProducts === 'function') await loadProducts();
                     if (typeof initProductData === 'function') await initProductData();
