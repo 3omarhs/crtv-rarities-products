@@ -793,7 +793,7 @@ async function initAdmin() {
 async function handleProductSubmit(e) {
     e.preventDefault();
     const msg = document.getElementById('add-product-msg');
-    const err = document.getElementById('add-product-error');
+    const err = document.getElementById('add-product-err'); // Standardized ID
     if (msg) msg.classList.add('hidden');
     if (err) err.classList.add('hidden');
 
@@ -871,12 +871,6 @@ async function handleProductSubmit(e) {
         'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
         'Active': form.querySelector('[name="Active"]').checked ? "TRUE" : "FALSE",
     };
-
-    // UI Feedbacks
-    const msg = document.getElementById('add-product-msg');
-    const err = document.getElementById('add-product-err');
-    if (msg) msg.classList.add('hidden');
-    if (err) err.classList.add('hidden');
 
     // Handle Image & Sync
     const doSync = async (finalPayload) => {
