@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.11 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.11)";
+console.log("!!! ADMIN JS V5.1.12 LOADED (Sync Fix) !!!");
+document.title = "Admin Portal (v5.1.12)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -919,28 +919,30 @@ async function handleProductSubmit(e) {
         if (!window.supabaseClient) return;
         try {
             console.log("Syncing to Supabase...");
+            
+            // Map payload keys to exact Supabase schema (snake_case)
             const dbPayload = {
-                no: payload['No'],
-                name_on_store: payload['Name on Store'],
-                product_name: payload['Product Name'],
+                id: payload.id || Date.now().toString(), // Use existing ID or generate one
+                item_no: payload['No'],
+                name: payload['Product Name'],
+                store_name: payload['Name on Store'],
                 arabic_name: payload['Arabic Name'] || payload['Name on Store'],
                 category: payload['category'],
                 collection: payload['collection'],
                 description: payload['description (80 word)'],
                 colors: payload['Colors'],
                 dimensions: payload['Dimensions(mm) x y z'],
-                price_under_25: payload['Price < 25 QTY'],
-                price_over_25: payload['Price >=25 QTY'],
+                price_low_qty: payload['Price < 25 QTY'],
+                price_high_qty: payload['Price >=25 QTY'],
                 target_market: payload['target market'],
                 document_link: payload['Document Link'],
                 weight_calc: payload['Calculate on Weight'],
-                available: payload['Available'],
-                hidden: payload['Hidden'],
-                active: payload['Active'],
-                image_base64: payload.image,
-                image_name: payload.imageName,
-                mime_type: payload.mimeType
+                available: payload['Available'], // 'TRUE' / 'FALSE'
+                hidden: payload['Hidden'],       // 'TRUE' / 'FALSE'
+                active: payload['Active'],       // 'TRUE' / 'FALSE'
+                // Optional: image_name: payload.imageName, mime_type: payload.mimeType
             };
+
             const { data, error } = await window.supabaseClient.from('products').upsert(dbPayload, { onConflict: 'id' });
             if (error) throw error;
             console.log("Supabase sync complete.");
@@ -1088,7 +1090,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.11";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.12";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1129,8 +1131,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.11"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.11";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.12"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.12";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');

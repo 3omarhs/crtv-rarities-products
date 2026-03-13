@@ -130,13 +130,57 @@ function handleVisit() {
 
 function handleProductUpdate(product) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    let sheet = ss.getSheetByName('product_updates');
+    const GID = '897526080'; // The storefront sheet GID from app.js
+    
+    // 1. Find the correct sheet by GID
+    let sheet = ss.getSheets().find(s => s.getSheetId().toString() === GID);
+    
+    // Fallback: search by name common variations if GID not found
     if (!sheet) {
-        sheet = ss.insertSheet('product_updates');
-        sheet.appendRow(['Timestamp', 'Action', 'No', 'Data']);
+        sheet = ss.getSheetByName('products') || 
+                ss.getSheetByName('Products') || 
+                ss.getSheetByName('Storefront');
     }
-    sheet.appendRow([new Date(), 'update', product.No || 'N/A', JSON.stringify(product)]);
-    return jsonResponse({ status: 'success', message: 'Product change logged to spreadsheet' });
+    
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Storefront sheet not found (GID: ' + GID + ')' });
+
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const noIndex = headers.indexOf('No');
+    if (noIndex === -1) return jsonResponse({ status: 'error', message: 'Column "No" not found in sheet' });
+
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    // 2. Find existing row if updating
+    if (product.No) {
+        for (let i = 1; i < data.length; i++) {
+            if (String(data[i][noIndex]) === String(product.No)) {
+                rowIndex = i + 1;
+                break;
+            }
+        }
+    }
+
+    // 3. Prepare row data based on headers
+    const rowData = headers.map(h => {
+        // Robust mapping: try exact match, then case-insensitive
+        let val = product[h];
+        if (val === undefined) {
+             const lowerH = h.toLowerCase().trim();
+             const key = Object.keys(product).find(k => k.toLowerCase().trim() === lowerH);
+             val = key ? product[key] : '';
+        }
+        return val;
+    });
+
+    // 4. Update or Append
+    if (rowIndex > 0) {
+        sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+        return jsonResponse({ status: 'success', message: 'Product updated in spreadsheet' });
+    } else {
+        sheet.appendRow(rowData);
+        return jsonResponse({ status: 'success', message: 'Product added to spreadsheet' });
+    }
 }
 
 function handleSaveSettings(settings) {
