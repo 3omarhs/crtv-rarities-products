@@ -130,31 +130,29 @@ function handleVisit() {
 
 function handleProductUpdate(product) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const GID = '897526080'; // The storefront sheet GID from app.js
+    const GID = '897526080'; // The storefront sheet GID
     
     // 1. Find the correct sheet by GID
     let sheet = ss.getSheets().find(s => s.getSheetId().toString() === GID);
-    
-    // Fallback: search by name common variations if GID not found
     if (!sheet) {
-        sheet = ss.getSheetByName('products') || 
-                ss.getSheetByName('Products') || 
-                ss.getSheetByName('Storefront');
+        sheet = ss.getSheetByName('products') || ss.getSheetByName('Products');
     }
     
     if (!sheet) return jsonResponse({ status: 'error', message: 'Storefront sheet not found (GID: ' + GID + ')' });
 
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const noIndex = headers.indexOf('No');
-    if (noIndex === -1) return jsonResponse({ status: 'error', message: 'Column "No" not found in sheet' });
+    const noIndex = headers.findIndex(h => h.toLowerCase().trim() === 'item_no' || h.toLowerCase().trim() === 'no');
+    
+    if (noIndex === -1) return jsonResponse({ status: 'error', message: 'Column "item_no" or "No" not found in sheet' });
 
     const data = sheet.getDataRange().getValues();
     let rowIndex = -1;
 
     // 2. Find existing row if updating
-    if (product.No) {
+    if (product.No || product.item_no) {
+        const productNo = String(product.No || product.item_no).trim();
         for (let i = 1; i < data.length; i++) {
-            if (String(data[i][noIndex]) === String(product.No)) {
+            if (String(data[i][noIndex]).trim() === productNo) {
                 rowIndex = i + 1;
                 break;
             }
@@ -162,48 +160,52 @@ function handleProductUpdate(product) {
     }
 
     // 3. Prepare row data based on headers
+    // Robust mapping for CSV headers (snake_case) and Frontend headers (Title Case)
     const rowData = headers.map(h => {
-        // Robust mapping: try exact match, then case-insensitive
+        const normH = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Try exact match, then normalized match
         let val = product[h];
         if (val === undefined) {
-             const lowerH = h.toLowerCase().trim();
-             const key = Object.keys(product).find(k => k.toLowerCase().trim() === lowerH);
+             const key = Object.keys(product).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === normH);
              val = key ? product[key] : '';
         }
         return val;
     });
 
     // 4. Update or Append
-    if (rowIndex > 0) {
-        sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-        syncSpreadsheetToGitHub(); // Async-ish (GAS will wait, but we return success)
-        return jsonResponse({ status: 'success', message: 'Product updated in spreadsheet and GitHub sync triggered' });
-    } else {
-        sheet.appendRow(rowData);
-        syncSpreadsheetToGitHub();
-        return jsonResponse({ status: 'success', message: 'Product added to spreadsheet and GitHub sync triggered' });
+    try {
+        if (rowIndex > 0) {
+            sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+        } else {
+            sheet.appendRow(rowData);
+        }
+        
+        // 5. Trigger GitHub Sync (CSV + Image if provided)
+        const syncResult = syncProductToGitHub(sheet, product);
+        
+        return jsonResponse({ 
+            status: rowIndex > 0 ? 'success' : 'success', 
+            message: rowIndex > 0 ? 'Product updated' : 'Product added',
+            github_sync: syncResult 
+        });
+    } catch (e) {
+        return jsonResponse({ status: 'error', message: 'Spreadsheet Error: ' + e.toString() });
     }
 }
 
 /**
- * TRIGGER: Syncs the entire storefront sheet to GitHub data/products.csv
+ * Syncs the spreadsheet to CSV and uploads image to GitHub
  */
-function syncSpreadsheetToGitHub() {
+function syncProductToGitHub(sheet, product) {
     const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
-    if (!GITHUB_TOKEN) {
-        Logger.log("GITHUB_TOKEN not found in Script Properties. Skipping GitHub sync.");
-        return;
-    }
+    if (!GITHUB_TOKEN) return { status: 'warning', message: 'GITHUB_TOKEN missing in script properties' };
 
     const REPO = "3omarhs/crtv-rarities-products";
-    const FILE_PATH = "data/products.csv";
-    const GID = '897526080';
+    const CSV_PATH = "data/products.csv";
+    const results = [];
 
     try {
-        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-        let sheet = ss.getSheets().find(s => s.getSheetId().toString() === GID);
-        if (!sheet) return;
-
+        // 1. Sync CSV
         const data = sheet.getDataRange().getValues();
         const csvContent = data.map(row => {
             return row.map(cell => {
@@ -214,18 +216,28 @@ function syncSpreadsheetToGitHub() {
                 return val;
             }).join(',');
         }).join('\n');
+        
+        const csvRes = commitToGitHub(REPO, CSV_PATH, csvContent, "Sync products.csv from GAS", false);
+        results.push({ file: 'CSV', status: csvRes.status });
 
-        commitToGitHub(REPO, FILE_PATH, csvContent, "Sync products.csv from Google Sheet [Live Update]");
+        // 2. Sync Image (if provided as base64)
+        if (product.image && product.imageName) {
+            const imagePath = "assets/products/" + product.imageName;
+            const imgRes = commitToGitHub(REPO, imagePath, product.image, "Upload product image from GAS", true);
+            results.push({ file: 'Image', status: imgRes.status });
+        }
+
+        return { status: 'success', details: results };
     } catch (e) {
-        Logger.log("GitHub Sync Error: " + e.toString());
+        return { status: 'error', message: e.toString() };
     }
 }
 
-function commitToGitHub(repo, path, content, message) {
+function commitToGitHub(repo, path, content, message, isBase64) {
     const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
     const url = `https://api.github.com/repos/${repo}/contents/${path}`;
     
-    // 1. Get current file info (for SHA)
+    // 1. Check for existing file SHA
     const options = {
         'method': 'get',
         'headers': {
@@ -241,10 +253,10 @@ function commitToGitHub(repo, path, content, message) {
         sha = JSON.parse(res.getContentText()).sha;
     }
 
-    // 2. Commit changes
+    // 2. Commit
     const payload = {
         'message': message,
-        'content': Utilities.base64Encode(content, Utilities.Charset.UTF_8),
+        'content': isBase64 ? content : Utilities.base64Encode(content, Utilities.Charset.UTF_8),
         'branch': 'main'
     };
     if (sha) payload.sha = sha;
@@ -261,7 +273,12 @@ function commitToGitHub(repo, path, content, message) {
     };
 
     const commitRes = UrlFetchApp.fetch(url, commitOptions);
-    Logger.log("GitHub Commit Response: " + commitRes.getContentText());
+    const code = commitRes.getResponseCode();
+    
+    return { 
+        status: (code === 200 || code === 201) ? 'success' : 'error',
+        code: code
+    };
 }
 
 function handleSaveSettings(settings) {

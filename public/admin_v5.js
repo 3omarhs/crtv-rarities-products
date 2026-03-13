@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.14 LOADED (Triple Sync) !!!");
-document.title = "Admin Portal (v5.1.14)";
+console.log("!!! ADMIN JS V5.1.15 LOADED (Robust Product Sync) !!!");
+document.title = "Admin Portal (v5.1.15)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -997,45 +997,75 @@ async function handleProductSubmit(e) {
             }
 
             if (json.result === 'success' || json.status === 'success') {
+                let successMsg = "Product saved to Spreadsheet!";
+                let isWarning = false;
+
+                // Handle detailed GitHub sync status
+                if (json.github_sync) {
+                    if (json.github_sync.status === 'success') {
+                        successMsg += " ✨ GitHub sync complete.";
+                    } else if (json.github_sync.status === 'warning') {
+                        successMsg += " ⚠️ Sheet updated, but GitHub Sync skipped (Check Token).";
+                        isWarning = true;
+                    } else if (json.github_sync.status === 'error') {
+                        successMsg += " ❌ Sheet updated, but GitHub Sync FAILED.";
+                        isWarning = true;
+                    }
+                }
+
                 if (msg) {
-                    msg.innerHTML = "Product sent! Redirecting... 🚀<br><small style='font-size:0.8em; opacity:0.8;'>(Note: Google Sheets might take 5 mins to refresh the live store)</small>";
+                    msg.innerHTML = successMsg;
+                    msg.style.color = isWarning ? "orange" : "#10b981";
                     msg.classList.remove('hidden');
                 }
 
                 setTimeout(async () => {
-                    form.reset();
                     if (msg) msg.classList.add('hidden');
-
-                    // Switch View using global helper (if we had one) or manual
-                    document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+                    if (loading) loading.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = originalBtnText;
+                    
+                    // Switch View to Social Generator
                     const socialView = document.getElementById('view-social-generator');
                     if (socialView) {
+                        document.querySelectorAll('.view-section').forEach(v => {
+                            v.classList.add('hidden');
+                            v.style.display = 'none';
+                        });
                         socialView.classList.remove('hidden');
                         socialView.style.display = 'block';
-                    }
-
-                    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-                    document.querySelector('.nav-item[data-view="social-generator"]')?.classList.add('active');
-
-                    if (window.initSocialGenerator) await window.initSocialGenerator();
-
-                    const select = document.getElementById('social-product-select');
-                    if (select) {
-                        const exists = [...select.options].some(o => o.value === payload.No);
-                        if (!exists) {
-                            const opt = document.createElement('option');
-                            opt.value = payload.No;
-                            opt.textContent = `${payload.No} - ${payload['product name'] || payload['Name on Store']}`;
-                            select.appendChild(opt);
+                        
+                        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                        document.querySelector('.nav-item[data-view="social-generator"]')?.classList.add('active');
+                        
+                        // Populate Social Generator
+                        if (window.initSocialGenerator) await window.initSocialGenerator();
+                        const select = document.getElementById('social-product-select');
+                        if (select) {
+                            const exists = [...select.options].some(o => o.value === payload.No);
+                            if (!exists) {
+                                const opt = document.createElement('option');
+                                opt.value = payload.No;
+                                opt.textContent = `${payload.No} - ${payload['product name'] || payload['Name on Store'] || ''}`;
+                                select.appendChild(opt);
+                            }
+                            select.value = payload.No;
                         }
-                        select.value = payload.No;
+                        if (typeof generateSocialPost === 'function') {
+                            await generateSocialPost(payload);
+                        }
                     }
 
-                    if (typeof generateSocialPost === 'function') {
-                        await generateSocialPost(payload);
-                    }
+                    form.reset();
+                    // Reset hidden fields
+                    const actionInput = document.getElementById('product-action');
+                    if (actionInput) actionInput.value = 'addProduct';
+                    const editNoInput = document.getElementById('edit-product-no');
+                    if (editNoInput) editNoInput.value = '';
+
+                    if (typeof loadProducts === 'function') await loadProducts();
+                    if (typeof initProductData === 'function') await initProductData();
                 }, 1000);
-
             } else {
                 let errDetail = json.error || json.message || res.status;
                 if (!json.result && text.length > 0) {
