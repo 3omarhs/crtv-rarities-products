@@ -974,7 +974,7 @@ async function handleProductSubmit(e) {
                 mode: 'cors',
                 redirect: 'follow',
                 body: JSON.stringify(payload),
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                headers: { "Content-Type": "text/plain" },
             });
 
             const text = await res.text();
@@ -1025,9 +1025,13 @@ async function handleProductSubmit(e) {
                 throw new Error("GAS Error: " + (json.error || res.status));
             }
         } catch (ex) {
-            console.error(ex);
+            console.error("GAS Sync Error Details:", ex);
             if (err) {
-                err.textContent = "Sync Failed: " + ex.message;
+                let displayErr = ex.message || "Unknown error";
+                if (displayErr.includes("Failed to fetch")) {
+                    displayErr = "Failed to fetch (CORS or Network Error). Please ensure the Script URL is correct and deployed as 'Anyone'.";
+                }
+                err.textContent = "Sync Failed: " + displayErr;
                 err.classList.remove('hidden');
             }
         } finally {
@@ -1475,6 +1479,7 @@ async function fetchOrders(GAS_URL) {
                 method: 'POST',
                 mode: 'cors',
                 redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getOrders' })
             });
             if (res.ok) return await res.json();
@@ -1558,6 +1563,7 @@ async function fetchVisits(GAS_URL) {
                 method: 'POST',
                 mode: 'cors',
                 redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getVisits' })
             });
             if (res.ok) return await res.json();
