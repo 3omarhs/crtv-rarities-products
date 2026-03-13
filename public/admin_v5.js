@@ -2277,7 +2277,7 @@ function handleAdminImageError(img, sku) {
 // --- PRODUCT MODAL LOGIC & HELPERS ---
 
 window.allProducts = [];
-const PRODUCT_CSV_URL = 'data/products.csv';
+const PRODUCT_CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/products.csv';
 
 // Assets Configuration
 const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
