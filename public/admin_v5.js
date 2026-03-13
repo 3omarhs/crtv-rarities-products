@@ -1,54 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.2.5 LOADED (Ultimate JSONP Rescue) !!!");
-document.title = "Admin Portal (v5.2.5)";
-
-// --- KEY HEALTH TRACKING ---
-const SICK_KEYS = new Map(); // apiKey -> timestamp of last 429
-function isKeyHealthy(key) {
-    if (!SICK_KEYS.has(key)) return true;
-    const lastSick = SICK_KEYS.get(key);
-    if (Date.now() - lastSick > 60000) { // 60s cooldown
-        SICK_KEYS.delete(key);
-        return true;
-    }
-    return false;
-}
-
-// --- JSONP HELPER ---
-function getJsonp(url, timeoutNum = 30000) {
-    return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_cb_' + Math.round(Math.random() * 1000000);
-        const script = document.createElement('script');
-        let timeout;
-
-        window[callbackName] = (data) => {
-            clearTimeout(timeout);
-            cleanup();
-            resolve(data);
-        };
-
-        const cleanup = () => {
-            if (script.parentNode) script.parentNode.removeChild(script);
-            delete window[callbackName];
-        };
-
-        const sep = url.includes('?') ? '&' : '?';
-        script.src = url + sep + 'callback=' + callbackName;
-        script.onerror = () => {
-            clearTimeout(timeout);
-            cleanup();
-            reject(new Error("JSONP Script load error"));
-        };
-
-        document.body.appendChild(script);
-
-        timeout = setTimeout(() => {
-            cleanup();
-            reject(new Error("JSONP Timeout"));
-        }, timeoutNum);
-    });
-}
-
+console.log("!!! ADMIN JS V5.1.7 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.7)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -224,18 +176,14 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.5-flash'];
+                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
                     const endpoint = 'v1beta'; 
                     
-                    console.log(`Admin: Rotation through ${GEMINI_API_KEYS.length} keys and ${models.length} models...`);
+                    console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
                     
                     outerLoop: 
                     for (const modelName of models) {
                         for (const apiKey of GEMINI_API_KEYS) {
-                            if (!isKeyHealthy(apiKey)) {
-                                console.log(`Skipping sick key: ${apiKey.substring(0,6)}...`);
-                                continue;
-                            }
                             try {
                                 const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
                                 
@@ -259,10 +207,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                                     const code = directRes.status;
                                     console.warn(`AI (${modelName}) failed: ${code}`);
                                     if (code === 429) {
-                                        SICK_KEYS.set(apiKey, Date.now());
-                                        const jitter = Math.floor(Math.random() * 1500) + 1000; // 1-2.5s jitter
-                                        console.log(`Rate limited. Waiting ${jitter}ms before next key...`);
-                                        await new Promise(r => setTimeout(r, jitter));
+                                        console.log("Rate limited. Waiting 2s before next key...");
+                                        await new Promise(r => setTimeout(r, 2000));
                                     }
                                 }
                             } catch (e) {
@@ -274,55 +220,29 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    const manualUrl = document.getElementById('google-script-url')?.value.trim();
-                    const gasUrl = manualUrl || window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-                    
-                    console.log(`Add Product AI: Direct keys limited. Waiting 2s for fallback...`);
-                    await new Promise(r => setTimeout(r, 2000)); // Breathing room
-                    
-                    console.log(`Add Product AI: Trying GAS (Ultimate CORS-Simple Strategy): ${gasUrl}`);
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
                     
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 30000); 
+                    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s for GAS
                     
-                    // Simple Request via Form Encoding (Bypasses preflight entirely)
-                    console.log("Add Product AI: Sending Form-Encoded request to GAS...");
-                    const formData = new URLSearchParams();
-                    formData.append('action', 'proxyGemini');
-                    formData.append('data', JSON.stringify({ 
-                        contents: [{ 
-                            parts: [
-                                { text: prompt },
-                                { inlineData: { mimeType: mimeType, data: base64Data } }
-                            ] 
-                        }] 
-                    }));
-
-                    try {
-                        const gasResponse = await fetch(gasUrl, {
-                            method: 'POST',
-                            body: formData,
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                        });
-                        
-                        if (gasResponse.ok) response = gasResponse;
-                    } catch (e) {
-                        console.warn("GAS POST failed (CORS?), trying JSONP Backup...");
-                        // JSONP only works if the image is small enough to fit in GET URL
-                        // For safety, we'll try it with just the prompt and no image if it's too big
-                        const jsonpData = { 
-                            contents: [{ 
-                                parts: [{ text: prompt + " (Analyze based on prompt context only as image was too large for JSONP)" }] 
-                            }] 
-                        };
-                        const jsonpUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify(jsonpData))}`;
-                        const resJsonp = await getJsonp(jsonpUrl);
-                        if (resJsonp) {
-                            console.log("GAS Fallback: Success via JSONP!");
-                            // Mocking a response object for subsequent code
-                            response = { ok: true, json: async () => resJsonp };
-                        }
-                    }
+                    response = await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'cors',
+                        signal: controller.signal,
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ 
+                            action: 'proxyGemini', 
+                            payload: { 
+                                contents: [{ 
+                                    parts: [
+                                        { text: prompt },
+                                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                                    ] 
+                                }] 
+                            }
+                        })
+                    });
                     clearTimeout(timeoutId);
                 }
 
@@ -333,8 +253,8 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 const data = await response.json();
                 if (data.error || (data.result === 'error')) {
-                    const errMsg = data.error || data.message || "AI keys exhausted or proxy error";
-                    throw new Error(errMsg);
+                    const errMsg = data.error || data.message || "Proxy error";
+                    throw new Error(`API: ${errMsg}`);
                 }
 
                 // Handle response parsing
@@ -1142,7 +1062,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.2.1";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.1";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1183,8 +1103,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.2.5"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.5";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.6"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.6";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1266,7 +1186,6 @@ window.initSocialGenerator = async function () {
                 throw new Error("No Gemini API Keys found. Please configure in Settings.");
             }
 
-            let response; // Declare scope outer
             const name = product['Name on Store'] || product['product name'];
             const description = product['description (80 word)'] || '';
             const price = parseFloat(String(product['Price < 25 QTY'] || product['Price'] || 0).replace(/[^\d.]/g, '')).toFixed(3);
@@ -1295,92 +1214,41 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.1-flash'];
+            const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
             const endpoint = 'v1beta';
 
             outerLoopSocial:
             for (const modelName of models) {
                 for (const API_KEY of GEMINI_API_KEYS) {
-                    if (!isKeyHealthy(API_KEY)) continue;
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
-                        const directRes = await fetch(API_URL, {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 6000);
+                        
+                        const response = await fetch(API_URL, {
                             method: 'POST',
+                            signal: controller.signal,
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 contents: [{ parts: [{ text: prompt }] }]
                             })
                         });
+                        clearTimeout(timeoutId);
                         
-                        if (directRes.ok) {
-                            response = directRes;
+                        if (response.ok) {
                             const data = await response.json();
                             if (data.candidates && data.candidates[0].content) {
                                 output.value = data.candidates[0].content.parts[0].text.trim();
                                 success = true;
                                 break outerLoopSocial;
                             }
-                        } else {
-                            const code = directRes.status;
-                            console.warn(`Social AI (${modelName}) failed: ${code}`);
-                            if (code === 429) {
-                                SICK_KEYS.set(API_KEY, Date.now());
-                                const jitter = Math.floor(Math.random() * 1500) + 1000;
-                                console.log("Social AI: Rate limited. Waiting jitter...");
-                                await new Promise(r => setTimeout(r, jitter));
-                            } else if (code === 404) {
-                                break; // Skip key rotation for broken model
-                            }
+                        } else if (response.status === 404) {
+                            break; // Skip key rotation for broken model
                         }
-                    } catch (e) { console.warn("Social AI Error:", e); }
+                    } catch (e) { }
                 }
             }
-            if (!success) {
-                const manualUrl = document.getElementById('google-script-url')?.value.trim();
-                const gasUrl = manualUrl || window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-                
-                console.log(`Social AI: All direct keys failed. Trying GAS Fallback: ${gasUrl}`);
-                
-                console.log(`Social AI: Trying GAS (Ultimate JSONP Bypass): ${gasUrl}`);
-                
-                try {
-                    const jsonpData = { contents: [{ parts: [{ text: prompt }] }] };
-                    const jsonpUrl = `${gasUrl}?action=proxyGemini&data=${encodeURIComponent(JSON.stringify(jsonpData))}`;
-                    const resJsonp = await getJsonp(jsonpUrl);
-                    if (resJsonp && resJsonp.candidates) {
-                        output.value = resJsonp.candidates[0].content.parts[0].text.trim();
-                        success = true;
-                    }
-                } catch (e) { 
-                    console.warn("Social AI JSONP failed, trying last-ditch POST..."); 
-                    const formData = new URLSearchParams();
-                    formData.append('action', 'proxyGemini');
-                    formData.append('data', JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }));
-
-                    const resPost = await fetch(gasUrl, {
-                        method: 'POST',
-                        body: formData,
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                    });
-                    if (resPost.ok) {
-                        const data = await resPost.json();
-                        if (data.candidates && data.candidates[0].content) {
-                            output.value = data.candidates[0].content.parts[0].text.trim();
-                            success = true;
-                        }
-                    }
-                }
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.candidates && data.candidates[0].content) {
-                        output.value = data.candidates[0].content.parts[0].text.trim();
-                        success = true;
-                    }
-                }
-            }
-
-            if (!success) throw new Error("All AI keys/models and GAS fallback failed for Social Media.");
+            if (!success) throw new Error("All optimized AI attempts failed/timed out.");
 
         } catch (e) {
             output.value = "Error: " + e.message;
