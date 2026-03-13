@@ -610,7 +610,7 @@ async function init() {
     // --- TRACK VISITS (Server Side / GAS) ---
     // Only count unique sessions to prevent spamming stats on reload
     // GAS_URL shared with admin
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec";
 
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');

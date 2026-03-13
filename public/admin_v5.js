@@ -45,7 +45,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
             
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
             if (window.supabaseClient) {
@@ -224,7 +224,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
                     console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
                     
                     const controller = new AbortController();
@@ -1075,7 +1075,7 @@ async function loadSettings() {
     const versionDisplay = document.getElementById('app-version-display');
     if (versionDisplay) versionDisplay.textContent = "v5.1.8";
 
-    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
     // Update all URL inputs
     const inputs = ['google-script-url', 'settings-google-script-url'];
@@ -1398,7 +1398,7 @@ async function loadData() {
     console.log("Admin: loadData called");
 
     try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
         // 1. Fetch Orders from GAS or Fallback API
         let ordersData = await fetchOrders(gasUrl);
