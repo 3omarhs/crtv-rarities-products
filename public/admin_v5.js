@@ -1278,7 +1278,7 @@ Instructions:
 7. Return ONLY the caption text itself.`;
 
             let success = false;
-            const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             const endpoint = 'v1beta';
 
             outerLoopSocial:
@@ -1287,7 +1287,7 @@ Instructions:
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 6000);
+                        const timeoutId = setTimeout(() => controller.abort(), 12000);
                         
                         const response = await fetch(API_URL, {
                             method: 'POST',
@@ -1312,6 +1312,40 @@ Instructions:
                     } catch (e) { }
                 }
             }
+            // Fallback to GAS Proxy if Direct API failed (e.g. 429)
+            if (!success) {
+                try {
+                    console.log("Direct Social AI failed, falling back to GAS...");
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    
+                    const response = await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'cors',
+                        redirect: 'follow',
+                        signal: controller.signal,
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({ 
+                            action: 'proxyGemini', 
+                            payload: { contents: [{ parts: [{ text: prompt }] }] }
+                        })
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.candidates && data.candidates[0].content) {
+                            output.value = data.candidates[0].content.parts[0].text.trim();
+                            success = true;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("GAS Social Fallback failed", e);
+                }
+            }
+
             if (!success) throw new Error("All optimized AI attempts failed/timed out.");
 
         } catch (e) {
