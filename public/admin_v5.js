@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.7 LOADED (Definitive Recovery) !!!");
-document.title = "Admin Portal (v5.1.7)";
+console.log("!!! ADMIN JS V5.1.8 LOADED (Definitive Recovery) !!!");
+document.title = "Admin Portal (v5.1.8)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -1064,7 +1064,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.1";
+    if (versionDisplay) versionDisplay.textContent = "v5.1.8";
 
     const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
@@ -1105,8 +1105,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.6"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.6";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.8"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.8";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
