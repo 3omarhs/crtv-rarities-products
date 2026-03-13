@@ -176,11 +176,92 @@ function handleProductUpdate(product) {
     // 4. Update or Append
     if (rowIndex > 0) {
         sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-        return jsonResponse({ status: 'success', message: 'Product updated in spreadsheet' });
+        syncSpreadsheetToGitHub(); // Async-ish (GAS will wait, but we return success)
+        return jsonResponse({ status: 'success', message: 'Product updated in spreadsheet and GitHub sync triggered' });
     } else {
         sheet.appendRow(rowData);
-        return jsonResponse({ status: 'success', message: 'Product added to spreadsheet' });
+        syncSpreadsheetToGitHub();
+        return jsonResponse({ status: 'success', message: 'Product added to spreadsheet and GitHub sync triggered' });
     }
+}
+
+/**
+ * TRIGGER: Syncs the entire storefront sheet to GitHub data/products.csv
+ */
+function syncSpreadsheetToGitHub() {
+    const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+    if (!GITHUB_TOKEN) {
+        Logger.log("GITHUB_TOKEN not found in Script Properties. Skipping GitHub sync.");
+        return;
+    }
+
+    const REPO = "3omarhs/crtv-rarities-products";
+    const FILE_PATH = "data/products.csv";
+    const GID = '897526080';
+
+    try {
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+        let sheet = ss.getSheets().find(s => s.getSheetId().toString() === GID);
+        if (!sheet) return;
+
+        const data = sheet.getDataRange().getValues();
+        const csvContent = data.map(row => {
+            return row.map(cell => {
+                let val = String(cell);
+                if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                    return '"' + val.replace(/"/g, '""') + '"';
+                }
+                return val;
+            }).join(',');
+        }).join('\n');
+
+        commitToGitHub(REPO, FILE_PATH, csvContent, "Sync products.csv from Google Sheet [Live Update]");
+    } catch (e) {
+        Logger.log("GitHub Sync Error: " + e.toString());
+    }
+}
+
+function commitToGitHub(repo, path, content, message) {
+    const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+    const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+    
+    // 1. Get current file info (for SHA)
+    const options = {
+        'method': 'get',
+        'headers': {
+            'Authorization': 'token ' + GITHUB_TOKEN,
+            'Accept': 'application/vnd.github.v3+json'
+        },
+        'muteHttpExceptions': true
+    };
+
+    const res = UrlFetchApp.fetch(url, options);
+    let sha = null;
+    if (res.getResponseCode() === 200) {
+        sha = JSON.parse(res.getContentText()).sha;
+    }
+
+    // 2. Commit changes
+    const payload = {
+        'message': message,
+        'content': Utilities.base64Encode(content, Utilities.Charset.UTF_8),
+        'branch': 'main'
+    };
+    if (sha) payload.sha = sha;
+
+    const commitOptions = {
+        'method': 'put',
+        'contentType': 'application/json',
+        'headers': {
+            'Authorization': 'token ' + GITHUB_TOKEN,
+            'Accept': 'application/vnd.github.v3+json'
+        },
+        'payload': JSON.stringify(payload),
+        'muteHttpExceptions': true
+    };
+
+    const commitRes = UrlFetchApp.fetch(url, commitOptions);
+    Logger.log("GitHub Commit Response: " + commitRes.getContentText());
 }
 
 function handleSaveSettings(settings) {
