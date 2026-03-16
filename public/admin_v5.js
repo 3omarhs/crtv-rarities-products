@@ -282,7 +282,6 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                     console.log("AI Response:", text);
                     const parts = text.split('|||').map(p => p.trim());
 
-                    if (parts[0]) document.querySelector('input[name="Name on Store"]').value = parts[0];
                     if (parts[0]) { const pn = document.querySelector('input[name="product name"]'); if (pn) pn.value = parts[0]; }
                     if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
                     if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
