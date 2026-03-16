@@ -45,7 +45,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
             
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
             if (window.supabaseClient) {
@@ -161,16 +161,21 @@ OUTPUT STRUCTURE:
 1. Selling Name: A promotional name that indicates the function of the product (e.g., "Space-Saving Desk Organizer").
 2. Description: A concise description of the product (approx. 80 words).
 3. Category: The most appropriate category (e.g., "Home Decor & Organization - Desk Accessories").
-4. Collection: The theme or collection this product belongs to.
-5. Arabic Name: The name of the product in Arabic.
-6. Target Market: The primary audience for this product.
+Selling Name: A promotional name that indicates the function of the product (e.g., "Space-Saving Desk Organizer").
+Description: A concise description of the product (approx. 80 words).
+Category: The most appropriate category (e.g., "Home Decor & Organization - Desk Accessories").
+Collection: The theme or collection this product belongs to.
+Arabic Name: The name of the product in Arabic.
+Target Market: The primary audience for this product.
 
 CRITICAL OUTPUT FORMAT:
 Return ONLY the values separated by "|||".
 Order MUST be: Selling Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
 DO NOT include labels like "1." or "Name:".
 Example:
-Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
+Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals
+
+CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the description or names. Focus on the product's function, design, and benefits.`;
 
             // --- STRATEGY: Universal Rotation (Keys x Models x Endpoints) ---
             try {
@@ -225,7 +230,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
 
                 // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
                     console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
                     
                     const controller = new AbortController();
@@ -1124,11 +1129,9 @@ async function loadSettings() {
     }
 
     try {
-        // GitHub Pages limitation: Cannot fetch settings from a backend API.
-        // const res = await fetch('/api/settings');
-        // if (!res.ok) throw new Error("Failed to fetch settings");
-        // const data = await res.json();
-        const data = {}; // Simulate empty settings for static host
+        const res = await fetch('/api/settings');
+        if (!res.ok) throw new Error("Failed to fetch settings");
+        const data = await res.json();
 
         const enabled = document.getElementById('email-enabled');
         const receiver = document.getElementById('receiver-email');
@@ -1255,7 +1258,7 @@ Instructions:
 3. NO hashtags.
 4. NO titles or headers (like "Caption:" or "Post:").
 5. NO meta-commentary or instructions in the output.
-6. NO mention of the product being "3D printed".
+6. NO mention of the product being "3D printed", "3D printing", or "additive manufacturing".
 7. Return ONLY the caption text itself.`;
 
             let success = false;
@@ -1297,7 +1300,7 @@ Instructions:
             if (!success) {
                 try {
                     console.log("Direct Social AI failed, falling back to GAS...");
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
                     
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -1387,12 +1390,7 @@ window.initUploadImages = async function () {
         let errors = [];
 
         try {
-            // GitHub Pages limitation: Image upload is disabled.
-            alert("Image upload is disabled on static GitHub Pages. Please commit images directly to your GitHub assets repository.");
-            input.value = ""; // Clear selection
-            throw new Error("Image upload disabled for static hosting.");
-
-            const isLocalFile = window.location.protocol === 'file:';
+            const isLocalFile = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             const apiBase = isLocalFile ? 'http://localhost:3000' : '';
 
             // Get existing image count from data if available
