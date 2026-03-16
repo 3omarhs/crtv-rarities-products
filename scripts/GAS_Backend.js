@@ -205,11 +205,28 @@ function syncProductToGitHub(sheet, product) {
     const results = [];
 
     try {
-        // 1. Sync CSV
+        // 1. Sync CSV - ONLY export the 19 known valid columns (prevents corruption if sheet has extra columns)
+        const VALID_COLUMNS = [
+            'Product Name', 'No', 'category', 'collection', 'target market',
+            'Calculate on Weight', 'Dimensions(mm) x y z', 'description (80 word)',
+            'Price < 25 QTY', 'Price >=25 QTY', 'discount cal', 'Document Link',
+            'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors'
+        ];
+        
         const data = sheet.getDataRange().getValues();
-        const csvContent = data.map(row => {
-            return row.map(cell => {
-                let val = String(cell);
+        const sheetHeaders = data[0];
+        
+        // Map valid column names to their indices in the sheet
+        const validIndices = VALID_COLUMNS.map(col => sheetHeaders.indexOf(col));
+        
+        const csvContent = data.map((row, rowIdx) => {
+            if (rowIdx === 0) {
+                // Write header row using the canonical column names
+                return VALID_COLUMNS.join(',');
+            }
+            return validIndices.map(idx => {
+                const cell = idx >= 0 ? row[idx] : '';
+                let val = String(cell === null || cell === undefined ? '' : cell);
                 if (val.includes(',') || val.includes('"') || val.includes('\n')) {
                     return '"' + val.replace(/"/g, '""') + '"';
                 }
