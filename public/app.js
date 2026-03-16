@@ -884,6 +884,8 @@ function processData(data) {
     const availableKey = keys.find(k => normalizeKey(k).includes('availab'));
     const hiddenKey = keys.find(k => normalizeKey(k) === 'hidden');
     const colorsKey = keys.find(k => normalizeKey(k).includes('color'));
+    const nameOnStoreKey = keys.find(k => normalizeKey(k) === 'name on store') ||
+        keys.find(k => normalizeKey(k).includes('name') && normalizeKey(k).includes('store'));
 
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
@@ -909,7 +911,8 @@ function processData(data) {
         }
 
         const product = {
-            name: item[productKey],
+            name: (item[productKey] && item[productKey].trim()) || (nameOnStoreKey && item[nameOnStoreKey] && item[nameOnStoreKey].trim()) || '',
+            nameOnStore: nameOnStoreKey ? item[nameOnStoreKey] : null,
             no: noKey ? item[noKey] : `ITEM-${index + 1}`,
             image: extractedImage,
             link: linkKey ? item[linkKey] : null,
