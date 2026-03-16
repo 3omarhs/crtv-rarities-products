@@ -9,7 +9,7 @@ const PORT = 3000;
 const DB_FILE = path.join(__dirname, 'data.json');
 const ADMIN_FILE = path.join(__dirname, 'adminCredentials.txt');
 const VISITS_FILE = path.join(__dirname, 'visits.json');
-const UPLOAD_DIR = path.join(__dirname, 'assets', 'products');
+const UPLOAD_DIR = path.join(__dirname, '..', 'public', 'assets', 'products');
 
 // Ensure Upload Dir
 if (!fs.existsSync(UPLOAD_DIR)) {

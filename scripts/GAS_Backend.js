@@ -222,7 +222,7 @@ function syncProductToGitHub(sheet, product) {
 
         // 2. Sync Image (if provided as base64)
         if (product.image && product.imageName) {
-            const imagePath = "assets/products/" + product.imageName;
+            const imagePath = "public/assets/products/" + product.imageName;
             const imgRes = commitToGitHub(REPO, imagePath, product.image, "Upload product image from GAS", true);
             results.push({ file: 'Image', status: imgRes.status });
         }
