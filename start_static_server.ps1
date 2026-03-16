@@ -1,4 +1,4 @@
-$port = 8080
+$port = 3000
 $root = "d:\GitHub\crtv-rarities-products\public"
 $dataDir = "d:\GitHub\crtv-rarities-products\data"
 $listener = New-Object System.Net.HttpListener
@@ -117,6 +117,28 @@ while ($listener.IsListening) {
                     $lines | Set-Content -Path $csvPath -Encoding UTF8
                     
                     $json = @{ status = "success"; date = $todayStr } | ConvertTo-Json
+                } catch {
+                    $response.StatusCode = 500
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json
+                }
+            } elseif ($path -eq "/api/upload-image" -and $request.HttpMethod -eq "POST") {
+                try {
+                    $filename = $request.Headers["X-Filename"]
+                    if (-not $filename) { throw "X-Filename header missing" }
+                    
+                    $uploadDir = Join-Path $root "assets\products"
+                    if (-not (Test-Path $uploadDir)) { New-Item -ItemType Directory -Path $uploadDir -Force }
+                    
+                    $filePath = Join-Path $uploadDir $filename
+                    Write-Output "Uploading to: $filePath"
+                    
+                    # Read binary stream and save to file
+                    $inputStream = $request.InputStream
+                    $fileStream = [System.IO.File]::Create($filePath)
+                    $inputStream.CopyTo($fileStream)
+                    $fileStream.Close()
+                    
+                    $json = @{ status = "success"; filename = $filename } | ConvertTo-Json
                 } catch {
                     $response.StatusCode = 500
                     $json = @{ error = $_.Exception.Message } | ConvertTo-Json

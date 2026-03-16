@@ -155,19 +155,20 @@ async function analyzeImageWithGemini(file) {
             let success = false;
             let lastError = null;
 
-            const prompt = `You are a product management assistant. Analyze the image and provide the following details based exactly on this structure:
-"name this product, only reply with the name and suggest one only the closest one to the product don't talk alot
-name for selling the product so a promotional name that indicate the function of the product 
-in the second line write a description of the product in 80 word only
-after it please name the product category as (Home Decor & Organization - Desk Accessories) but with what belong to the product in the image
-after it mention the product Collection
-then provide the Arabic name for the product
-and at the last mention the Target Market for the product"
+            const prompt = `You are a product management assistant. Analyze the image and provide the product details in a strictly structured format.
+
+OUTPUT STRUCTURE:
+1. Selling Name: A promotional name that indicates the function of the product (e.g., "Space-Saving Desk Organizer").
+2. Description: A concise description of the product (approx. 80 words).
+3. Category: The most appropriate category (e.g., "Home Decor & Organization - Desk Accessories").
+4. Collection: The theme or collection this product belongs to.
+5. Arabic Name: The name of the product in Arabic.
+6. Target Market: The primary audience for this product.
 
 CRITICAL OUTPUT FORMAT:
 Return ONLY the values separated by "|||".
-Order must be: Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
-DO NOT include labels like "Name:".
+Order MUST be: Selling Name ||| Description ||| Category ||| Collection ||| Arabic Name ||| Target Market
+DO NOT include labels like "1." or "Name:".
 Example:
 Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - Desk Accessories ||| Office Zen ||| منظم مكتب ||| Professionals`;
 
@@ -276,7 +277,7 @@ Super Desk Organizer ||| Keep your desk tidy... ||| Home Decor & Organization - 
                     console.log("AI Response:", text);
                     const parts = text.split('|||').map(p => p.trim());
 
-                    if (parts[0]) document.querySelector('input[name="product name"]').value = parts[0];
+                    if (parts[0]) document.querySelector('input[name="Name on Store"]').value = parts[0];
                     if (parts[1]) document.querySelector('textarea[name="description (80 word)"]').value = parts[1];
                     if (parts[2]) document.querySelector('input[name="category"]').value = parts[2];
                     if (parts[3]) document.querySelector('input[name="collection"]').value = parts[3];
@@ -837,39 +838,19 @@ async function handleProductSubmit(e) {
     const gasData = {
         'action': action,
         'No': no,
-        // Robust Keys for GAS (Sending multiple variations to ensure match)
         'Name on Store': data['Name on Store'],
-        'name on store': data['Name on Store'],
-        'store name': data['Name on Store'],
-
         'Product Name': data['product name'],
-        'product name': data['product name'],
-        'pro_name': data['product name'],
-
-        'Price >=25 QTY': data['Price >=25 QTY'],
-        'Price >= 25 QTY': data['Price >=25 QTY'],
-        'Price >=25 QTY ': data['Price >=25 QTY'], // Trailing space?
-        'price_25_plus': data['Price >=25 QTY'],
-
-        'Name on Store': data['Name on Store'],
-        'Name on Store ': data['Name on Store'], // Trailing space?
-        'name on store': data['Name on Store'],
-        'store name': data['Name on Store'],
-
         'Arabic Name': data['Arabic Name'] || data['Name on Store'],
         'category': data['category'],
         'collection': data['collection'],
         'description (80 word)': data['description (80 word)'],
         'Dimensions(mm) x y z': data['Dimensions(mm) x y z'],
         'Colors': data['Colors'],
-
         'Price < 25 QTY': data['Price < 25 QTY'],
-        'Price <25 QTY': data['Price < 25 QTY'],
-
+        'Price >=25 QTY': data['Price >=25 QTY'],
         'target market': data['target market'],
         'Document Link': data['Document Link'],
         'Calculate on Weight': data['Calculate on Weight'],
-
         'Available': form.querySelector('[name="Available"]').checked ? "TRUE" : "FALSE",
         'Hidden': form.querySelector('[name="Hidden"]').checked ? "TRUE" : "FALSE",
         'Active': form.querySelector('[name="Active"]').checked ? "TRUE" : "FALSE",
@@ -1412,7 +1393,7 @@ window.initUploadImages = async function () {
             throw new Error("Image upload disabled for static hosting.");
 
             const isLocalFile = window.location.protocol === 'file:';
-            const apiBase = isLocalFile ? 'http://localhost:8000' : '';
+            const apiBase = isLocalFile ? 'http://localhost:3000' : '';
 
             // Get existing image count from data if available
             const product = window.allProducts.find(p => String(p['No'] || p['item_no']) === productNo);
