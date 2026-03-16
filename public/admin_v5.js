@@ -1049,9 +1049,12 @@ async function handleProductSubmit(e) {
                     const editNoInput = document.getElementById('edit-product-no');
                     if (editNoInput) editNoInput.value = '';
                     
-                    // CLEAR the GAS URL input so it doesn't persist a stale/hardcoded value
+                    // Keep the GAS URL pre-populated for next submission
                     const gasUrlInput = document.getElementById('google-script-url');
-                    if (gasUrlInput) gasUrlInput.value = '';
+                    if (gasUrlInput && !gasUrlInput.value) {
+                        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+                        gasUrlInput.value = knownGasUrl;
+                    }
 
                     if (typeof loadProducts === 'function') await loadProducts();
                     if (typeof initProductData === 'function') await initProductData();
@@ -2611,6 +2614,13 @@ window.prepareAddProductForm = async function () {
 
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = "Add Product";
+
+    // Always pre-populate the GAS URL so the field is never left blank
+    const gasUrlInput = document.getElementById('google-script-url');
+    if (gasUrlInput) {
+        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
+        gasUrlInput.value = knownGasUrl;
+    }
 
     // Auto-increment logic
     try {
