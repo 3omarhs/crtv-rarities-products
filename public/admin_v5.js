@@ -1393,12 +1393,18 @@ window.initUploadImages = async function () {
         let errors = [];
 
         try {
-            const isLocalFile = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const apiBase = isLocalFile ? 'http://localhost:3000' : '';
+            const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
 
             // Get existing image count from data if available
             const product = window.allProducts.find(p => String(p['No'] || p['item_no']) === productNo);
             const startOffset = (product && product.image_count) ? parseInt(product.image_count) : 0;
+
+            const toBase64 = file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -1408,20 +1414,30 @@ window.initUploadImages = async function () {
 
                 status.textContent = `Uploading ${i + 1}/${files.length}...`;
 
-                const res = await fetch(`${apiBase}/api/upload-image`, {
+                const base64Image = await toBase64(file);
+
+                // Send to GAS
+                const res = await fetch(gasUrl, {
                     method: 'POST',
-                    headers: {
-                        'X-Filename': newFileName,
-                        'Content-Type': file.type
-                    },
-                    body: file // Raw binary
+                    mode: 'cors',
+                    redirect: 'follow', // Important for GAS
+                    headers: { 'Content-Type': 'text/plain' }, // Avoid preflight issues
+                    body: JSON.stringify({
+                        action: 'uploadImage',
+                        imageName: newFileName,
+                        image: base64Image
+                    })
                 });
 
                 if (res.ok) {
-                    successCount++;
-                } else {
                     const json = await res.json().catch(() => ({}));
-                    errors.push(json.error || res.statusText);
+                    if (json.status === 'success' || json.status === 'warning') {
+                        successCount++;
+                    } else {
+                        errors.push(json.error || json.message || "Failed");
+                    }
+                } else {
+                    errors.push(res.statusText);
                 }
             }
 

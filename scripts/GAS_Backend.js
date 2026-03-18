@@ -85,6 +85,8 @@ function handleAllActions(action, params) {
             return handleMigration(params.data || params);
         } else if (action === 'proxyGemini') {
             return handleGeminiProxy(params.payload || params);
+        } else if (action === 'uploadImage') {
+            return handleImageUpload(params);
         }
         
         return jsonResponse({ error: 'Invalid action: ' + action });
@@ -201,6 +203,23 @@ function handleProductUpdate(product) {
         });
     } catch (e) {
         return jsonResponse({ status: 'error', message: 'Spreadsheet Error: ' + e.toString() });
+    }
+}
+
+function handleImageUpload(params) {
+    if (!params.image || !params.imageName) {
+        return jsonResponse({ status: 'error', message: 'Missing image data or imageName' });
+    }
+    const REPO = "3omarhs/crtv-rarities-products";
+    const imagePath = "public/assets/products/" + params.imageName;
+    try {
+        const imgRes = commitToGitHub(REPO, imagePath, params.image, "Upload extra gallery image", true);
+        return jsonResponse({ 
+            status: imgRes.status === 'success' ? 'success' : 'error', 
+            message: imgRes.status === 'success' ? 'Uploaded' : 'GitHub upload failed' 
+        });
+    } catch (e) {
+        return jsonResponse({ status: 'error', message: e.toString() });
     }
 }
 
