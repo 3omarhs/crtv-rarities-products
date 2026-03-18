@@ -172,6 +172,17 @@ function handleProductUpdate(product) {
         return val;
     });
 
+    // --- CRITICAL FALLBACK ---
+    // Prevent "No products found" bug: If 'Product Name' is empty, fall back to 'Name on Store'
+    const productNameIdx = headers.findIndex(h => h.trim() === 'Product Name');
+    const nameOnStoreIdx = headers.findIndex(h => h.trim() === 'Name on Store');
+    
+    if (productNameIdx !== -1 && nameOnStoreIdx !== -1) {
+        if (!rowData[productNameIdx] || String(rowData[productNameIdx]).trim() === '') {
+            rowData[productNameIdx] = rowData[nameOnStoreIdx] || 'Unknown Product';
+        }
+    }
+
     // 4. Update or Append
     try {
         if (rowIndex > 0) {
