@@ -2785,6 +2785,7 @@ window.editProduct = function (no) {
     const form = document.getElementById('add-product-form');
     if (form.elements['No']) { form.elements['No'].value = product['No']; form.elements['No'].readOnly = true; }
     if (form.elements['Name on Store']) form.elements['Name on Store'].value = product['Name on Store'] || product['product name'];
+    if (form.elements['product name']) form.elements['product name'].value = product['Product Name'] || product['product name'] || '';
     if (form.elements['Arabic Name']) form.elements['Arabic Name'].value = product['Arabic Name'];
     if (form.elements['Price < 25 QTY']) form.elements['Price < 25 QTY'].value = product['Price < 25 QTY'];
     if (form.elements['category']) form.elements['category'].value = product['category'];

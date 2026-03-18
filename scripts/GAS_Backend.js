@@ -175,9 +175,10 @@ function handleProductUpdate(product) {
     });
 
     // --- CRITICAL FALLBACK ---
+    // --- CRITICAL FALLBACK ---
     // Prevent "No products found" bug: If 'Product Name' is empty, fall back to 'Name on Store'
-    const productNameIdx = headers.findIndex(h => h.trim() === 'Product Name');
-    const nameOnStoreIdx = headers.findIndex(h => h.trim() === 'Name on Store');
+    const productNameIdx = headers.findIndex(h => String(h).trim().toLowerCase() === 'product name');
+    const nameOnStoreIdx = headers.findIndex(h => String(h).trim().toLowerCase() === 'name on store');
     
     if (productNameIdx !== -1 && nameOnStoreIdx !== -1) {
         if (!rowData[productNameIdx] || String(rowData[productNameIdx]).trim() === '') {
@@ -246,8 +247,10 @@ function syncProductToGitHub(sheet, product) {
         const data = sheet.getDataRange().getValues();
         const sheetHeaders = data[0];
         
-        // Map valid column names to their indices in the sheet
-        const validIndices = VALID_COLUMNS.map(col => sheetHeaders.indexOf(col));
+        // Map valid column names to their indices in the sheet (case-insensitive)
+        const validIndices = VALID_COLUMNS.map(col => 
+            sheetHeaders.findIndex(h => String(h).trim().toLowerCase() === col.toLowerCase())
+        );
         
         // Get the indexes of Product Name and Name on Store from the valid columns 
         const productNameColIdx = VALID_COLUMNS.indexOf('Product Name');
