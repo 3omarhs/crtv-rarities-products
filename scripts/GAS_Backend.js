@@ -230,13 +230,25 @@ function syncProductToGitHub(sheet, product) {
         // Map valid column names to their indices in the sheet
         const validIndices = VALID_COLUMNS.map(col => sheetHeaders.indexOf(col));
         
+        // Get the indexes of Product Name and Name on Store from the valid columns 
+        const productNameColIdx = VALID_COLUMNS.indexOf('Product Name');
+        const nameOnStoreColIdx = VALID_COLUMNS.indexOf('Name on Store');
+
         const csvContent = data.map((row, rowIdx) => {
             if (rowIdx === 0) {
                 // Write header row using the canonical column names
                 return VALID_COLUMNS.join(',');
             }
-            return validIndices.map(idx => {
-                const cell = idx >= 0 ? row[idx] : '';
+            return validIndices.map((sheetIdx, csvColIdx) => {
+                let cell = sheetIdx >= 0 ? row[sheetIdx] : '';
+                
+                // Fallback: If this is the Product Name column and it's empty, use Name on Store
+                if (csvColIdx === productNameColIdx && (!cell || String(cell).trim() === '')) {
+                    const mappedNameOnStoreIdx = validIndices[nameOnStoreColIdx];
+                    cell = mappedNameOnStoreIdx >= 0 ? row[mappedNameOnStoreIdx] : '';
+                    if (!cell || String(cell).trim() === '') cell = 'Unknown Product';
+                }
+
                 let val = String(cell === null || cell === undefined ? '' : cell);
                 if (val.includes(',') || val.includes('"') || val.includes('\n')) {
                     return '"' + val.replace(/"/g, '""') + '"';
