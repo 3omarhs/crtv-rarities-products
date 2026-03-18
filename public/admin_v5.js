@@ -1237,7 +1237,7 @@ window.initSocialGenerator = async function () {
                 throw new Error("No Gemini API Keys found. Please configure in Settings.");
             }
 
-            const name = product['Name on Store'] || product['product name'];
+            const name = product['Product Name'] || product['product name'] || product['Name on Store'];
             const description = product['description (80 word)'] || '';
             const price = parseFloat(String(product['Price < 25 QTY'] || product['Price'] || 0).replace(/[^\d.]/g, '')).toFixed(3);
             const bulkPrice = product['Price >= 25 QTY'] || product['Wholesale Price'];
@@ -2329,7 +2329,7 @@ async function initProductData() {
                         window.allProducts = results.data;
                         window.manualProducts = window.allProducts.map(p => ({
                             id: p['No'],
-                            name: p['Name on Store'] || p['product name'] || p['Product Name'] || 'Unknown Name',
+                            name: p['Product Name'] || p['product name'] || p['Name on Store'] || 'Unknown Name',
                             price: parseFloat(String(p['Price < 25 QTY'] || 0).replace(/[^\d.]/g, '')),
                             image: `${ASSETS_BASE_URL}${p['No']}.jpg`
                         })).filter(p => p.id && p.name);
@@ -2714,7 +2714,7 @@ window.renderProductsTable = function (data) {
         tr.innerHTML = `
             <td>${imgHtml}</td>
             <td style="font-family:monospace; font-weight:600; font-size:0.9rem;">${row['No']}</td>
-            <td style="font-weight:500;">${row['Name on Store'] || row['product name'] || '-'}</td>
+            <td style="font-weight:500;">${row['Product Name'] || row['product name'] || row['Name on Store'] || '-'}</td>
             <td style="opacity:0.8;">${row['category']}</td>
             <td style="font-weight:700; color:#fff;">${parseFloat(row['Price < 25 QTY'] || 0).toFixed(3)}</td>
             <td>${statusHtml}</td>
@@ -3061,7 +3061,7 @@ function renderWholesaleItems(offers) {
         card.className = 'card fade-in-up';
         card.style.cssText = 'padding:0; overflow:hidden; display:flex; flex-direction:column; position:relative; min-height:400px;';
 
-        const name = offer.name || 'Unknown Product';
+        const name = offer['Product Name'] || offer['product name'] || offer.name || 'Unknown Product';
         const originalPrice = parseFloat(offer.price || 0); // Using 'price' from enriched data
         const specialPrice = parseFloat(offer.special_price || 0);
         let discount = 0;

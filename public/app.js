@@ -838,7 +838,8 @@ function processData(data) {
     const firstItem = data[0];
     const keys = Object.keys(firstItem);
 
-    const productKey = keys.find(k => normalizeKey(k).includes('product') && normalizeKey(k).includes('name')) ||
+    const productKey = keys.find(k => normalizeKey(k) === 'product name') ||
+        keys.find(k => normalizeKey(k).includes('product') && normalizeKey(k).includes('name')) ||
         keys.find(k => normalizeKey(k) === 'name') ||
         keys.find(k => normalizeKey(k) === 'title');
 
