@@ -254,8 +254,8 @@ function handleImageUpload(params) {
         return jsonResponse({ status: 'error', message: 'Missing image data or imageName' });
     }
 
-    const REPO = "3omarhs/crtv-rarities-products";
-    const imagePath = "public/assets/products/" + params.imageName;
+    const REPO = "3omarhs/crtv-rarities-assets";
+    const imagePath = params.imageName; // Store at root of assets repo
 
     try {
         // 1. Save to Google Drive for Instant Access First
@@ -320,7 +320,8 @@ function syncProductToGitHub(sheet, product) {
     const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
     if (!GITHUB_TOKEN) return { status: 'warning', message: 'GITHUB_TOKEN missing in script properties' };
 
-    const REPO = "3omarhs/crtv-rarities-products";
+    const REPO_PRODUCTS = "3omarhs/crtv-rarities-products";
+    const REPO_ASSETS = "3omarhs/crtv-rarities-assets";
     const CSV_PATH = "data/products.csv";
     const results = [];
 
@@ -368,13 +369,13 @@ function syncProductToGitHub(sheet, product) {
             }).join(',');
         }).join('\n');
         
-        const csvRes = commitToGitHub(REPO, CSV_PATH, csvContent, "Sync products.csv from GAS", false);
+        const csvRes = commitToGitHub(REPO_PRODUCTS, CSV_PATH, csvContent, "Sync products.csv from GAS", false);
         results.push({ file: 'CSV', status: csvRes.status });
 
         // 2. Sync Image (if provided as base64)
         if (product.image && product.imageName) {
-            const imagePath = "public/assets/products/" + product.imageName;
-            const imgRes = commitToGitHub(REPO, imagePath, product.image, "Upload product image from GAS", true);
+            const imagePath = product.imageName; // Store at root of assets repo
+            const imgRes = commitToGitHub(REPO_ASSETS, imagePath, product.image, "Upload product image from GAS", true);
             results.push({ file: 'Image', status: imgRes.status });
         }
 

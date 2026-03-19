@@ -1626,8 +1626,23 @@ async function fetchVisits(GAS_URL) {
                     }
                 });
                 
+                // Fetch device logs from visit_logs table
+                let dailyLogs = {};
+                try {
+                    const { data: logsData, error: logsError } = await window.supabaseClient
+                        .from('visit_logs')
+                        .select('date, device_name');
+                    
+                    if (logsData) {
+                        logsData.forEach(row => {
+                            if (!dailyLogs[row.date]) dailyLogs[row.date] = [];
+                            dailyLogs[row.date].push(row.device_name);
+                        });
+                    }
+                } catch (e) { console.warn("Admin: Could not fetch visit_logs", e); }
+
                 console.log(`Admin: Supabase visits loaded. Total: ${total}, Today: ${todayCount}`);
-                return { total: total, daily: daily, today: todayCount, dailyLogs: {} };
+                return { total: total, daily: daily, today: todayCount, dailyLogs: dailyLogs };
             }
         } catch (e) {
             console.warn("Admin: Supabase visits fetch failed, falling back to legacy...", e);
@@ -2328,16 +2343,7 @@ function handleAdminImageError(img, sku) {
     const currentSrc = img.src;
     const retries = parseInt(img.dataset.retries || '0');
 
-    // Check if it's a Drive URL or valid standard URL
-    const isStandardAsset = currentSrc.includes(ASSETS_BASE_URL);
-
-    if (!isStandardAsset) {
-        // Fallback to library
-        img.dataset.retries = '1';
-        img.src = `${ASSETS_BASE_URL}${sku}.png`;
-        return;
-    }
-
+    // 1. Try alternate extensions first
     if (retries === 0) {
         img.dataset.retries = '1';
         img.src = `${ASSETS_BASE_URL}${sku}.png`;
@@ -2346,15 +2352,23 @@ function handleAdminImageError(img, sku) {
         img.src = `${ASSETS_BASE_URL}${sku}.jpg`;
     } else if (retries === 2) {
         img.dataset.retries = '3';
-        img.src = `${ASSETS_BASE_URL}${sku}.jpeg`;
-    } else if (retries === 3) {
-        img.dataset.retries = '4';
         img.src = `${ASSETS_BASE_URL}${sku}.webp`;
-    } else {
+    } 
+    // 2. Drive Fallback (if SKU looks like a Drive ID or we can extract one)
+    else if (retries === 3) {
+        img.dataset.retries = '4';
+        const driveId = extractDriveId(currentSrc) || sku; // Sometimes SKU is the drive ID for unsynced items
+        if (driveId && driveId.length > 20) {
+            img.src = `https://lh3.googleusercontent.com/d/${driveId}`;
+        } else {
+            handleAdminImageError(img, sku); // Skip to placeholder
+        }
+    }
+    else {
         // Final fallback: Placeholder
         img.onerror = null;
         if (img.parentNode) {
-            img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);">No Img</div>';
+            img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);width:50px;height:50px;border-radius:8px;">No Img</div>';
         }
     }
 }
@@ -2753,7 +2767,15 @@ window.renderProductsTable = function (data) {
         if (!row['No']) return;
 
         const tr = document.createElement('tr');
-        let imgHtml = `<img src="${ASSETS_BASE_URL}${row['No']}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
+        
+        // Image Logic: Prioritize Drive ID from 'Image' column for instant preview
+        const driveId = extractDriveId(row['Image'] || row['image'] || '');
+        let initialImgSrc = `${ASSETS_BASE_URL}${row['No']}.jpg`;
+        if (driveId) {
+            initialImgSrc = `https://lh3.googleusercontent.com/d/${driveId}`;
+        }
+
+        let imgHtml = `<img src="${initialImgSrc}" onerror="window.handleAdminImageError(this, '${row['No']}')" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
 
         const isActive = row['Available'] === 'TRUE';
         const statusHtml = isActive

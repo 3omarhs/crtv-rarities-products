@@ -10,7 +10,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-L
 window.GAS_URL = GAS_URL;
 
 // Assets Configuration
-const ASSETS_BASE_URL = './assets/products/';
+const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
 
 const productGrid = document.getElementById('product-grid');
 const loadingEl = document.getElementById('loading');
@@ -633,6 +633,12 @@ async function init() {
     // GAS_URL shared with admin
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec";
 
+    window.testTracking = function() {
+        sessionStorage.removeItem('visited_session');
+        console.log("Triggering visit tracking test...");
+        init();
+    };
+
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
         const isStatic = window.location.hostname.includes('github.io');
@@ -642,10 +648,8 @@ async function init() {
         try {
             if (window.supabaseClient) {
                 console.log("Tracking visit to Supabase...");
-                // Get local date YYYY-MM-DD
-                const today = new Date();
-                const offset = today.getTimezoneOffset() * 60000;
-                const localDate = new Date(today.getTime() - offset).toISOString().split('T')[0];
+                // Get ISO date YYYY-MM-DD (UTC)
+                const localDate = new Date().toISOString().split('T')[0];
                 
                 window.supabaseClient
                     .from('visits')
@@ -662,6 +666,15 @@ async function init() {
                     .then(({error}) => {
                         if (error) console.error("Supabase visit track error:", error);
                         else console.log("Visit tracked to Supabase.");
+                    });
+
+                // Also log device if possible (try/catch in case table doesn't exist)
+                window.supabaseClient
+                    .from('visit_logs')
+                    .insert({ date: localDate, device_name: deviceName })
+                    .then(({error}) => {
+                        if (error) console.warn("Supabase device log error (this is expected if table 'visit_logs' doesn't exist):", error);
+                        else console.log("Device logged to Supabase.");
                     });
             }
         } catch(e) {
