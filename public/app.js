@@ -885,6 +885,7 @@ function processData(data) {
     const availableKey = keys.find(k => normalizeKey(k).includes('availab'));
     const hiddenKey = keys.find(k => normalizeKey(k) === 'hidden');
     const colorsKey = keys.find(k => normalizeKey(k).includes('color'));
+    const galleryKey = keys.find(k => normalizeKey(k) === 'gallery');
 
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
@@ -926,6 +927,12 @@ function processData(data) {
             available: (availableKey && item[availableKey] && String(item[availableKey]).trim() !== '') ? item[availableKey] : 'Yes',
             hidden: hiddenKey ? (String(item[hiddenKey]).toLowerCase() === 'yes' || String(item[hiddenKey]).toLowerCase() === 'true' || String(item[hiddenKey]) === '1') : false,
             colors: (colorsKey && item[colorsKey]) ? String(item[colorsKey]).split(',').map(c => c.trim()).filter(c => c) : [],
+            gallery: (function() {
+                try {
+                    const raw = (galleryKey && item[galleryKey]) ? String(item[galleryKey]).trim() : '';
+                    return raw.startsWith('{') ? JSON.parse(raw) : {};
+                } catch(e) { return {}; }
+            })(),
             index: index
         };
 
@@ -1185,7 +1192,10 @@ function createCard(product, uiIndex) {
                     </div>
                     ${[1, 2, 3, 4, 5].map(num => `
                         <div class="gallery-thumb" onclick="switchGalleryImage(this)">
-                            <img src="${ASSETS_BASE_URL}${product.no}_${num}.jpg" onerror="handleGalleryImageError(this, '${product.no}', '_${num}')">
+                            <img src="${ASSETS_BASE_URL}${product.no}_${num}.jpg" 
+                                 data-suffix="_${num}"
+                                 data-gallery='${JSON.stringify(product.gallery)}'
+                                 onerror="handleGalleryImageError(this, '${product.no}', '_${num}')">
                         </div>
                     `).join('')}
                 </div>
@@ -1419,22 +1429,36 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
     if (!img.dataset.retries) img.dataset.retries = '0';
     let retries = parseInt(img.dataset.retries);
 
+    // 1. Try alternate formats
     if (retries === 0) {
         img.dataset.retries = '1';
         img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.png`;
-        img.onerror = () => {
-            img.dataset.retries = '2';
-            img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp`;
-            img.onerror = () => {
-                if (suffix !== '') {
-                    img.closest('.gallery-thumb').style.display = 'none';
-                }
-            };
-        };
-    } else {
-        if (suffix !== '') {
-            img.closest('.gallery-thumb').style.display = 'none';
-        }
+        return;
+    } 
+    if (retries === 1) {
+        img.dataset.retries = '2';
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp`;
+        return;
+    }
+
+    // 2. Try Google Drive Fallback (Instant access)
+    if (retries === 2) {
+        img.dataset.retries = '3';
+        try {
+            const galleryData = JSON.parse(img.dataset.gallery || '{}');
+            const index = suffix.replace(/[^0-9]/g, '');
+            const driveId = galleryData[index];
+            if (driveId) {
+                img.src = `https://lh3.googleusercontent.com/d/${driveId}`;
+                return;
+            }
+        } catch(e) {}
+    }
+
+    // 3. Hide if all fail
+    if (suffix !== '') {
+        const thumb = img.closest('.gallery-thumb');
+        if (thumb) thumb.style.display = 'none';
     }
 };
 

@@ -206,6 +206,9 @@ function handleProductUpdate(product) {
             sheet.appendRow(rowData);
         }
         
+        // --- NEW: Sync Product row AGAIN to reflect 'Image' if it was just added ---
+        // (handleProductUpdate already adds to sheet, but syncProductToGitHub needs the latest)
+        
         // 5. Trigger GitHub Sync (CSV + Image if provided)
         const syncResult = syncProductToGitHub(sheet, product);
         
@@ -223,13 +226,60 @@ function handleImageUpload(params) {
     if (!params.image || !params.imageName) {
         return jsonResponse({ status: 'error', message: 'Missing image data or imageName' });
     }
+
     const REPO = "3omarhs/crtv-rarities-products";
     const imagePath = "public/assets/products/" + params.imageName;
+
     try {
+        // 1. Save to Google Drive for Instant Access First
+        let driveId = null;
+        try {
+            driveId = saveImageToDrive(params.image, params.imageName);
+        } catch (e) {
+            console.error("Gallery Drive save failed:", e);
+        }
+
+        // 2. Update Spreadsheet Mapping if possible
+        // Expected format: SKU_INDEX.ext (e.g. ABC-123_1.jpg)
+        const nameParts = params.imageName.split('_');
+        if (nameParts.length > 1 && driveId) {
+            const sku = nameParts[0];
+            const indexPart = nameParts[1].split('.')[0];
+            const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+            const sheet = ss.getSheets().find(s => s.getSheetId().toString() === '897526080') || ss.getSheets()[0];
+            const data = sheet.getDataRange().getValues();
+            const headers = data[0];
+            const noIdx = headers.findIndex(h => h.toLowerCase().trim() === 'item_no' || h.toLowerCase().trim() === 'no');
+            const galleryIdx = headers.findIndex(h => h.toLowerCase().trim() === 'gallery');
+
+            if (noIdx !== -1 && galleryIdx !== -1) {
+                for (let i = 1; i < data.length; i++) {
+                    if (String(data[i][noIdx]).trim() === sku) {
+                        let galleryData = {};
+                        try {
+                            const raw = String(data[i][galleryIdx]).trim();
+                            if (raw.startsWith('{')) galleryData = JSON.parse(raw);
+                        } catch (e) {}
+                        
+                        galleryData[indexPart] = driveId;
+                        sheet.getRange(i + 1, galleryIdx + 1).setValue(JSON.stringify(galleryData));
+                        
+                        // Sync the updated CSV to GitHub
+                        syncProductToGitHub(sheet, { No: sku });
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Commit to GitHub as per standard path
         const imgRes = commitToGitHub(REPO, imagePath, params.image, "Upload extra gallery image", true);
+        
         return jsonResponse({ 
-            status: imgRes.status === 'success' ? 'success' : 'error', 
-            message: imgRes.status === 'success' ? 'Uploaded' : 'GitHub upload failed' 
+            status: 'success', 
+            message: 'Uploaded to Drive & GitHub',
+            driveId: driveId,
+            github: imgRes.status
         });
     } catch (e) {
         return jsonResponse({ status: 'error', message: e.toString() });
@@ -253,7 +303,7 @@ function syncProductToGitHub(sheet, product) {
             'Product Name', 'No', 'category', 'collection', 'target market',
             'Calculate on Weight', 'Dimensions(mm) x y z', 'description (80 word)',
             'Price < 25 QTY', 'Price >=25 QTY', 'discount cal', 'Document Link',
-            'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors', 'Image'
+            'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors', 'Image', 'Gallery'
         ];
         
         const data = sheet.getDataRange().getValues();

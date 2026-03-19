@@ -1242,8 +1242,7 @@ window.initSocialGenerator = async function () {
             const price = parseFloat(String(product['Price < 25 QTY'] || product['Price'] || 0).replace(/[^\d.]/g, '')).toFixed(3);
             const bulkPrice = product['Price >= 25 QTY'] || product['Wholesale Price'];
             const hasBulk = bulkPrice && parseFloat(String(bulkPrice).replace(/[^\d.]/g, '')) > 0;
-
-            const prompt = `Act as a social media manager for "Creative Rarities". Write a post caption for this product in Modern Arabic language (Arabic Standard that is catchy for social media).
+            const prompt = `Act as a social media manager for "Creative Rarities". Write a highly engaging post caption for this product in Modern Arabic (catchy, professional Standard Arabic for social media).
             
 Product Info:
 - Name: ${name}
@@ -1251,18 +1250,15 @@ Product Info:
 - Retail Price: ${price} JOD
 - Has Bulk Discount: ${hasBulk ? 'Yes' : 'No'}
 
-Instructions:
-1. Write in catchy, professional, and friendly Modern Arabic.
-2. Structure:
-   - Fun opening hook with emojis.
-   - Descriptive sentence about why this product is unique and a must-have.
-   - Price line: Crucially, mention that the retail price (سعر المفرق) is ${price} JOD. ${hasBulk ? "Also mention that there is a special discount if they buy in bulk (more than 25 pcs)." : ""}
-   - Call to Action: Tell them how to order (link in bio, or search for the English name on the store).
-3. Include 5-10 viral and trending hashtags/tags to increase views and engagement (e.g., related to home decor, gifts, unique items, and #CreativeRarities).
-4. NO titles or headers (like "Caption:" or "Post:").
-5. NO meta-commentary or instructions in the output.
-6. NO mention of the product being "3D printed", "3D printing", or "additive manufacturing".
-7. Return ONLY the caption text itself.`;
+Instructions for the AI:
+1. Tone: Catchy, prestigious, and extremely inviting. 
+2. Pricing: You MUST mention the retail price using the specific Arabic term "سعر المفرق" followed by "${price} JOD".
+3. Bulk: ${hasBulk ? "Mention that a special discount is available for bulk orders (over 25 pieces)." : "Do not mention bulk discounts unless specifically asked."}
+4. Hook: Start with a powerful attention-grabbing hook and relevant emojis.
+5. Unique Selling Point: Highlight why this item is a rare find and perfect for the customer.
+6. Viral Boost: Include 5-10 viral and trending hashtags specifically chosen to INCREASE WATCHES and reach the EXPLORE page (e.g., #TrendingNow, #Explore, #MustHave, #CreativeRarities, #Gifts, #UniqueDesign).
+7. Call to Action: Direct customers to order via the link in bio or by searching for the product name on the website.
+8. Restrictions: DO NOT mention "3D printing" or "additive manufacturing". Return ONLY the caption text. No meta-talk.`;
 
             let success = false;
             const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
