@@ -10,7 +10,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-L
 window.GAS_URL = GAS_URL;
 
 // Assets Configuration
-const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
+const ASSETS_BASE_URL = './assets/products/';
 
 const productGrid = document.getElementById('product-grid');
 const loadingEl = document.getElementById('loading');

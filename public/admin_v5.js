@@ -2379,7 +2379,7 @@ window.allProducts = [];
 const PRODUCT_CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/products.csv';
 
 // Assets Configuration
-const ASSETS_BASE_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-assets/main/';
+const ASSETS_BASE_URL = './assets/products/';
 
 async function initProductData() {
     if (window.allProducts && window.allProducts.length > 0) return;
