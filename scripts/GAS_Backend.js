@@ -161,6 +161,18 @@ function handleProductUpdate(product) {
         }
     }
 
+    // --- NEW: Save Image to Google Drive for Instant Access ---
+    if (product.image && (product.image.length > 1000 || product.imageName)) {
+        try {
+            const driveId = saveImageToDrive(product.image, product.imageName || (product.No + ".jpg"));
+            if (driveId) {
+                product.Image = driveId; // Store purely the ID for consistency
+            }
+        } catch (err) {
+            console.error("Drive saving failed:", err);
+        }
+    }
+
     // 3. Prepare row data based on headers
     // Robust mapping for CSV headers (snake_case) and Frontend headers (Title Case)
     const rowData = headers.map(h => {
@@ -241,7 +253,7 @@ function syncProductToGitHub(sheet, product) {
             'Product Name', 'No', 'category', 'collection', 'target market',
             'Calculate on Weight', 'Dimensions(mm) x y z', 'description (80 word)',
             'Price < 25 QTY', 'Price >=25 QTY', 'discount cal', 'Document Link',
-            'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors'
+            'Discount %', 'calc', 'Name on Store', 'Arabic Name', 'Available', 'Hidden', 'Colors', 'Image'
         ];
         
         const data = sheet.getDataRange().getValues();
@@ -341,6 +353,38 @@ function commitToGitHub(repo, path, content, message, isBase64) {
         status: (code === 200 || code === 201) ? 'success' : 'error',
         code: code
     };
+}
+
+/**
+ * Saves a base64 image to a public Google Drive folder
+ */
+function saveImageToDrive(base64Data, fileName) {
+  const FOLDER_NAME = "Storefront Images";
+  let folder;
+  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(FOLDER_NAME);
+    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  }
+  
+  // Remove data URL prefix if exists
+  const contentType = base64Data.match(/^data:([^;]+);base64,/);
+  const pureBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
+  const blob = Utilities.newBlob(Utilities.base64Decode(pureBase64), contentType ? contentType[1] : "image/jpeg", fileName);
+  
+  // Clean up old file with same name if exists to avoid duplicates
+  const existingFiles = folder.getFilesByName(fileName);
+  while (existingFiles.hasNext()) {
+    existingFiles.next().setTrashed(true);
+  }
+  
+  const file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  
+  return file.getId();
 }
 
 function handleSaveSettings(settings) {

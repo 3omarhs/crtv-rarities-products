@@ -1089,9 +1089,16 @@ function createCard(product, uiIndex) {
     article.className = 'card fade-in-up';
     article.style.animationDelay = `${Math.min(uiIndex * 0.05, 1)}s`;
 
-    // GitHub Assets prioritization or Base64 Image
+    // Image Prioritization: 
+    // 1. Google Drive ID (Instant access for new products)
+    // 2. Base64 (Rare/Immediate)
+    // 3. GitHub Assets (Standard naming convention)
+    const driveId = extractDriveId(product.image);
     let imageSrc = `${ASSETS_BASE_URL}${product.no}.jpg`;
-    if (product.image && product.image.length > 200 && !product.image.startsWith('http')) {
+
+    if (driveId) {
+        imageSrc = `https://lh3.googleusercontent.com/d/${driveId}`;
+    } else if (product.image && product.image.length > 200 && !product.image.startsWith('http')) {
         let cleanBase64 = product.image.replace(/\s+/g, '');
         imageSrc = cleanBase64.startsWith('data:') ? cleanBase64 : `data:image/jpeg;base64,${cleanBase64}`;
     }
@@ -1100,7 +1107,6 @@ function createCard(product, uiIndex) {
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     // Image Fallbacks logic
-    const driveId = extractDriveId(product.image); 
     const secondaryFallback = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : `${ASSETS_BASE_URL}${product.no}.jpg`;
 
     const displayName = (currentLang === 'ar' && product.arabicName) ? product.arabicName : product.name;
