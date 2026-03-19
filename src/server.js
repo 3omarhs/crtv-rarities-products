@@ -152,13 +152,30 @@ app.get('/api/visits', (req, res) => {
 app.post('/api/visits', (req, res) => {
     const db = readDB();
     const today = new Date().toISOString().split('T')[0];
+    const { deviceName } = req.body;
 
     db.visits.total = (db.visits.total || 0) + 1;
     if (!db.visits.daily) db.visits.daily = {};
     db.visits.daily[today] = (db.visits.daily[today] || 0) + 1;
 
+    // Log the device if provided
+    if (deviceName) {
+        if (!db.visits.dailyLogs) db.visits.dailyLogs = {};
+        if (!db.visits.dailyLogs[today]) db.visits.dailyLogs[today] = [];
+        db.visits.dailyLogs[today].push(deviceName);
+        
+        // Keep only last 100 logs per day to avoid huge JSON
+        if (db.visits.dailyLogs[today].length > 100) {
+            db.visits.dailyLogs[today].shift();
+        }
+    }
+
     writeDB(db);
-    res.json({ visits: db.visits.total, today: db.visits.daily[today] });
+    res.json({ 
+        visits: db.visits.total, 
+        today: db.visits.daily[today],
+        logs: db.visits.dailyLogs ? db.visits.dailyLogs[today] : []
+    });
 });
 
 // 3. Settings (DB + Legacy Sync)

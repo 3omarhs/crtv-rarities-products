@@ -1672,7 +1672,60 @@ async function fetchVisits(GAS_URL) {
         }
     }
 
-    return { total: 0, daily: {}, today: 0 };
+    return { total: 0, daily: {}, today: 0, dailyLogs: {} };
+}
+
+window.showDeviceList = function(e) {
+    if (e) e.preventDefault();
+    const today = new Date().toISOString().split('T')[0];
+    const logs = (window.currentVisits && window.currentVisits.dailyLogs) ? window.currentVisits.dailyLogs[today] : [];
+    
+    const body = document.getElementById('device-list-body');
+    if (!body) return;
+    
+    body.innerHTML = '';
+    
+    if (!logs || logs.length === 0) {
+        body.innerHTML = '<tr><td colspan="2" style="text-align:center; color:var(--text-secondary)">No device data for today yet.</td></tr>';
+    } else {
+        // Count occurrences
+        const counts = {};
+        logs.forEach(d => counts[d] = (counts[d] || 0) + 1);
+        
+        Object.keys(counts).sort((a,b) => counts[b] - counts[a]).forEach(device => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${device} ${counts[device] > 1 ? `<span class="badge" style="margin-left:8px">${counts[device]} visits</span>` : ''}</td>
+                <td><button class="btn-icon" onclick="copyToClipboard('${device}')"><i data-lucide="copy"></i></button></td>
+            `;
+            body.appendChild(tr);
+        });
+    }
+    
+    if (window.lucide) lucide.createIcons();
+    openModal('device-list-modal');
+};
+
+function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) {
+        m.classList.add('open');
+        m.classList.remove('hidden');
+    }
+}
+
+window.closeModal = function(id) {
+    const m = document.getElementById(id);
+    if (m) {
+        m.classList.remove('open');
+        m.classList.add('hidden');
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert("Copied to clipboard: " + text);
+    });
 }
 
 

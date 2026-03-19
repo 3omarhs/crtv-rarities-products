@@ -554,6 +554,27 @@ async function fetchCurrencyRate() {
     console.log(`Using default static exchange rate: 1 USD = 0.7092 JOD. Exchange Rate (JOD->USD): ${EXCHANGE_RATE}`);
 }
 
+function getDeviceName() {
+    const ua = navigator.userAgent;
+    if (/android/i.test(ua)) {
+        // Try to extract model like SM-G991B
+        const match = ua.match(/\(([^)]+)\)/);
+        if (match && match[1]) {
+            const parts = match[1].split(';');
+            const modelPart = parts.find(p => p.includes('Build/') || p.includes('Linux; Android'));
+            if (parts.length > 2) return `Android (${parts[parts.length-1].trim().split(' Build/')[0]})`;
+            return `Android Device`;
+        }
+        return "Android Device";
+    }
+    if (/iPhone/i.test(ua)) return "iPhone";
+    if (/iPad/i.test(ua)) return "iPad";
+    if (/Windows/i.test(ua)) return "Windows PC";
+    if (/Macintosh/i.test(ua)) return "Mac";
+    if (/Linux/i.test(ua)) return "Linux System";
+    return "Unknown Device";
+}
+
 async function init() {
     await fetchCurrencyRate();
 
@@ -615,6 +636,7 @@ async function init() {
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
         const isStatic = window.location.hostname.includes('github.io');
+        const deviceName = getDeviceName();
         
         // --- 1. Supabase Visit Tracking ---
         try {
@@ -653,16 +675,16 @@ async function init() {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'recordVisit' })
+                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName })
             })
             .then(() => console.log("Visit recorded (GAS)."))
             .catch(e => console.error("Could not track visit via GAS:", e));
         } else {
             console.log("Attempting to track visit via Local API...");
-            fetch('/api/record-visit', {
+            fetch('/api/visits', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'recordVisit' })
+                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName })
             })
             .then(res => res.json())
             .then(data => console.log("Visit recorded (Local):", data))

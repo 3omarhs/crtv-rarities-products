@@ -55,8 +55,24 @@ function handleAllActions(action, params) {
                 total += count;
                 daily[date] = count;
             });
+            
+            // New: Get logs from 'visit_logs' sheet
+            let dailyLogs = {};
+            try {
+                const logSheet = ss.getSheetByName('visit_logs');
+                if (logSheet) {
+                    const logData = logSheet.getDataRange().getValues();
+                    logData.slice(1).forEach(row => {
+                        const date = row[0] instanceof Date ? row[0].toISOString().split('T')[0] : String(row[0]);
+                        const device = String(row[1]);
+                        if (!dailyLogs[date]) dailyLogs[date] = [];
+                        dailyLogs[date].push(device);
+                    });
+                }
+            } catch(e) {}
+
             const today = new Date().toISOString().split('T')[0];
-            return jsonResponse({ total: total, daily: daily, today: daily[today] || 0 });
+            return jsonResponse({ total: total, daily: daily, today: daily[today] || 0, dailyLogs: dailyLogs });
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
             if (!sheet) return jsonResponse({ keys: [] });
@@ -76,7 +92,7 @@ function handleAllActions(action, params) {
         if (action === 'placeOrder' || action === 'addOrder') {
             return handleNewOrder(params.order || params);
         } else if (action === 'recordVisit') {
-            return handleVisit();
+            return handleVisit(params);
         } else if (action === 'addProduct' || action === 'updateProduct') {
             return handleProductUpdate(params.product || params);
         } else if (action === 'saveSettings') {
@@ -111,8 +127,10 @@ function handleNewOrder(order) {
     return jsonResponse({ status: 'success', message: 'Order recorded' });
 }
 
-function handleVisit() {
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('visits');
+function handleVisit(params) {
+    const deviceName = params.deviceName || 'Unknown';
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('visits');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Visits sheet not found' });
 
     const today = new Date().toISOString().split('T')[0];
@@ -127,6 +145,15 @@ function handleVisit() {
         }
     }
     if (!found) sheet.appendRow([today, 1]);
+
+    // Log the device in 'visit_logs' sheet
+    let logSheet = ss.getSheetByName('visit_logs');
+    if (!logSheet) {
+        logSheet = ss.insertSheet('visit_logs');
+        logSheet.appendRow(['Date', 'Device Name', 'Timestamp']);
+    }
+    logSheet.appendRow([today, deviceName, new Date().toISOString()]);
+
     return jsonResponse({ status: 'success', message: 'Visit recorded' });
 }
 
