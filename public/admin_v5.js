@@ -1243,22 +1243,22 @@ window.initSocialGenerator = async function () {
             const bulkPrice = product['Price >= 25 QTY'] || product['Wholesale Price'];
             const hasBulk = bulkPrice && parseFloat(String(bulkPrice).replace(/[^\d.]/g, '')) > 0;
 
-            const prompt = `Act as a social media manager for "Creative Rarities". Write a post caption for this product in colloquial Arabic (Jordanian/Palestinian Ammiya).
+            const prompt = `Act as a social media manager for "Creative Rarities". Write a post caption for this product in Modern Arabic language (Arabic Standard that is catchy for social media).
             
 Product Info:
 - Name: ${name}
 - Description: ${description}
-- Price: ${price} JOD
+- Retail Price: ${price} JOD
 - Has Bulk Discount: ${hasBulk ? 'Yes' : 'No'}
 
 Instructions:
-1. Write in catchy, friendly colloquial Arabic.
+1. Write in catchy, professional, and friendly Modern Arabic.
 2. Structure:
    - Fun opening hook with emojis.
-   - Descriptive sentence about why this product is useful/cool.
-   - Price line: Mention it costs ${price} JOD. ${hasBulk ? "Crucially, mention that there is a special discount if they buy in bulk (more than 25 pcs), but do NOT say 'individual price' or 'retail price' for the single item." : ""}
-   - Call to Action: Tell them how to order (link in bio, search for the English name).
-3. NO hashtags.
+   - Descriptive sentence about why this product is unique and a must-have.
+   - Price line: Crucially, mention that the retail price (سعر المفرق) is ${price} JOD. ${hasBulk ? "Also mention that there is a special discount if they buy in bulk (more than 25 pcs)." : ""}
+   - Call to Action: Tell them how to order (link in bio, or search for the English name on the store).
+3. Include 5-10 viral and trending hashtags/tags to increase views and engagement (e.g., related to home decor, gifts, unique items, and #CreativeRarities).
 4. NO titles or headers (like "Caption:" or "Post:").
 5. NO meta-commentary or instructions in the output.
 6. NO mention of the product being "3D printed", "3D printing", or "additive manufacturing".
