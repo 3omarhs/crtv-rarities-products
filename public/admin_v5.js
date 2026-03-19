@@ -1627,7 +1627,7 @@ async function fetchVisits(GAS_URL) {
                 });
                 
                 console.log(`Admin: Supabase visits loaded. Total: ${total}, Today: ${todayCount}`);
-                return { total: total, daily: daily, today: todayCount };
+                return { total: total, daily: daily, today: todayCount, dailyLogs: {} };
             }
         } catch (e) {
             console.warn("Admin: Supabase visits fetch failed, falling back to legacy...", e);
@@ -1675,10 +1675,13 @@ async function fetchVisits(GAS_URL) {
     return { total: 0, daily: {}, today: 0, dailyLogs: {} };
 }
 
-window.showDeviceList = function(e) {
-    if (e) e.preventDefault();
-    const today = new Date().toISOString().split('T')[0];
-    const logs = (window.currentVisits && window.currentVisits.dailyLogs) ? window.currentVisits.dailyLogs[today] : [];
+function getTodayStr() {
+    return new Date().toISOString().split('T')[0];
+}
+
+window.renderDeviceLogs = function(visitsData) {
+    const today = getTodayStr();
+    const logs = (visitsData && visitsData.dailyLogs) ? visitsData.dailyLogs[today] : [];
     
     const body = document.getElementById('device-list-body');
     if (!body) return;
@@ -1686,24 +1689,22 @@ window.showDeviceList = function(e) {
     body.innerHTML = '';
     
     if (!logs || logs.length === 0) {
-        body.innerHTML = '<tr><td colspan="2" style="text-align:center; color:var(--text-secondary)">No device data for today yet.</td></tr>';
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary)">No device data for today yet.</td></tr>';
     } else {
-        // Count occurrences
         const counts = {};
         logs.forEach(d => counts[d] = (counts[d] || 0) + 1);
         
         Object.keys(counts).sort((a,b) => counts[b] - counts[a]).forEach(device => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${device} ${counts[device] > 1 ? `<span class="badge" style="margin-left:8px">${counts[device]} visits</span>` : ''}</td>
+                <td>${device}</td>
+                <td>${counts[device]}</td>
                 <td><button class="btn-icon" onclick="copyToClipboard('${device}')"><i data-lucide="copy"></i></button></td>
             `;
             body.appendChild(tr);
         });
     }
-    
     if (window.lucide) lucide.createIcons();
-    openModal('device-list-modal');
 };
 
 function openModal(id) {
@@ -1732,7 +1733,7 @@ function copyToClipboard(text) {
 
 function renderDashboardStats(orders, visitsData) {
     if (!orders) orders = [];
-    if (!visitsData) visitsData = { total: 0, daily: {} };
+    if (!visitsData) visitsData = { total: 0, daily: {}, today: 0, dailyLogs: {} };
 
     // 1. Visits
     document.getElementById('stat-visits').textContent = visitsData.total || 0;
@@ -1755,10 +1756,13 @@ function renderDashboardStats(orders, visitsData) {
     });
     document.getElementById('stat-revenue').textContent = revenue.toFixed(3) + ' JOD';
 
-    // 4. Render Activity Log & Orders Table
+    // 4. Render Activity Log, List & Analytics
     renderActivityLog(orders);
     renderOrdersTable(orders);
     renderAnalytics(orders);
+    
+    // 5. Render Visitor Devices
+    renderDeviceLogs(visitsData);
 }
 
 function renderActivityLog(orders) {

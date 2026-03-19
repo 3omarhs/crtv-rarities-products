@@ -159,7 +159,6 @@
                         <div class="stat-info">
                             <h4>Visits Today</h4>
                             <span id="stat-visits-today">0</span>
-                            <a href="#" onclick="showDeviceList(event)" style="font-size: 0.75rem; color: var(--primary); text-decoration: underline; display: block; margin-top: 4px;">View Devices</a>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -224,6 +223,24 @@
                             </thead>
                             <tbody id="activity-log">
                                 <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="recent-section" style="margin-top: 2.5rem;">
+                    <h3>Today's Visitor Devices</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Device Name</th>
+                                    <th>Visits</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="device-list-body">
+                                <tr><td colspan="3" style="text-align:center; color:var(--text-secondary)">No device data for today yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1070,31 +1087,6 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
         <script src="supabase-client.js?v=1.0"></script>
-        <!-- Device List Modal -->
-    <div id="device-list-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>Today's Visitor Devices</h3>
-                <button class="close-btn" onclick="closeModal('device-list-modal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Device Name</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="device-list-body">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="drive-images.js"></script>
     <script src="admin_v5.js"></script>
         <script src="admin_v5.js?v=5.1.17_social_fix"></script>
