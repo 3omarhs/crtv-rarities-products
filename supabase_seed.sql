@@ -1,4 +1,4 @@
-﻿-- Supabase Initial Schema and Data Seed
+-- Supabase Initial Schema and Data Seed
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
     arabic_name TEXT, available TEXT, calc_val TEXT, category TEXT, collection TEXT,
@@ -36,6 +36,13 @@ CREATE TABLE IF NOT EXISTS visits (
 CREATE TABLE IF NOT EXISTS wholesale (
     id TEXT PRIMARY KEY,
     category TEXT, item_no TEXT, special_price TEXT, updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS visit_logs (
+    id SERIAL PRIMARY KEY,
+    date TEXT NOT NULL,
+    device_name TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO visits (date, count) VALUES ('2026-01-31', 8) ON CONFLICT (date) DO UPDATE SET count = EXCLUDED.count;
 INSERT INTO visits (date, count) VALUES ('2026-02-01', 4) ON CONFLICT (date) DO UPDATE SET count = EXCLUDED.count;

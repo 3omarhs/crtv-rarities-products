@@ -62,6 +62,13 @@ async function runMigration() {
                 id TEXT PRIMARY KEY,
                 category TEXT, item_no TEXT, special_price TEXT, updated_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS visit_logs (
+                id SERIAL PRIMARY KEY,
+                date TEXT NOT NULL,
+                device_name TEXT NOT NULL,
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
         `);
         console.log("✅ Tables created.");
 
@@ -128,7 +135,7 @@ async function runMigration() {
         if(products.length > 0) {
             // Ensure ID exists for products
             const validProducts = products.map((p, index) => {
-                if (!p.id) p.id = \`product_fallback_\${index}\`;
+                if (!p.id) p.id = `product_fallback_${index}`;
                 return p;
             });
             await insertData('products', validProducts, 'id');
@@ -139,7 +146,7 @@ async function runMigration() {
         if(orders.length > 0) {
             // Ensure ID exists
             const validOrders = orders.map((o, index) => {
-                if (!o.id) o.id = \`order_fallback_\${index}\`;
+                if (!o.id) o.id = `order_fallback_${index}`;
                 return o;
             });
             await insertData('orders', validOrders, 'id');
@@ -164,7 +171,7 @@ async function runMigration() {
         const wholesale = await readCSV(path.join(__dirname, '..', 'data', 'wholesale.csv'));
         if(wholesale.length > 0) {
            const validWholesale = wholesale.map((w, index) => {
-               if(!w.id) w.id = \`wholesale_fallback_\${index}\`;
+               if(!w.id) w.id = `wholesale_fallback_${index}`;
                return w;
            });
            await insertData('wholesale', validWholesale, 'id');

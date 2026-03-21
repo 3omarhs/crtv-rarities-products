@@ -51,6 +51,13 @@ CREATE TABLE IF NOT EXISTS wholesale (
     id TEXT PRIMARY KEY,
     category TEXT, item_no TEXT, special_price TEXT, updated_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS visit_logs (
+    id SERIAL PRIMARY KEY,
+    date TEXT NOT NULL,
+    device_name TEXT NOT NULL,
+    timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 "@
 Out-File -FilePath $SqlOutputFile -InputObject $schemaSql -Append -Encoding UTF8
 
