@@ -71,7 +71,7 @@ function handleAllActions(action, params) {
                 }
             } catch(e) {}
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = params.date || new Date().toISOString().split('T')[0];
             return jsonResponse({ total: total, daily: daily, today: daily[today] || 0, dailyLogs: dailyLogs });
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
@@ -133,7 +133,7 @@ function handleVisit(params) {
     const sheet = ss.getSheetByName('visits');
     if (!sheet) return jsonResponse({ status: 'error', message: 'Visits sheet not found' });
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = params.date || new Date().toISOString().split('T')[0];
     const data = sheet.getDataRange().getValues();
     let found = false;
     for (let i = 1; i < data.length; i++) {

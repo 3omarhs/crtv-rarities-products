@@ -633,23 +633,22 @@ async function init() {
     // GAS_URL shared with admin
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec";
 
-    window.testTracking = function() {
-        sessionStorage.removeItem('visited_session');
-        console.log("Triggering visit tracking test...");
-        init();
-    };
+function getLocalDateStr() {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - offset).toISOString().split('T')[0];
+}
 
     if (!sessionStorage.getItem('visited_session')) {
         sessionStorage.setItem('visited_session', 'true');
         const isStatic = window.location.hostname.includes('github.io');
         const deviceName = getDeviceName();
+        const localDate = getLocalDateStr();
         
         // --- 1. Supabase Visit Tracking ---
         try {
             if (window.supabaseClient) {
-                console.log("Tracking visit to Supabase...");
-                // Get ISO date YYYY-MM-DD (UTC)
-                const localDate = new Date().toISOString().split('T')[0];
+                console.log("Tracking visit to Supabase for " + localDate + "...");
                 
                 window.supabaseClient
                     .from('visits')
@@ -673,7 +672,7 @@ async function init() {
                     .from('visit_logs')
                     .insert({ date: localDate, device_name: deviceName })
                     .then(({error}) => {
-                        if (error) console.warn("Supabase device log error (this is expected if table 'visit_logs' doesn't exist):", error);
+                        if (error) console.warn("Supabase device log error:", error);
                         else console.log("Device logged to Supabase.");
                     });
             }
@@ -683,12 +682,12 @@ async function init() {
 
         // --- 2. Fallbacks (GAS / Local API) ---
         if (isStatic) {
-            console.log("Attempting to track visit via GAS (Static/GitHub)...");
+            console.log("Attempting to track visit via GAS (Static/GitHub)... Date: " + localDate);
             fetch(GAS_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName })
+                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
             })
             .then(() => console.log("Visit recorded (GAS)."))
             .catch(e => console.error("Could not track visit via GAS:", e));
@@ -697,7 +696,7 @@ async function init() {
             fetch('/api/visits', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName })
+                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
             })
             .then(res => res.json())
             .then(data => console.log("Visit recorded (Local):", data))

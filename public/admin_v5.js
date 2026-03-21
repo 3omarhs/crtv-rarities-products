@@ -1596,6 +1596,12 @@ async function fetchOrders(GAS_URL) {
 
 
 
+function getLocalDateStr() {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - offset).toISOString().split('T')[0];
+}
+
 async function fetchVisits(GAS_URL) {
     // 1. Try Supabase first (if configured)
     if (window.supabaseClient) {
@@ -1603,9 +1609,7 @@ async function fetchVisits(GAS_URL) {
             console.log("Admin: Fetching visits from Supabase...");
             
             // Get today's date YYYY-MM-DD in local time
-            const today = new Date();
-            const offset = today.getTimezoneOffset() * 60000;
-            const localDate = new Date(today.getTime() - offset).toISOString().split('T')[0];
+            const localDate = getLocalDateStr();
 
             // Fetch all visits to calculate total and today's stats
             const { data, error } = await window.supabaseClient.from('visits').select('date, count');
@@ -1654,13 +1658,14 @@ async function fetchVisits(GAS_URL) {
 
     if (isStatic) {
         try {
-            console.log("Admin: Fetching visits from GAS (Static Mode/POST)...");
+            const localDate = getLocalDateStr();
+            console.log("Admin: Fetching visits from GAS (Static Mode/POST)... Date: " + localDate);
             const res = await fetch(GAS_URL, {
                 method: 'POST',
                 mode: 'cors',
                 redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: 'getVisits' })
+                body: JSON.stringify({ action: 'getVisits', date: localDate })
             });
             if (res.ok) return await res.json();
         } catch (e) {
@@ -1691,7 +1696,7 @@ async function fetchVisits(GAS_URL) {
 }
 
 function getTodayStr() {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateStr();
 }
 
 window.renderDeviceLogs = function(visitsData) {
