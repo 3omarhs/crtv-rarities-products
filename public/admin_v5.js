@@ -1468,7 +1468,18 @@ function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('admin-dashboard').classList.remove('hidden');
     loadData();
-    initProductData(); // Load product details for modal
+    initProductData();
+
+    // Auto-refresh stats every 30 seconds while on dashboard
+    if (window.dashboardInterval) clearInterval(window.dashboardInterval);
+    window.dashboardInterval = setInterval(() => {
+        const stats = document.getElementById('dashboard-stats');
+        // Check if the dashboard is still visible before refreshing
+        if (stats && stats.style.display !== 'none') {
+            console.log("Auto-refreshing dashboard stats...");
+            loadData();
+        }
+    }, 30000);
 }
 
 

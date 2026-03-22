@@ -639,7 +639,9 @@ function getLocalDateStr() {
     return new Date(today.getTime() - offset).toISOString().split('T')[0];
 }
 
-    if (!sessionStorage.getItem('visited_session')) {
+    if (sessionStorage.getItem('visited_session')) {
+        console.log("Visit already tracked for this session (sessionStorage). To test again, clear your session storage or use Incognito.");
+    } else {
         sessionStorage.setItem('visited_session', 'true');
         const isStatic = window.location.hostname.includes('github.io');
         const deviceName = getDeviceName();
