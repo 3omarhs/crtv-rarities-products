@@ -174,9 +174,53 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.serve_proxy_gemini()
         elif self.path == '/api/record-visit':
             self.serve_record_visit()
+        elif self.path == '/api/orders':
+            self.serve_post_order()
         else:
             self.send_response(404)
             self.end_headers()
+
+    def serve_post_order(self):
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            order_data = json.loads(post_data)
+
+            path = os.path.join(DATA_DIR, 'orders.csv')
+            
+            headers = []
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    try:
+                        headers = next(reader)
+                    except StopIteration:
+                        pass
+                        
+            if not headers:
+                headers = ['address', 'currency', 'customerName', 'customerPhone', 'date', 'id', 'items', 'method', 'paymentMethod', 'selectedCompany', 'selectedRegion', 'status', 'timestamp', 'total']
+                
+            with open(path, 'a', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=headers, extrasaction='ignore')
+                if os.path.getsize(path) == 0:
+                    writer.writeheader()
+                    
+                if 'items' in order_data and isinstance(order_data['items'], list):
+                    order_data['items'] = json.dumps(order_data['items'])
+                    
+                writer.writerow(order_data)
+                
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success", "message": "Order appended locally"}).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "error", "error": str(e)}).encode())
 
     def serve_proxy_gemini(self):
         try:

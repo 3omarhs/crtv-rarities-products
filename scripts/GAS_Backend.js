@@ -124,7 +124,40 @@ function handleNewOrder(order) {
     });
 
     sheet.appendRow(rowData);
-    return jsonResponse({ status: 'success', message: 'Order recorded' });
+    
+    // Sync the new order to GitHub
+    const syncRes = syncOrdersToGitHub(sheet);
+
+    return jsonResponse({ status: 'success', message: 'Order recorded', github_sync: syncRes });
+}
+
+function syncOrdersToGitHub(sheet) {
+    const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+    if (!GITHUB_TOKEN) return { status: 'warning', message: 'GITHUB_TOKEN missing in script properties' };
+
+    const REPO = "3omarhs/crtv-rarities-products";
+    const CSV_PATH = "data/orders.csv";
+
+    try {
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0];
+        
+        const csvContent = data.map((row, rowIdx) => {
+            if (rowIdx === 0) return headers.join(',');
+            return headers.map((h, i) => {
+                let val = String(row[i] === null || row[i] === undefined ? '' : row[i]);
+                if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                    return '"' + val.replace(/"/g, '""') + '"';
+                }
+                return val;
+            }).join(',');
+        }).join('\n');
+        
+        const csvRes = commitToGitHub(REPO, CSV_PATH, csvContent, "Sync orders.csv from GAS", false);
+        return { status: csvRes.status };
+    } catch (e) {
+        return { status: 'error', message: e.toString() };
+    }
 }
 
 function handleVisit(params) {
