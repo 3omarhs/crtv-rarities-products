@@ -91,6 +91,10 @@ function handleAllActions(action, params) {
         // --- DATA UPDATE (POST-STYLE) ---
         if (action === 'placeOrder' || action === 'addOrder') {
             return handleNewOrder(params.order || params);
+        } else if (action === 'deleteOrder') {
+            return handleDeleteOrder(params.orderId || params.id);
+        } else if (action === 'updateOrderStatus') {
+            return handleUpdateOrderStatus(params.orderId || params.id, params.status);
         } else if (action === 'recordVisit') {
             return handleVisit(params);
         } else if (action === 'addProduct' || action === 'updateProduct') {
@@ -129,6 +133,49 @@ function handleNewOrder(order) {
     const syncRes = syncOrdersToGitHub(sheet);
 
     return jsonResponse({ status: 'success', message: 'Order recorded', github_sync: syncRes });
+}
+
+function handleDeleteOrder(orderId) {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Orders sheet not found' });
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf('id');
+    
+    if (idIndex === -1) return jsonResponse({ status: 'error', message: 'No id column found' });
+
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][idIndex] == orderId) {
+            sheet.deleteRow(i + 1);
+            const syncRes = syncOrdersToGitHub(sheet);
+            return jsonResponse({ status: 'success', message: 'Order deleted', github_sync: syncRes });
+        }
+    }
+    
+    return jsonResponse({ status: 'error', message: 'Order not found' });
+}
+
+function handleUpdateOrderStatus(orderId, newStatus) {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('orders');
+    if (!sheet) return jsonResponse({ status: 'error', message: 'Orders sheet not found' });
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf('id');
+    const statusIndex = headers.indexOf('status');
+    
+    if (idIndex === -1 || statusIndex === -1) return jsonResponse({ status: 'error', message: 'Required columns not found' });
+
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][idIndex] == orderId) {
+            sheet.getRange(i + 1, statusIndex + 1).setValue(newStatus);
+            const syncRes = syncOrdersToGitHub(sheet);
+            return jsonResponse({ status: 'success', message: 'Order status updated', github_sync: syncRes });
+        }
+    }
+    
+    return jsonResponse({ status: 'error', message: 'Order not found' });
 }
 
 function syncOrdersToGitHub(sheet) {

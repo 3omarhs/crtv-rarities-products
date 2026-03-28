@@ -2252,45 +2252,81 @@ function renderStatusSelect(id, currentStatus) {
 
 
 window.updateOrderStatus = async function (id, newStatus) {
-    alert("Updating order status is disabled on static GitHub Pages. Please update the Google Sheet directly.");
-    return;
-    try {
-        const res = await fetch('/api/update-order-status', {
-            method: 'POST',
-            body: JSON.stringify({ orderId: id, status: newStatus })
-        });
+    let success = false;
+    
+    // Try Supabase first
+    if (window.supabaseClient) {
+        try {
+            const { error } = await window.supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
+            if (!error) success = true;
+        } catch(e) {}
+    }
 
-        const json = await res.json();
-        if (json.status === 'success') {
-            // Optional visual feedback could go here
-            loadData();
-        } else {
-            alert("Failed to update status: " + (json.message || "Unknown error"));
-        }
-    } catch (e) {
-        console.error("Error updating status:", e);
-        alert("Error updating status");
+    // Try GAS
+    const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (GAS_URL && window.submitToGas) {
+        try {
+            await window.submitToGas(GAS_URL, { action: 'updateOrderStatus', orderId: id, status: newStatus });
+            success = true;
+        } catch(e) {}
+    }
+
+    // Try Local API
+    if (!window.location.hostname.includes('github.io')) {
+        try {
+            const res = await fetch('/api/update-order-status', {
+                method: 'POST',
+                body: JSON.stringify({ orderId: id, status: newStatus })
+            });
+
+            if (res.ok) success = true;
+        } catch (e) {}
+    }
+
+    if (success) {
+        loadData();
+    } else {
+        alert("Failed to update status. Please try again.");
     }
 }
 
 window.deleteOrder = async function (id) {
     if (!confirm(`Are you sure you want to delete order #${id}?`)) return;
-    alert("Deleting orders is disabled on static GitHub Pages. Please delete the row directly from your Google Sheet.");
-    return;
-    try {
-        const res = await fetch('/api/orders', {
-            method: 'DELETE',
-            body: JSON.stringify({ orderId: id })
-        });
-        const json = await res.json();
-        if (json.status === 'success') {
-            loadData();
-        } else {
-            alert("Failed to delete order: " + (json.message || "Unknown error"));
-        }
-    } catch (e) {
-        console.error("Error deleting order:", e);
-        alert("Error deleting order");
+
+    let success = false;
+    
+    // Try Supabase first
+    if (window.supabaseClient) {
+        try {
+            const { error } = await window.supabaseClient.from('orders').delete().eq('id', id);
+            if (!error) success = true;
+        } catch(e) {}
+    }
+
+    // Try GAS
+    const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (GAS_URL && window.submitToGas) {
+        try {
+            await window.submitToGas(GAS_URL, { action: 'deleteOrder', orderId: id });
+            success = true;
+        } catch(e) {}
+    }
+
+    // Local API
+    if (!window.location.hostname.includes('github.io')) {
+        try {
+            const res = await fetch('/api/orders', {
+                method: 'DELETE',
+                body: JSON.stringify({ orderId: id })
+            });
+            if (res.ok) success = true;
+        } catch (e) {}
+    }
+
+    if (success) {
+        loadData(); // REFRESH DATA TO REFLECT DELETED ITEM
+    } else {
+        alert("Failed to delete order. Please try again.");
     }
 }
 
