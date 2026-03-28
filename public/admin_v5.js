@@ -1542,6 +1542,8 @@ async function loadData() {
 }
 
 async function fetchOrders(GAS_URL) {
+    let allOrders = [];
+
     // 1. Try Supabase first (if configured)
     if (window.supabaseClient) {
         try {
@@ -1552,17 +1554,18 @@ async function fetchOrders(GAS_URL) {
                 .order('date', { ascending: false });
             
             if (error) throw error;
-            if (data) {
+            if (data && data.length > 0) {
                 console.log(`Admin: Supabase orders loaded (${data.length} records).`);
-                return data;
+                allOrders = data;
             }
         } catch (e) {
             console.warn("Admin: Supabase orders fetch failed, falling back...", e);
         }
     }
 
-    // On static hosting (GitHub Pages), try GAS first as local /api/ will 404
+    // Always fetch from CSV/GAS to ensure we don't miss anything that failed to sync to Supabase!
     const isStatic = window.location.hostname.includes('github.io');
+    let fallbackData = null;
     
     if (isStatic) {
         try {
@@ -1574,35 +1577,44 @@ async function fetchOrders(GAS_URL) {
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'getOrders' })
             });
-            if (res.ok) return await res.json();
+            if (res.ok) fallbackData = await res.json();
         } catch (e) {
             console.warn("Admin: GAS orders fetch failed", e);
         }
-    }
-
-    // Attempt local API fallback (or primary if not static)
-    try {
-        console.log("Admin: Attempting local API orders fetch...");
-        const res = await fetch('/api/orders');
-        if (res.ok) return await res.json();
-    } catch (e) {
-        console.warn("Admin: Local API orders fetch failed", e);
-    }
-
-    // Final GAS attempt if not static but local failed
-    if (!isStatic) {
+    } else {
+        // Attempt local API fallback
         try {
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'getOrders' })
-            });
-            if (res.ok) return await res.json();
+            console.log("Admin: Attempting local API orders fetch...");
+            const res = await fetch('/api/orders');
+            if (res.ok) fallbackData = await res.json();
         } catch (e) {
-            console.error("Admin: All order fetches failed", e);
+            console.warn("Admin: Local API orders fetch failed", e);
+            // Final GAS attempt if not static but local failed
+            try {
+                const res = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'getOrders' })
+                });
+                if (res.ok) fallbackData = await res.json();
+            } catch (err) {}
         }
     }
 
-    return [];
+    // Merge fallbackData with allOrders uniquely by ID
+    if (fallbackData && Array.isArray(fallbackData)) {
+        const existingIds = new Set(allOrders.map(o => o.id));
+        for (const order of fallbackData) {
+            if (!existingIds.has(order.id)) {
+                allOrders.push(order);
+                existingIds.add(order.id);
+            }
+        }
+    }
+
+    // Sort combined uniquely by date descending
+    allOrders.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    return allOrders;
 }
 
 
