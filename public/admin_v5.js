@@ -1256,7 +1256,7 @@ Instructions for the AI:
 3. Bulk: ${hasBulk ? "Mention that a special discount is available for bulk orders (over 25 pieces)." : "Do not mention bulk discounts unless specifically asked."}
 4. Hook: Start with a powerful attention-grabbing hook and relevant emojis.
 5. Unique Selling Point: Highlight why this item is a rare find and perfect for the customer.
-6. Viral Boost: Include 5-10 viral and trending hashtags specifically chosen to INCREASE WATCHES and reach the EXPLORE page (e.g., #TrendingNow, #Explore, #MustHave, #CreativeRarities, #Gifts, #UniqueDesign).
+6. Viral Boost: Include top 5 viral and trending hashtags specifically chosen to INCREASE WATCHES and reach the EXPLORE page always use the #CreativeRarities as one of the 5 hashtags (e.g., #TrendingNow, #Explore, #MustHave, #CreativeRarities, #Gifts, #UniqueDesign).
 7. Call to Action: Direct customers to order via the link in bio or by searching for the product name on the website.
 8. Restrictions: DO NOT mention "3D printing" or "additive manufacturing". Return ONLY the caption text. No meta-talk.
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
