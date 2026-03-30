@@ -1661,16 +1661,44 @@ async function fetchVisits(GAS_URL) {
                         .from('visit_logs')
                         .select('date, device_name');
 
-                    if (logsData) {
+                    if (logsError) {
+                        console.warn("Admin: visit_logs Supabase error:", logsError.message, logsError.code, logsError.hint);
+                    } else if (logsData && logsData.length > 0) {
                         logsData.forEach(row => {
                             if (!dailyLogs[row.date]) dailyLogs[row.date] = [];
                             dailyLogs[row.date].push(row.device_name);
                         });
+                        console.log(`Admin: Loaded ${logsData.length} device log entries from Supabase.`);
+                    } else {
+                        console.warn("Admin: visit_logs returned 0 rows. Table may be empty or RLS is blocking reads.");
                     }
                 } catch (e) { console.warn("Admin: Could not fetch visit_logs", e); }
 
+                // If no logs from Supabase, try GAS fallback
+                if (Object.keys(dailyLogs).length === 0) {
+                    try {
+                        console.log("Admin: Trying GAS fallback for device logs...");
+                        const res = await fetch(GAS_URL, {
+                            method: 'POST',
+                            mode: 'cors',
+                            redirect: 'follow',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ action: 'getDeviceLogs' })
+                        });
+                        if (res.ok) {
+                            const gasLogs = await res.json();
+                            if (gasLogs && typeof gasLogs === 'object') {
+                                // gasLogs format: { "2026-03-31": ["iPhone", "Windows PC", ...], ... }
+                                Object.assign(dailyLogs, gasLogs);
+                                console.log("Admin: GAS device logs loaded.", dailyLogs);
+                            }
+                        }
+                    } catch (e) { console.warn("Admin: GAS device logs fallback failed", e); }
+                }
+
                 console.log(`Admin: Supabase visits loaded. Total: ${total}, Today: ${todayCount}`);
                 return { total: total, daily: daily, today: todayCount, dailyLogs: dailyLogs };
+
             }
         } catch (e) {
             console.warn("Admin: Supabase visits fetch failed, falling back to legacy...", e);

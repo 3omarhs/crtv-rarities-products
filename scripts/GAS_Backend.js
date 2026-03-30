@@ -73,6 +73,22 @@ function handleAllActions(action, params) {
 
             const today = params.date || new Date().toISOString().split('T')[0];
             return jsonResponse({ total: total, daily: daily, today: daily[today] || 0, dailyLogs: dailyLogs });
+        } else if (action === 'getDeviceLogs') {
+            // Returns ONLY the dailyLogs (device logs grouped by date) from visit_logs sheet
+            let dailyLogs = {};
+            try {
+                const logSheet = ss.getSheetByName('visit_logs');
+                if (logSheet && logSheet.getLastRow() > 1) {
+                    const logData = logSheet.getDataRange().getValues();
+                    logData.slice(1).forEach(row => {
+                        const date = row[0] instanceof Date ? row[0].toISOString().split('T')[0] : String(row[0]);
+                        const device = String(row[1] || 'Unknown Device');
+                        if (!dailyLogs[date]) dailyLogs[date] = [];
+                        dailyLogs[date].push(device);
+                    });
+                }
+            } catch(e) {}
+            return jsonResponse(dailyLogs);
         } else if (action === 'getGeminiKeys') {
             const sheet = ss.getSheetByName('gemini_keys');
             if (!sheet) return jsonResponse({ keys: [] });
