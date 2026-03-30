@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     /* Platinum & Slate Theme (Light Mode) for better logo integration */
     --bg-color: #f8fafc;
     /* Slate 50 - Very light grey/white */
@@ -150,22 +150,22 @@ header {
     height: 18px;
 }
 
-.header-socials {
+.header-contact-links {
     display: flex;
     gap: 1.2rem;
 }
 
-.social-icon {
+.contact-btn {
     color: var(--text-secondary);
     transition: all 0.3s ease;
 }
 
-.social-icon:hover {
+.contact-btn:hover {
     color: var(--accent);
     transform: translateY(-2px);
 }
 
-.social-icon i {
+.contact-btn i {
     width: 22px;
     height: 22px;
 }
@@ -1062,7 +1062,7 @@ body.rtl .expanded-close {
         padding: 0 1rem;
     }
 
-    .header-socials {
+    .header-contact-links {
         display: none;
         /* Hide socials in mobile header to save space */
     }
