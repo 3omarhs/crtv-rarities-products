@@ -19,7 +19,7 @@ function decodeApiKey(encoded) {
             decoded += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
         }
         return decoded;
-    } catch(e) {
+    } catch (e) {
         console.warn("Failed to decode key", e);
         return encoded;
     }
@@ -46,7 +46,7 @@ async function loadGeminiCredentials() {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
             const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
-            
+
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
             if (window.supabaseClient) {
                 console.log("Admin: Trying to fetch Gemini keys from Supabase...");
@@ -54,7 +54,7 @@ async function loadGeminiCredentials() {
                 if (!error && supaKeys && supaKeys.length > 0) {
                     GEMINI_API_KEYS = supaKeys.map(item => decodeApiKey(item.key));
                     console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} keys from Supabase.`);
-                    return; 
+                    return;
                 }
             }
 
@@ -92,7 +92,7 @@ async function loadGeminiCredentials() {
         const cleanedKey = localKey.trim();
         const decodedKey = decodeApiKey(cleanedKey);
         const isDummy = /DUMMY|YOUR_KEY|ABC|PASTE|12345/i.test(decodedKey) || decodedKey.length < 20;
-        
+
         if (isDummy) {
             console.warn("Admin: Removing invalid dummy key from localStorage");
             localStorage.removeItem('gemini_api_key');
@@ -115,12 +115,12 @@ async function analyzeImageWithGemini(file) {
     }
 
     const isStatic = window.location.hostname.includes('github.io');
-    
+
     if (!isStatic && GEMINI_API_KEYS.length === 0) {
         alert("System Error: No Gemini API Keys found locally. Please add your key in the Settings tab.");
         return;
     }
-    
+
     const label = document.querySelector('label[for="product-image-upload"]');
     const originalText = "Product Image";
 
@@ -185,31 +185,31 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
                     const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
-                    const endpoint = 'v1beta'; 
-                    
+                    const endpoint = 'v1beta';
+
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
-                    
-                    outerLoop: 
+
+                    outerLoop:
                     for (const modelName of models) {
                         for (const apiKey of GEMINI_API_KEYS) {
                             try {
                                 const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
-                                
+
                                 const directRes = await fetch(directUrl, {
                                     method: 'POST',
                                     mode: 'cors',
                                     redirect: 'follow',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        contents: [{ 
+                                        contents: [{
                                             parts: [
                                                 { text: prompt },
                                                 { inlineData: { mimeType: mimeType, data: base64Data } }
-                                            ] 
+                                            ]
                                         }]
                                     })
                                 });
-                                
+
                                 if (directRes.ok) {
                                     response = directRes;
                                     break outerLoop;
@@ -232,25 +232,25 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                 if (!response || !response.ok) {
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
                     console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
-                    
+
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s for GAS
-                    
+
                     response = await fetch(gasUrl, {
                         method: 'POST',
                         mode: 'cors',
                         redirect: 'follow',
                         signal: controller.signal,
                         headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({ 
-                            action: 'proxyGemini', 
-                            payload: { 
-                                contents: [{ 
+                        body: JSON.stringify({
+                            action: 'proxyGemini',
+                            payload: {
+                                contents: [{
                                     parts: [
                                         { text: prompt },
                                         { inlineData: { mimeType: mimeType, data: base64Data } }
-                                    ] 
-                                }] 
+                                    ]
+                                }]
                             }
                         })
                     });
@@ -308,13 +308,13 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
             if (!success) {
                 console.error("All AI attempts failed.");
                 let userFriendlyErr = lastError;
-                
+
                 // If we got a complex error object from GAS, format it
                 if (typeof lastError === 'object' && lastError.error) {
                     userFriendlyErr = lastError.error;
                     if (lastError.details && Array.isArray(lastError.details)) {
-                        userFriendlyErr += "<br><small style='display:block; margin-top:5px; font-size:0.8em; opacity:0.8;'>" + 
-                                         lastError.details.join("<br>") + "</small>";
+                        userFriendlyErr += "<br><small style='display:block; margin-top:5px; font-size:0.8em; opacity:0.8;'>" +
+                            lastError.details.join("<br>") + "</small>";
                     }
                 } else {
                     // Keep simplified messages for common issues
@@ -323,7 +323,7 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                 }
 
                 if (label) label.innerHTML = `Product Image <span style="color:var(--danger);">${userFriendlyErr}</span>`;
-                
+
                 // Broad reset: find any input/textarea containing "Generated by AI" and clear it
                 document.querySelectorAll('input, textarea').forEach(el => {
                     if (el.value && el.value.includes('Generated by AI')) {
@@ -707,20 +707,20 @@ async function initAdmin() {
                         sender_pass: pass,
                         google_script_url: document.getElementById('settings-google-script-url')?.value.trim() || ''
                     });
-                    
+
                     if (keyToSave) {
                         try {
                             const encodedKey = btoa(keyToSave);
                             await window.supabaseClient.from('gemini_keys').upsert({ key: encodedKey }); // Use correct column from schema
-                        } catch(e) { console.warn("Supabase Gemini Key error:", e); }
+                        } catch (e) { console.warn("Supabase Gemini Key error:", e); }
                     }
-                    
+
                     if (error) throw error;
                     supabaseSuccess = true;
                     msg.textContent = "Settings saved to Supabase!";
                     msg.classList.remove('hidden');
                     setTimeout(() => msg.classList.add('hidden'), 3000);
-                } catch(e) {
+                } catch (e) {
                     console.error("Supabase settings error", e);
                 }
             }
@@ -839,7 +839,7 @@ async function handleProductSubmit(e) {
     // Defensive action check to prevent price corruption
     const actionVal = document.getElementById('product-action')?.value;
     const action = actionVal === 'updateProduct' ? 'updateProduct' : 'addProduct';
-    
+
     const gasData = {
         'action': action,
         'No': no,
@@ -908,7 +908,7 @@ async function handleProductSubmit(e) {
         if (!window.supabaseClient) return;
         try {
             console.log("Syncing to Supabase...");
-            
+
             // Map payload keys to exact Supabase schema (snake_case)
             const dbPayload = {
                 id: payload.id || Date.now().toString(),
@@ -974,9 +974,9 @@ async function handleProductSubmit(e) {
             const text = await res.text();
             console.log("[DEBUG] Raw GAS Response:", text);
             let json = {};
-            try { 
-                json = JSON.parse(text); 
-            } catch (e) { 
+            try {
+                json = JSON.parse(text);
+            } catch (e) {
                 if (text && text.trim().toLowerCase().includes('success')) {
                     json = { result: 'success' };
                 }
@@ -1010,7 +1010,7 @@ async function handleProductSubmit(e) {
                     if (loading) loading.classList.add('hidden');
                     submitBtn.disabled = false;
                     submitBtn.innerText = originalBtnText;
-                    
+
                     // Switch View to Social Generator
                     const socialView = document.getElementById('view-social-generator');
                     if (socialView) {
@@ -1020,10 +1020,10 @@ async function handleProductSubmit(e) {
                         });
                         socialView.classList.remove('hidden');
                         socialView.style.display = 'block';
-                        
+
                         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
                         document.querySelector('.nav-item[data-view="social-generator"]')?.classList.add('active');
-                        
+
                         // Populate Social Generator
                         if (window.initSocialGenerator) await window.initSocialGenerator();
                         const select = document.getElementById('social-product-select');
@@ -1048,7 +1048,7 @@ async function handleProductSubmit(e) {
                     if (actionInput) actionInput.value = 'addProduct';
                     const editNoInput = document.getElementById('edit-product-no');
                     if (editNoInput) editNoInput.value = '';
-                    
+
                     // Keep the GAS URL pre-populated for next submission
                     const gasUrlInput = document.getElementById('google-script-url');
                     if (gasUrlInput && !gasUrlInput.value) {
@@ -1258,7 +1258,8 @@ Instructions for the AI:
 5. Unique Selling Point: Highlight why this item is a rare find and perfect for the customer.
 6. Viral Boost: Include 5-10 viral and trending hashtags specifically chosen to INCREASE WATCHES and reach the EXPLORE page (e.g., #TrendingNow, #Explore, #MustHave, #CreativeRarities, #Gifts, #UniqueDesign).
 7. Call to Action: Direct customers to order via the link in bio or by searching for the product name on the website.
-8. Restrictions: DO NOT mention "3D printing" or "additive manufacturing". Return ONLY the caption text. No meta-talk.`;
+8. Restrictions: DO NOT mention "3D printing" or "additive manufacturing". Return ONLY the caption text. No meta-talk.
+9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
             const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
@@ -1271,7 +1272,7 @@ Instructions for the AI:
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 12000);
-                        
+
                         const response = await fetch(API_URL, {
                             method: 'POST',
                             signal: controller.signal,
@@ -1281,7 +1282,7 @@ Instructions for the AI:
                             })
                         });
                         clearTimeout(timeoutId);
-                        
+
                         if (response.ok) {
                             const data = await response.json();
                             if (data.candidates && data.candidates[0].content) {
@@ -1300,18 +1301,18 @@ Instructions for the AI:
                 try {
                     console.log("Direct Social AI failed, falling back to GAS...");
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
-                    
+
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 15000);
-                    
+
                     const response = await fetch(gasUrl, {
                         method: 'POST',
                         mode: 'cors',
                         redirect: 'follow',
                         signal: controller.signal,
                         headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({ 
-                            action: 'proxyGemini', 
+                        body: JSON.stringify({
+                            action: 'proxyGemini',
                             payload: { contents: [{ parts: [{ text: prompt }] }] }
                         })
                     });
@@ -1509,12 +1510,12 @@ async function loadData() {
                     // Not JSON, keep as string (legacy CSV format)
                 }
             }
-            
+
             // Ensure o.items is an array for consistent consumption
             if (o.items && !Array.isArray(o.items)) {
                 o.items = [o.items];
             }
-            
+
             // Pre-parse the members of the array into objects if they are strings
             if (Array.isArray(o.items)) {
                 o.items = o.items.map(item => {
@@ -1552,7 +1553,7 @@ async function fetchOrders(GAS_URL) {
                 .from('orders')
                 .select('*')
                 .order('date', { ascending: false });
-            
+
             if (error) throw error;
             if (data && data.length > 0) {
                 console.log(`Admin: Supabase orders loaded (${data.length} records).`);
@@ -1566,7 +1567,7 @@ async function fetchOrders(GAS_URL) {
     // Always fetch from CSV/GAS to ensure we don't miss anything that failed to sync to Supabase!
     const isStatic = window.location.hostname.includes('github.io');
     let fallbackData = null;
-    
+
     if (isStatic) {
         try {
             console.log("Admin: Fetching orders from GAS (Static Mode/POST)...");
@@ -1596,7 +1597,7 @@ async function fetchOrders(GAS_URL) {
                     body: JSON.stringify({ action: 'getOrders' })
                 });
                 if (res.ok) fallbackData = await res.json();
-            } catch (err) {}
+            } catch (err) { }
         }
     }
 
@@ -1630,20 +1631,20 @@ async function fetchVisits(GAS_URL) {
     if (window.supabaseClient) {
         try {
             console.log("Admin: Fetching visits from Supabase...");
-            
+
             // Get today's date YYYY-MM-DD in local time
             const localDate = getLocalDateStr();
 
             // Fetch all visits to calculate total and today's stats
             const { data, error } = await window.supabaseClient.from('visits').select('date, count');
-            
+
             if (error) throw error;
-            
+
             if (data) {
                 let total = 0;
                 let daily = {};
                 let todayCount = 0;
-                
+
                 data.forEach(row => {
                     const count = parseInt(row.count, 10) || 0;
                     total += count;
@@ -1652,14 +1653,14 @@ async function fetchVisits(GAS_URL) {
                         todayCount = count;
                     }
                 });
-                
+
                 // Fetch device logs from visit_logs table
                 let dailyLogs = {};
                 try {
                     const { data: logsData, error: logsError } = await window.supabaseClient
                         .from('visit_logs')
                         .select('date, device_name');
-                    
+
                     if (logsData) {
                         logsData.forEach(row => {
                             if (!dailyLogs[row.date]) dailyLogs[row.date] = [];
@@ -1722,22 +1723,22 @@ function getTodayStr() {
     return getLocalDateStr();
 }
 
-window.renderDeviceLogs = function(visitsData) {
+window.renderDeviceLogs = function (visitsData) {
     const today = getTodayStr();
     const logs = (visitsData && visitsData.dailyLogs) ? visitsData.dailyLogs[today] : [];
-    
+
     const body = document.getElementById('device-list-body');
     if (!body) return;
-    
+
     body.innerHTML = '';
-    
+
     if (!logs || logs.length === 0) {
         body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary)">No device data for today yet.</td></tr>';
     } else {
         const counts = {};
         logs.forEach(d => counts[d] = (counts[d] || 0) + 1);
-        
-        Object.keys(counts).sort((a,b) => counts[b] - counts[a]).forEach(device => {
+
+        Object.keys(counts).sort((a, b) => counts[b] - counts[a]).forEach(device => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${device}</td>
@@ -1758,7 +1759,7 @@ function openModal(id) {
     }
 }
 
-window.closeModal = function(id) {
+window.closeModal = function (id) {
     const m = document.getElementById(id);
     if (m) {
         m.classList.remove('open');
@@ -1803,7 +1804,7 @@ function renderDashboardStats(orders, visitsData) {
     renderActivityLog(orders);
     renderOrdersTable(orders);
     renderAnalytics(orders);
-    
+
     // 5. Render Visitor Devices
     renderDeviceLogs(visitsData);
 }
@@ -1835,7 +1836,7 @@ function renderOrdersTable(orders) {
         tr.className = 'order-row';
         const idStr = String(o.id);
         const detailsId = `details-${o.id}`;
-        
+
         // Handle case-sensitivity from Supabase/SQL
         const customerName = o.customerName || o.customername || o.customerName || 'Anonymous';
         const customerPhone = o.customerPhone || o.customerphone || o.customerPhone || '-';
@@ -2253,13 +2254,13 @@ function renderStatusSelect(id, currentStatus) {
 
 window.updateOrderStatus = async function (id, newStatus) {
     let success = false;
-    
+
     // Try Supabase first
     if (window.supabaseClient) {
         try {
             const { error } = await window.supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
             if (!error) success = true;
-        } catch(e) {}
+        } catch (e) { }
     }
 
     // Try GAS
@@ -2268,7 +2269,7 @@ window.updateOrderStatus = async function (id, newStatus) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderStatus', orderId: id, status: newStatus });
             success = true;
-        } catch(e) {}
+        } catch (e) { }
     }
 
     // Try Local API
@@ -2280,7 +2281,7 @@ window.updateOrderStatus = async function (id, newStatus) {
             });
 
             if (res.ok) success = true;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (success) {
@@ -2294,13 +2295,13 @@ window.deleteOrder = async function (id) {
     if (!confirm(`Are you sure you want to delete order #${id}?`)) return;
 
     let success = false;
-    
+
     // Try Supabase first
     if (window.supabaseClient) {
         try {
             const { error } = await window.supabaseClient.from('orders').delete().eq('id', id);
             if (!error) success = true;
-        } catch(e) {}
+        } catch (e) { }
     }
 
     // Try GAS
@@ -2309,7 +2310,7 @@ window.deleteOrder = async function (id) {
         try {
             await window.submitToGas(GAS_URL, { action: 'deleteOrder', orderId: id });
             success = true;
-        } catch(e) {}
+        } catch (e) { }
     }
 
     // Local API
@@ -2320,7 +2321,7 @@ window.deleteOrder = async function (id) {
                 body: JSON.stringify({ orderId: id })
             });
             if (res.ok) success = true;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (success) {
@@ -2417,7 +2418,7 @@ function handleAdminImageError(img, sku) {
     } else if (retries === 2) {
         img.dataset.retries = '3';
         img.src = `${ASSETS_BASE_URL}${sku}.webp`;
-    } 
+    }
     // 2. Drive Fallback (if SKU looks like a Drive ID or we can extract one)
     else if (retries === 3) {
         img.dataset.retries = '4';
@@ -2831,7 +2832,7 @@ window.renderProductsTable = function (data) {
         if (!row['No']) return;
 
         const tr = document.createElement('tr');
-        
+
         // Image Logic: Prioritize Drive ID from 'Image' column for instant preview
         const driveId = extractDriveId(row['Image'] || row['image'] || '');
         let initialImgSrc = `${ASSETS_BASE_URL}${row['No']}.jpg`;
@@ -4395,7 +4396,7 @@ window.handleAddAdmin = async function () {
             if (error) throw error;
             console.log("Admin added to Supabase.");
             supabaseSuccess = true;
-            
+
             // Update local array for immediate viewing
             ADMIN_USERS.push({ email: username, pass: password });
             alert("Admin added successfully.");
@@ -4446,11 +4447,11 @@ window.handleRemoveAdmin = async function (username) {
             if (error) throw error;
             console.log("Admin removed from Supabase.");
             supabaseSuccess = true;
-            
+
             // Remove from local array
             const index = ADMIN_USERS.findIndex(u => u.email === username);
             if (index > -1) ADMIN_USERS.splice(index, 1);
-            
+
             window.loadAdminsForManagement();
             loadCredentials();
         } catch (e) {
@@ -4505,11 +4506,11 @@ window.handleUpdateAdmin = async function () {
             if (error) throw error;
             console.log("Admin updated in Supabase.");
             supabaseSuccess = true;
-            
+
             // Update local array
             const user = ADMIN_USERS.find(u => u.email === username);
             if (user) user.pass = newPassword;
-            
+
             alert("Password updated successfully.");
             const m = document.getElementById('change-pass-modal');
             m.classList.remove('open');
