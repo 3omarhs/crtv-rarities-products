@@ -1674,23 +1674,23 @@ async function fetchVisits(GAS_URL) {
                     }
                 } catch (e) { console.warn("Admin: Could not fetch visit_logs", e); }
 
-                // If no logs from Supabase, try GAS fallback
+                // If no logs from Supabase, try GAS fallback (getVisits already returns dailyLogs)
                 if (Object.keys(dailyLogs).length === 0) {
                     try {
-                        console.log("Admin: Trying GAS fallback for device logs...");
+                        const localDate = getLocalDateStr();
+                        console.log("Admin: Trying GAS fallback for device logs via getVisits...");
                         const res = await fetch(GAS_URL, {
                             method: 'POST',
                             mode: 'cors',
                             redirect: 'follow',
                             headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'getDeviceLogs' })
+                            body: JSON.stringify({ action: 'getVisits', date: localDate })
                         });
                         if (res.ok) {
-                            const gasLogs = await res.json();
-                            if (gasLogs && typeof gasLogs === 'object') {
-                                // gasLogs format: { "2026-03-31": ["iPhone", "Windows PC", ...], ... }
-                                Object.assign(dailyLogs, gasLogs);
-                                console.log("Admin: GAS device logs loaded.", dailyLogs);
+                            const gasData = await res.json();
+                            if (gasData && gasData.dailyLogs && typeof gasData.dailyLogs === 'object') {
+                                Object.assign(dailyLogs, gasData.dailyLogs);
+                                console.log("Admin: GAS device logs loaded from getVisits:", Object.keys(dailyLogs).length, "dates");
                             }
                         }
                     } catch (e) { console.warn("Admin: GAS device logs fallback failed", e); }
