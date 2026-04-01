@@ -1,6 +1,6 @@
 const SHEET_ID = '1x3ExLPeQwSJtewUXQhYwdXO_I3Owhs6fenFc4UlbwPU';
-// Override console// Product Catalog Logic - v4.1.6
-console.log("Creative Rarities Storefront v4.1.6 (GAS v4.2 Sync)");
+// Override console// Product Catalog Logic - v4.1.8
+console.log("Creative Rarities Storefront v4.1.8 (GAS v4.2 Sync)");
 const GID = '897526080';
 // API & Data Source Configuration
 const CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/products.csv';
@@ -1455,19 +1455,52 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
 
     // 2. Cloud Fallback: Try stable LH3 link for product images
     if (retryCount === 3) {
-        img.dataset.retries = 3;
+        img.dataset.retries = 4;
         const currentDriveId = driveId || extractDriveId(fallback);
         if (currentDriveId) {
             img.src = `https://lh3.googleusercontent.com/d/${currentDriveId}`;
             return;
         }
-        img.src = fallback;
-        return;
+        // Fall through to next retry
+    }
+
+    // 2.5 Try Video extensions if image fails
+    if (retryCount === 4) {
+        img.dataset.retries = 5;
+        const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+        const currentExt = img.src.split(/[?#]/)[0].split('.').pop().toLowerCase();
+        
+        if (!videoExtensions.includes(currentExt)) {
+            // Try swapping to video
+            const videoUrl = `${ASSETS_BASE_URL}${itemNo}.mp4`;
+            
+            const video = document.createElement('video');
+            video.src = videoUrl;
+            video.className = img.className;
+            video.id = img.id;
+            video.autoplay = true;
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.objectFit = 'cover';
+            video.onerror = () => {
+                // If video fails, swap back to img and try next fallback
+                const fallbackImg = document.createElement('img');
+                fallbackImg.className = video.className;
+                fallbackImg.id = video.id;
+                fallbackImg.dataset.retries = 5; // Skip to drive thumbnail
+                handleImageError(fallbackImg, fallback, productName, itemNo, driveId);
+                video.parentNode.replaceChild(fallbackImg, video);
+            };
+            
+            img.parentNode.replaceChild(video, img);
+            return;
+        }
     }
 
     // 3. Last backup: Drive Thumbnail
-    if (retryCount === 3) {
-        img.dataset.retries = 4;
+    if (retryCount === 5) {
+        img.dataset.retries = 6;
         const currentDriveId = driveId || extractDriveId(img.src) || extractDriveId(fallback);
         if (currentDriveId) {
             img.src = `https://drive.google.com/thumbnail?id=${currentDriveId}&sz=w1000`;
@@ -1484,15 +1517,6 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
             if (sku) {
                 const galleryFallback = `${ASSETS_BASE_URL}${sku}_1.jpg`;
                 img.src = galleryFallback;
-                
-                // NEW: Also update the thumbnail if this is the main image
-                if (img.classList.contains('expanded-image')) {
-                    const card = img.closest('.card');
-                    const firstThumb = card.querySelector('.gallery-thumb img');
-                    if (firstThumb && firstThumb.src.includes(sku) && !firstThumb.src.includes('_1')) {
-                        firstThumb.src = galleryFallback;
-                    }
-                }
                 return;
             }
         }
@@ -1509,9 +1533,9 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
 window.switchGalleryImage = function (btn) {
     const card = btn.closest('.card');
     const mainMediaContainer = card.querySelector('.expanded-image-container');
-    const thumbImg = btn.querySelector('img');
+    const thumbMedia = btn.querySelector('img, video');
     
-    if (mainMediaContainer && thumbImg) {
+    if (mainMediaContainer && thumbMedia) {
         const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
         const isVideoUrl = (url) => {
             if (!url) return false;
@@ -1523,9 +1547,10 @@ window.switchGalleryImage = function (btn) {
         if (oldMedia) oldMedia.style.opacity = '0';
 
         setTimeout(() => {
-            if (isVideoUrl(thumbImg.src)) {
+            const mediaUrl = thumbMedia.src;
+            if (isVideoUrl(mediaUrl)) {
                 const video = document.createElement('video');
-                video.src = thumbImg.src;
+                video.src = mediaUrl;
                 video.className = 'expanded-image';
                 video.autoplay = true;
                 video.loop = true;
@@ -1543,7 +1568,7 @@ window.switchGalleryImage = function (btn) {
                 setTimeout(() => video.style.opacity = '1', 50);
             } else {
                 const img = document.createElement('img');
-                img.src = thumbImg.src;
+                img.src = mediaUrl;
                 img.className = 'expanded-image';
                 img.style.opacity = '0';
                 img.onerror = () => handleImageError(img, '', '', '', '');
@@ -1585,13 +1610,40 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
     }
     if (retries === 3) {
         img.dataset.retries = '4';
-        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.mp4`;
+        const videoUrl = `${ASSETS_BASE_URL}${itemNo}${suffix}.mp4`;
+        
+        // Swap IMG for VIDEO in thumbnail
+        const video = document.createElement('video');
+        video.src = videoUrl;
+        video.className = img.className;
+        video.muted = true;
+        video.autoplay = false; 
+        video.loop = true;
+        video.playsInline = true;
+        video.style.objectFit = 'cover';
+        
+        // Ensure switchGalleryImage still works when clicking the video
+        video.onclick = (e) => {
+            e.stopPropagation();
+            switchGalleryImage(video.parentElement);
+        };
+        
+        video.onerror = () => {
+            // If video fails, swap back to img and try next fallback
+            const fallbackImg = document.createElement('img');
+            fallbackImg.className = video.className;
+            fallbackImg.dataset.retries = '4'; // Skip to drive fallback
+            handleGalleryImageError(fallbackImg, itemNo, suffix);
+            video.parentNode.replaceChild(fallbackImg, video);
+        };
+        
+        img.parentElement.replaceChild(video, img);
         return;
     }
 
     // 2. Try Google Drive Fallback (Instant access)
     if (retries === 4) {
-        img.dataset.retries = '3';
+        img.dataset.retries = '5';
         try {
             const galleryData = JSON.parse(img.dataset.gallery || '{}');
             const index = suffix.replace(/[^0-9]/g, '');

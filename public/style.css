@@ -780,7 +780,8 @@ body.rtl .zoom-controls {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.gallery-thumb img {
+.gallery-thumb img,
+.gallery-thumb video {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
