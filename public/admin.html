@@ -653,19 +653,17 @@
                                     </div>
                                     <style>
                                         .custom-dropdown {
-                                            position: absolute;
-                                            top: 100%;
-                                            left: 0;
-                                            right: 0;
+                                            position: fixed;
                                             background: var(--bg-secondary);
                                             border: 1px solid var(--border);
                                             border-radius: 0.5rem;
                                             max-height: 300px;
                                             overflow-y: auto;
-                                            z-index: 1000;
-                                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                                            z-index: 10000; /* Higher z-index for fixed popup */
+                                            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
                                             padding-bottom: 10px;
                                             box-sizing: border-box;
+                                            display: none; /* Initial state */
                                         }
 
                                         .dropdown-item {

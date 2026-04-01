@@ -3643,6 +3643,20 @@ window.setupCustomProductDropdown = function (config) {
     const newInput = input.cloneNode(true);
     input.parentNode.replaceChild(newInput, input);
 
+    // HELPER: Position dropdown based on input rect and fixed positioning
+    const reposition = () => {
+        if (dropdown.classList.contains('hidden')) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        const rect = newInput.getBoundingClientRect();
+        dropdown.style.display = 'block';
+        dropdown.style.top = rect.bottom + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.position = 'fixed';
+    };
+
     const handleSearch = (e) => {
         const term = e.target.value.toLowerCase().trim();
 
@@ -3679,11 +3693,19 @@ window.setupCustomProductDropdown = function (config) {
         `).join('');
 
         dropdown.classList.remove('hidden');
+        reposition();
     };
 
     // Attach listener to NEW input
     newInput.addEventListener('input', handleSearch);
-    newInput.addEventListener('focus', handleSearch);
+    newInput.addEventListener('focus', () => {
+        handleSearch({ target: newInput });
+        reposition();
+    });
+
+    // Handle scroll/resize to keep fixed dropdown aligned
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
 
     // Store callback
     window._customSelectCallbacks = window._customSelectCallbacks || {};
@@ -3694,7 +3716,10 @@ window._handleCustomSelect = function (inputId, dropdownId, value) {
     const input = document.getElementById(inputId);
     const dropdown = document.getElementById(dropdownId);
     if (input) input.value = value;
-    if (dropdown) dropdown.classList.add('hidden');
+    if (dropdown) {
+        dropdown.classList.add('hidden');
+        dropdown.style.display = 'none';
+    }
 
     if (window._customSelectCallbacks && window._customSelectCallbacks[inputId]) {
         window._customSelectCallbacks[inputId](value);
