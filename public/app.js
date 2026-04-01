@@ -1147,6 +1147,38 @@ function createCard(product, uiIndex) {
     }
 
     const imgId = `img-${product.index}`;
+    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+    const isVideo = (url) => {
+        if (!url) return false;
+        const ext = url.split(/[?#]/)[0].split('.').pop().toLowerCase();
+        return videoExtensions.includes(ext);
+    };
+
+    const renderMedia = (src, alt, id, className, errorFunc) => {
+        if (isVideo(src)) {
+            return `
+                <video 
+                    src="${src}" 
+                    class="${className}" 
+                    id="${id}" 
+                    autoplay loop muted playsinline
+                    onerror="handleVideoError(this, '${product.name}', '${product.no}')"
+                ></video>
+            `;
+        }
+        return `
+            <img 
+                src="${src}" 
+                alt="${alt}" 
+                class="${className}"
+                id="${id}"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                onerror="${errorFunc}"
+            >
+        `;
+    };
+
     const noLinkPlaceholder = `data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E${encodeURIComponent(t.noPreview)}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     // Image Fallbacks logic
@@ -1164,15 +1196,7 @@ function createCard(product, uiIndex) {
     article.innerHTML = `
         <div class="collapsed-view">
             <div class="card-image-container">
-                <img 
-                    src="${imageSrc}" 
-                    alt="${product.name}" 
-                    class="product-image"
-                    id="${imgId}"
-                    loading="lazy"
-                    referrerpolicy="no-referrer"
-                    onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
-                >
+                ${renderMedia(imageSrc, product.name, imgId, 'product-image', `handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')`)}
             </div>
             <div class="card-content">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
@@ -1213,13 +1237,7 @@ function createCard(product, uiIndex) {
                         <button class="zoom-btn" onclick="resetZoom(this)" title="Reset Zoom"><i data-lucide="maximize"></i></button>
                         <button class="zoom-btn" onclick="openLightbox(this)" title="Show Full Image"><i data-lucide="expand"></i></button>
                     </div>
-                    <img 
-                        src="${imageSrc}" 
-                        alt="${product.name}" 
-                        class="expanded-image"
-                        data-zoom="1"
-                        onerror="handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')"
-                    >
+                    ${renderMedia(imageSrc, product.name, '', 'expanded-image', `handleImageError(this, '${secondaryFallback}', '${product.name}', '${product.no}', '${driveId || ''}')`)}
                 </div>
                 
                 <div class="expanded-gallery">
@@ -1393,6 +1411,26 @@ function createCard(product, uiIndex) {
     return article;
 }
 
+window.handleVideoError = function (video, productName, itemNo) {
+    if (!video.dataset.retries) video.dataset.retries = 0;
+    let retryCount = parseInt(video.dataset.retries);
+
+    if (retryCount === 0) {
+        video.dataset.retries = 1;
+        video.src = `${ASSETS_BASE_URL}${itemNo}.webm`;
+        return;
+    }
+    
+    // Fallback to image if video fails completely
+    const imgId = video.id;
+    const img = document.createElement('img');
+    img.className = video.className;
+    img.id = imgId;
+    img.src = `${ASSETS_BASE_URL}${itemNo}.jpg`;
+    img.onerror = () => handleImageError(img, '', productName, itemNo, '');
+    video.parentNode.replaceChild(img, video);
+};
+
 window.handleImageError = function (img, fallback, productName, itemNo, driveId) {
     if (!img.dataset.retries) img.dataset.retries = 0;
     let retryCount = parseInt(img.dataset.retries);
@@ -1405,16 +1443,18 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
             img.dataset.retries = 2;
             img.src = `${ASSETS_BASE_URL}${itemNo}.webp`;
             img.onerror = () => {
-                // If .webp fails, proceed to cloud fallback logic (retryCount 2 in original logic)
-                // This will now be handled by the next `if` block, as `retryCount` is 2.
-                handleImageError(img, fallback, productName, itemNo, driveId);
+                img.dataset.retries = 3;
+                img.src = `${ASSETS_BASE_URL}${itemNo}.gif`;
+                img.onerror = () => {
+                    handleImageError(img, fallback, productName, itemNo, driveId);
+                };
             };
         };
         return;
     }
 
     // 2. Cloud Fallback: Try stable LH3 link for product images
-    if (retryCount === 2) {
+    if (retryCount === 3) {
         img.dataset.retries = 3;
         const currentDriveId = driveId || extractDriveId(fallback);
         if (currentDriveId) {
@@ -1436,8 +1476,8 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
     }
 
     // 4. Try first gallery image as fallback
-    if (retryCount === 4) {
-        img.dataset.retries = 5;
+    if (retryCount === 6) {
+        img.dataset.retries = 7;
         const basePath = img.src.split(/[?#]/)[0];
         if (!basePath.includes('_1.jpg') && !basePath.includes('_2.jpg')) {
             const sku = img.getAttribute('alt') || '';
@@ -1468,15 +1508,54 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
 
 window.switchGalleryImage = function (btn) {
     const card = btn.closest('.card');
-    const mainImg = card.querySelector('.expanded-image');
+    const mainMediaContainer = card.querySelector('.expanded-image-container');
     const thumbImg = btn.querySelector('img');
-    if (mainImg && thumbImg) {
-        mainImg.style.opacity = '0';
+    
+    if (mainMediaContainer && thumbImg) {
+        const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+        const isVideoUrl = (url) => {
+            if (!url) return false;
+            const ext = url.split(/[?#]/)[0].split('.').pop().toLowerCase();
+            return videoExtensions.includes(ext);
+        };
+
+        const oldMedia = mainMediaContainer.querySelector('.expanded-image');
+        if (oldMedia) oldMedia.style.opacity = '0';
+
         setTimeout(() => {
-            mainImg.src = thumbImg.src;
-            mainImg.style.transform = 'scale(1)';
-            mainImg.dataset.zoom = '1';
-            mainImg.style.opacity = '1';
+            if (isVideoUrl(thumbImg.src)) {
+                const video = document.createElement('video');
+                video.src = thumbImg.src;
+                video.className = 'expanded-image';
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.style.opacity = '0';
+                video.onerror = () => handleVideoError(video, '', '');
+                
+                if (oldMedia) {
+                    mainMediaContainer.replaceChild(video, oldMedia);
+                } else {
+                    mainMediaContainer.appendChild(video);
+                }
+                
+                setTimeout(() => video.style.opacity = '1', 50);
+            } else {
+                const img = document.createElement('img');
+                img.src = thumbImg.src;
+                img.className = 'expanded-image';
+                img.style.opacity = '0';
+                img.onerror = () => handleImageError(img, '', '', '', '');
+                
+                if (oldMedia) {
+                    mainMediaContainer.replaceChild(img, oldMedia);
+                } else {
+                    mainMediaContainer.appendChild(img);
+                }
+                
+                setTimeout(() => img.style.opacity = '1', 50);
+            }
         }, 150);
     }
     // Update active state
@@ -1499,9 +1578,19 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
         img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp`;
         return;
     }
+    if (retries === 2) {
+        img.dataset.retries = '3';
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.gif`;
+        return;
+    }
+    if (retries === 3) {
+        img.dataset.retries = '4';
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.mp4`;
+        return;
+    }
 
     // 2. Try Google Drive Fallback (Instant access)
-    if (retries === 2) {
+    if (retries === 4) {
         img.dataset.retries = '3';
         try {
             const galleryData = JSON.parse(img.dataset.gallery || '{}');

@@ -1422,7 +1422,8 @@ window.initUploadImages = async function () {
                     body: JSON.stringify({
                         action: 'uploadImage',
                         imageName: newFileName,
-                        image: base64Image
+                        image: base64Image,
+                        mimeType: file.type
                     })
                 });
 

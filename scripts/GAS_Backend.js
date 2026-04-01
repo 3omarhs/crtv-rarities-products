@@ -287,7 +287,7 @@ function handleProductUpdate(product) {
     // --- NEW: Save Image to Google Drive for Instant Access ---
     if (product.image && (product.image.length > 1000 || product.imageName)) {
         try {
-            const driveId = saveImageToDrive(product.image, product.imageName || (product.No + ".jpg"));
+            const driveId = saveImageToDrive(product.image, product.imageName || (product.No + ".jpg"), product.mimeType);
             if (driveId) {
                 product.Image = driveId; // Store purely the ID for consistency
             }
@@ -357,7 +357,7 @@ function handleImageUpload(params) {
         // 1. Save to Google Drive for Instant Access First
         let driveId = null;
         try {
-            driveId = saveImageToDrive(params.image, params.imageName);
+            driveId = saveImageToDrive(params.image, params.imageName, params.mimeType);
         } catch (e) {
             console.error("Gallery Drive save failed:", e);
         }
@@ -531,7 +531,7 @@ function commitToGitHub(repo, path, content, message, isBase64) {
 /**
  * Saves a base64 image to a public Google Drive folder
  */
-function saveImageToDrive(base64Data, fileName) {
+function saveImageToDrive(base64Data, fileName, mimeType) {
   const FOLDER_NAME = "Storefront Images";
   let folder;
   const folders = DriveApp.getFoldersByName(FOLDER_NAME);
@@ -544,9 +544,28 @@ function saveImageToDrive(base64Data, fileName) {
   }
   
   // Remove data URL prefix if exists
-  const contentType = base64Data.match(/^data:([^;]+);base64,/);
+  const contentTypeMatch = base64Data.match(/^data:([^;]+);base64,/);
   const pureBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
-  const blob = Utilities.newBlob(Utilities.base64Decode(pureBase64), contentType ? contentType[1] : "image/jpeg", fileName);
+  
+  // Choose MIME type: 
+  // 1. Explicitly passed mimeType
+  // 2. Extracted from Data URL prefix
+  // 3. Inferred from extension
+  // 4. Fallback to image/jpeg
+  let finalMimeType = mimeType || (contentTypeMatch ? contentTypeMatch[1] : null);
+  
+  if (!finalMimeType) {
+      const ext = fileName.split('.').pop().toLowerCase();
+      if (ext === 'png') finalMimeType = 'image/png';
+      else if (ext === 'webp') finalMimeType = 'image/webp';
+      else if (ext === 'gif') finalMimeType = 'image/gif';
+      else if (ext === 'mp4') finalMimeType = 'video/mp4';
+      else if (ext === 'webm') finalMimeType = 'video/webm';
+      else if (ext === 'mov') finalMimeType = 'video/quicktime';
+      else finalMimeType = 'image/jpeg';
+  }
+
+  const blob = Utilities.newBlob(Utilities.base64Decode(pureBase64), finalMimeType, fileName);
   
   // Clean up old file with same name if exists to avoid duplicates
   const existingFiles = folder.getFilesByName(fileName);
