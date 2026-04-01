@@ -1,6 +1,6 @@
 // Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.15 LOADED (Robust Product Sync) !!!");
-document.title = "Admin Portal (v5.1.15)";
+console.log("!!! ADMIN JS V5.1.18 LOADED (Dropdown Fix) !!!");
+document.title = "Admin Portal (v5.1.18)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -3643,6 +3643,12 @@ window.setupCustomProductDropdown = function (config) {
     const newInput = input.cloneNode(true);
     input.parentNode.replaceChild(newInput, input);
 
+    // Move dropdown to body to avoid parent transform/clipping contexts
+    if (dropdown.parentElement !== document.body) {
+        console.log(`Moving dropdown ${dropdownId} to body. Current parent:`, dropdown.parentElement);
+        document.body.appendChild(dropdown);
+    }
+
     // HELPER: Position dropdown based on input rect and fixed positioning
     const reposition = () => {
         if (dropdown.classList.contains('hidden')) {
@@ -3655,6 +3661,7 @@ window.setupCustomProductDropdown = function (config) {
         dropdown.style.left = rect.left + 'px';
         dropdown.style.width = rect.width + 'px';
         dropdown.style.position = 'fixed';
+        dropdown.style.zIndex = '100000'; // Extra high for body-level
     };
 
     const handleSearch = (e) => {
@@ -3706,6 +3713,15 @@ window.setupCustomProductDropdown = function (config) {
     // Handle scroll/resize to keep fixed dropdown aligned
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
+
+    // CRITICAL: Handle card hover transforms (translateY(-5px))
+    const parentCard = newInput.closest('.card') || newInput.closest('.item-tile');
+    if (parentCard) {
+        // We trigger reposition on mouse events to ensure alignment during hover
+        parentCard.addEventListener('mouseenter', () => { setTimeout(reposition, 10); });
+        parentCard.addEventListener('mouseleave', () => { setTimeout(reposition, 10); });
+        parentCard.addEventListener('mousemove', reposition); // Safety buffer
+    }
 
     // Store callback
     window._customSelectCallbacks = window._customSelectCallbacks || {};

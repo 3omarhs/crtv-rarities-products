@@ -1478,10 +1478,13 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
             video.src = videoUrl;
             video.className = img.className;
             video.id = img.id;
+            // Use setAttribute for better attribute visibility/persistence
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
+            video.setAttribute('loop', '');
+            video.setAttribute('playsinline', '');
+            video.muted = true; // Also set property for logic
             video.autoplay = true;
-            video.loop = true;
-            video.muted = true;
-            video.playsInline = true;
             video.style.objectFit = 'cover';
             video.onerror = () => {
                 // If video fails, swap back to img and try next fallback
@@ -1552,10 +1555,13 @@ window.switchGalleryImage = function (btn) {
                 const video = document.createElement('video');
                 video.src = mediaUrl;
                 video.className = 'expanded-image';
+                // Use setAttribute for better attribute visibility/persistence
+                video.setAttribute('autoplay', '');
+                video.setAttribute('muted', '');
+                video.setAttribute('loop', '');
+                video.setAttribute('playsinline', '');
+                video.muted = true; // Also set property for logic
                 video.autoplay = true;
-                video.loop = true;
-                video.muted = true;
-                video.playsInline = true;
                 video.style.opacity = '0';
                 video.onerror = () => handleVideoError(video, '', '');
                 
