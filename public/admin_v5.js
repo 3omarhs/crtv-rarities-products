@@ -1508,7 +1508,15 @@ async function loadData() {
                         o.items = JSON.parse(o.items);
                     }
                 } catch (e) {
-                    // Not JSON, keep as string (legacy CSV format)
+                    // Not JSON, fallback to split string (legacy CSV format)
+                    if (typeof o.items === 'string') {
+                        o.items = o.items.split('|').map(s => s.trim()).filter(Boolean);
+                    }
+                }
+                
+                // If it successfully parsed or didn't throw, but is still a string (e.g. didn't start with [ or {)
+                if (typeof o.items === 'string') {
+                    o.items = o.items.split('|').map(s => s.trim()).filter(Boolean);
                 }
             }
 
@@ -1876,8 +1884,9 @@ function renderOrdersTable(orders) {
         };
 
         tr.innerHTML = `
-            <td style="font-family:monospace">#${idStr.substr(0, 8)}</td>
+            <td style="font-family:monospace">#${idStr}</td>
             <td>${customerName}<br><span style="font-size:0.8em;color:grey">${customerPhone}</span></td>
+
             <td>${o.items ? o.items.length : 0} Items</td>
             <td>${o.total}</td>
             <td>${new Date(o.date).toLocaleDateString()}</td>
