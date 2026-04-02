@@ -1056,6 +1056,10 @@ async function handleProductSubmit(e) {
                         gasUrlInput.value = knownGasUrl;
                     }
 
+                    // Clear product cache to force re-fetch
+                    window.allProducts = [];
+                    window.manualProducts = [];
+
                     if (typeof loadProducts === 'function') await loadProducts();
                     if (typeof initProductData === 'function') await initProductData();
                 }, 1000);
