@@ -3493,6 +3493,11 @@ window.filterAndRenderProducts = function () {
             valA = String(valA).toLowerCase();
             valB = String(valB).toLowerCase();
 
+            if (window.currentSortColumn === 'no') {
+                valA = valA.includes('-') ? valA.substring(valA.indexOf('-') + 1) : valA;
+                valB = valB.includes('-') ? valB.substring(valB.indexOf('-') + 1) : valB;
+            }
+
             if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
             if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
             return 0;
