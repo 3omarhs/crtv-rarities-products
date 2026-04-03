@@ -1067,13 +1067,17 @@ body.rtl .expanded-close {
     }
 
     .header-contact-links {
-        display: none;
-        /* Hide socials in mobile header to save space */
+        display: flex;
+        justify-content: center;
+        gap: 0.8rem;
+        margin-top: 0.5rem;
     }
 
     .header-actions {
-        right: 0.5rem;
-        top: 0.5rem;
+        position: static;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 1.5rem;
     }
 
     .search-wrapper {
@@ -2023,12 +2027,15 @@ body.rtl .lang-switch-btn {
 }
 
 @media (max-width: 768px) {
-    .lang-switch-btn span {
+    .lang-switch-btn span, #header-wa-text {
         display: none;
     }
 
-    .lang-switch-btn {
+    .lang-switch-btn, .whatsapp-btn {
         padding: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
