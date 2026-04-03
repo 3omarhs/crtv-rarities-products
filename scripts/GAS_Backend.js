@@ -208,16 +208,17 @@ function handleDeleteOrder(orderId) {
 }
 
 function handleVisit(params) {
-    if (params.device) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const row = `${todayStr},${String(params.device).replace(/,/g, '')},${Date.now()}`;
+    const todayStr = params.date || new Date().toISOString().split('T')[0];
+    const device = params.deviceName || params.device;
+    
+    if (device) {
+        const row = `${todayStr},${String(device).replace(/,/g, '')},${Date.now()}`;
         updateGitHubFile('data/visit_logs.csv', row, null, `Tracking: New Visit`);
     }
     
     // Increment daily count in visits.csv safely
     const mutateVisits = (csvContent) => {
         const rows = csvContent.split('\n');
-        const todayStr = new Date().toISOString().split('T')[0];
         let found = false;
         let out = [rows[0]];
         for(let i=1; i<rows.length; i++) {
