@@ -629,15 +629,17 @@ async function init() {
     // Only count unique sessions to prevent spamming stats on reload
     // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
     // --- TRACK VISITS (All-CSV / GAS) ---
-    // Only count one visit per day per device to avoid spamming
-    const localDate = getLocalDateStr();
-    const lastTrackedDay = localStorage.getItem('last_tracked_visit_date');
+    // Only count one visit per hour per device to capture return traffic
+    const now = new Date();
+    const hourlyStamp = now.toISOString().substring(0, 13); // Format: YYYY-MM-DDTHH
+    const lastTrackedHour = localStorage.getItem('last_tracked_visit_hour');
 
-    if (lastTrackedDay === localDate) {
-        console.log("Visit already recorded for today.");
+    if (lastTrackedHour === hourlyStamp) {
+        console.log("Visit already recorded for this hour.");
     } else {
-        localStorage.setItem('last_tracked_visit_date', localDate);
+        localStorage.setItem('last_tracked_visit_hour', hourlyStamp);
         const deviceName = getDeviceName();
+        const localDate = getLocalDateStr();
 
         // Fetch settings to get current GAS_URL
         fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
