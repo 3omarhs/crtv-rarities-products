@@ -1525,9 +1525,9 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
         }
     }
 
-    // 5. Ultimate Failure SVG
+    // 5. Ultimate Failure SVG (Softer design instead of stark red "Access Denied")
     img.onerror = null;
-    img.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23fee2e2%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%23ef4444%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EAccess%20Denied%20/%20Private%3C%2Ftext%3E%3C%2Fsvg%3E';
+    img.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EImage%20Unavailable%3C%2Ftext%3E%3C%2Fsvg%3E';
     img.style.objectFit = 'contain';
     img.parentElement.style.padding = '1.5rem';
     console.warn(`Persistent preview error for: ${productName}.`);
@@ -1639,8 +1639,15 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
             const fallbackImg = document.createElement('img');
             fallbackImg.className = video.className;
             fallbackImg.dataset.retries = '4'; // Skip to drive fallback
-            handleGalleryImageError(fallbackImg, itemNo, suffix);
+            fallbackImg.dataset.gallery = img.dataset.gallery || '{}'; // Persist gallery data for Drive lookup
+            
+            // Re-hook the error listener to hide if drive thumbnail fails
+            fallbackImg.onerror = () => handleGalleryImageError(fallbackImg, itemNo, suffix);
+            
+            // VERY IMPORTANT: Add to DOM *BEFORE* calling handleGalleryImageError so .closest('.gallery-thumb') resolves
             video.parentNode.replaceChild(fallbackImg, video);
+            
+            handleGalleryImageError(fallbackImg, itemNo, suffix);
         };
         
         img.parentElement.replaceChild(video, img);
