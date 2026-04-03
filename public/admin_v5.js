@@ -695,72 +695,45 @@ async function initAdmin() {
                 }
             }
 
-            let supabaseSuccess = false;
-            if (window.supabaseClient) {
-                try {
-                    console.log("Saving settings to Supabase...");
-                    const { error } = await window.supabaseClient.from('settings').upsert({
-                        id: 1,
-                        enabled: enabled,
-                        receiver_email: receiver,
-                        sender_email: sender,
-                        sender_pass: pass,
-                        google_script_url: document.getElementById('settings-google-script-url')?.value.trim() || ''
-                    });
+            const gasUrlInput = document.getElementById('settings-google-script-url');
+            const gasUrl = gasUrlInput ? gasUrlInput.value.trim() : '';
 
-                    if (keyToSave) {
-                        try {
-                            const encodedKey = btoa(keyToSave);
-                            await window.supabaseClient.from('gemini_keys').upsert({ key: encodedKey }); // Use correct column from schema
-                        } catch (e) { console.warn("Supabase Gemini Key error:", e); }
-                    }
-
-                    if (error) throw error;
-                    supabaseSuccess = true;
-                    msg.textContent = "Settings saved to Supabase!";
-                    msg.classList.remove('hidden');
-                    setTimeout(() => msg.classList.add('hidden'), 3000);
-                } catch (e) {
-                    console.error("Supabase settings error", e);
-                }
+            if (!gasUrl) {
+                alert("Error: No Google Script URL defined. Cannot save settings to CSV.");
+                return;
             }
 
-            if (supabaseSuccess) return;
-
             try {
-                // Static hosting limitation: Cannot save settings to backend API
-                alert("Saving email settings is disabled on static GitHub Pages. These settings are for a backend API.");
-                msg.textContent = "Email settings not saved (static host).";
-                msg.classList.remove('hidden');
-                setTimeout(() => msg.classList.add('hidden'), 3000);
-                return;
-
-                const res = await fetch('/api/settings', {
+                console.log("Saving settings to GitHub CSV via GAS...");
+                const res = await fetch(gasUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({
-                        enabled: enabled,
-                        receiver_email: receiver,
-                        sender_email: sender,
-                        sender_pass: pass,
-                        google_script_url: document.getElementById('settings-google-script-url')?.value.trim() || ''
+                        action: 'saveSettings',
+                        settings: {
+                            email_enabled: enabled,
+                            receiver_email: receiver,
+                            sender_email: sender,
+                            sender_pass: pass,
+                            google_script_url: gasUrl
+                        }
                     })
                 });
 
-                const json = await res.json();
-                if (json.status === 'success') {
-                    msg.textContent = "Settings saved successfully!";
+                if (res.ok) {
+                    msg.textContent = "Settings saved to GitHub CSV!";
                     msg.classList.remove('hidden');
-                    setTimeout(() => msg.classList.add('hidden'), 3000);
+                    setTimeout(() => {
+                        msg.classList.add('hidden');
+                        location.reload(); // Reload to sync all views
+                    }, 2000);
                 } else {
-                    alert("Failed: " + json.error);
+                    throw new Error("Failed to save via GAS");
                 }
             } catch (e) {
-                // If API fails (e.g. Vercel), at least we saved to localStorage
-                console.warn("Settings API save failed (expected on static host):", e);
-                msg.textContent = "Settings saved to browser!";
-                msg.classList.remove('hidden');
-                setTimeout(() => msg.classList.add('hidden'), 3000);
+                console.error("Settings save error", e);
+                alert("Failed to save settings: " + e.message);
             }
         });
     }
@@ -1121,13 +1094,14 @@ async function loadSettings() {
     const versionDisplay = document.getElementById('app-version-display');
     if (versionDisplay) versionDisplay.textContent = "v5.1.14";
 
-    const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec';
-
-    // Update all URL inputs
-    const inputs = ['google-script-url', 'settings-google-script-url'];
-    inputs.forEach(id => {
+    // Initial fallback URL (will be overwritten by CSV load)
+    const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbxP6nQvYQK3RvS7fYRM3KNdQrqapdBPVX0IE4pG51XpkE1CxUgA7oyAJOocfwS1xsrtmA/exec';
+    
+    // Update all URL inputs initially
+    const urlInputs = ['google-script-url', 'settings-google-script-url'];
+    urlInputs.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = gasUrl;
+        if (el && !el.value) el.value = fallbackGasUrl;
     });
 
     const keyInput = document.getElementById('gemini-api-key-input');
@@ -1146,6 +1120,15 @@ async function loadSettings() {
                 results.data.forEach(row => {
                     if (row.key) data[row.key] = row.value;
                 });
+
+                // Populate GAS URL from CSV if present
+                if (data.google_script_url) {
+                    urlInputs.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = data.google_script_url;
+                    });
+                    console.log("Admin: Loaded GAS_URL from CSV settings.");
+                }
             }
         });
 

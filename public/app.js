@@ -628,82 +628,39 @@ async function init() {
     // --- TRACK VISITS (Server Side) ---
     // Only count unique sessions to prevent spamming stats on reload
     // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
-    // --- TRACK VISITS (Server Side / GAS) ---
+    // --- TRACK VISITS (All-CSV / GAS) ---
     // Only count unique sessions to prevent spamming stats on reload
-    // GAS_URL shared with admin
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzWZpIq7pRLme0f-xLj2vSXqJ7hXz6Ru9ChRyKg0mi0AmEyNqED_AgSvHLt9B--WEj_Gg/exec";
-
-function getLocalDateStr() {
-    const today = new Date();
-    const offset = today.getTimezoneOffset() * 60000;
-    return new Date(today.getTime() - offset).toISOString().split('T')[0];
-}
-
     if (sessionStorage.getItem('visited_session')) {
-        console.log("Visit already tracked for this session (sessionStorage). To test again, clear your session storage or use Incognito.");
+        console.log("Visit already tracked for this session.");
     } else {
         sessionStorage.setItem('visited_session', 'true');
-        const isStatic = window.location.hostname.includes('github.io');
         const deviceName = getDeviceName();
         const localDate = getLocalDateStr();
-        
-        // --- 1. Supabase Visit Tracking ---
-        try {
-            if (window.supabaseClient) {
-                console.log("Tracking visit to Supabase for " + localDate + "...");
-                
-                window.supabaseClient
-                    .from('visits')
-                    .select('count')
-                    .eq('date', localDate)
-                    .single()
-                    .then(({data, error}) => {
-                        let newCount = 1;
-                        if (data && data.count) {
-                            newCount = parseInt(data.count, 10) + 1;
+        const isStatic = window.location.hostname.includes('github.io');
+
+        // Fetch settings to get current GAS_URL
+        fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
+            .then(res => res.text())
+            .then(csv => {
+                let dynamicGasUrl = '';
+                Papa.parse(csv, {
+                    header: true, skipEmptyLines: true,
+                    complete: function(results) {
+                        const s = results.data.find(r => r.key === 'google_script_url');
+                        if (s) dynamicGasUrl = s.value;
+                        
+                        if (dynamicGasUrl) {
+                            console.log("Tracking visit via GAS: " + dynamicGasUrl);
+                            fetch(dynamicGasUrl, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { 'Content-Type': 'text/plain' },
+                                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                            }).then(() => console.log("Visit recorded."));
                         }
-                        return window.supabaseClient.from('visits').upsert({ date: localDate, count: newCount }, { onConflict: 'date' });
-                    })
-                    .then(({error}) => {
-                        if (error) console.error("Supabase visit track error:", error);
-                        else console.log("Visit tracked to Supabase.");
-                    });
-
-                // Also log device if possible (try/catch in case table doesn't exist)
-                window.supabaseClient
-                    .from('visit_logs')
-                    .insert({ date: localDate, device_name: deviceName })
-                    .then(({error}) => {
-                        if (error) console.warn("Supabase device log error:", error);
-                        else console.log("Device logged to Supabase.");
-                    });
-            }
-        } catch(e) {
-            console.error("Supabase visit error:", e);
-        }
-
-        // --- 2. Fallbacks (GAS / Local API) ---
-        if (isStatic) {
-            console.log("Attempting to track visit via GAS (Static/GitHub)... Date: " + localDate);
-            fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-            })
-            .then(() => console.log("Visit recorded (GAS)."))
-            .catch(e => console.error("Could not track visit via GAS:", e));
-        } else {
-            console.log("Attempting to track visit via Local API...");
-            fetch('/api/visits', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-            })
-            .then(res => res.json())
-            .then(data => console.log("Visit recorded (Local):", data))
-            .catch(e => console.warn("Local visit tracking failed, trying GAS fallback:", e));
-        }
+                    }
+                });
+            }).catch(e => console.warn("Failed to load GAS_URL for visit tracking", e));
     }
 }
 
