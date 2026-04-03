@@ -1136,9 +1136,18 @@ async function loadSettings() {
     }
 
     try {
-        const res = await fetch('/api/settings');
+        const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now());
         if (!res.ok) throw new Error("Failed to fetch settings");
-        const data = await res.json();
+        const csvText = await res.text();
+        const data = {};
+        Papa.parse(csvText, {
+            header: true, skipEmptyLines: true,
+            complete: function(results) {
+                results.data.forEach(row => {
+                    if (row.key) data[row.key] = row.value;
+                });
+            }
+        });
 
         const enabled = document.getElementById('email-enabled');
         const receiver = document.getElementById('receiver-email');
@@ -1557,77 +1566,23 @@ async function loadData() {
 
 async function fetchOrders(GAS_URL) {
     let allOrders = [];
-
-    // 1. Try Supabase first (if configured)
-    if (window.supabaseClient) {
-        try {
-            console.log("Admin: Fetching orders from Supabase...");
-            const { data, error } = await window.supabaseClient
-                .from('orders')
-                .select('*')
-                .order('date', { ascending: false });
-
-            if (error) throw error;
-            if (data && data.length > 0) {
-                console.log(`Admin: Supabase orders loaded (${data.length} records).`);
-                allOrders = data;
-            }
-        } catch (e) {
-            console.warn("Admin: Supabase orders fetch failed, falling back...", e);
-        }
-    }
-
-    // Always fetch from CSV/GAS to ensure we don't miss anything that failed to sync to Supabase!
-    const isStatic = window.location.hostname.includes('github.io');
-    let fallbackData = null;
-
-    if (isStatic) {
-        try {
-            console.log("Admin: Fetching orders from GAS (Static Mode/POST)...");
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'cors',
-                redirect: 'follow',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: 'getOrders' })
+    try {
+        console.log("Admin: Fetching orders from GitHub CSV...");
+        const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/orders.csv?v=' + Date.now());
+        if(res.ok) {
+            const csvText = await res.text();
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    allOrders = results.data;
+                }
             });
-            if (res.ok) fallbackData = await res.json();
-        } catch (e) {
-            console.warn("Admin: GAS orders fetch failed", e);
         }
-    } else {
-        // Attempt local API fallback
-        try {
-            console.log("Admin: Attempting local API orders fetch...");
-            const res = await fetch('/api/orders');
-            if (res.ok) fallbackData = await res.json();
-        } catch (e) {
-            console.warn("Admin: Local API orders fetch failed", e);
-            // Final GAS attempt if not static but local failed
-            try {
-                const res = await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'getOrders' })
-                });
-                if (res.ok) fallbackData = await res.json();
-            } catch (err) { }
-        }
+    } catch(e) {
+        console.warn("Admin: CSV orders fetch failed", e);
     }
-
-    // Merge fallbackData with allOrders uniquely by ID
-    if (fallbackData && Array.isArray(fallbackData)) {
-        const existingIds = new Set(allOrders.map(o => o.id));
-        for (const order of fallbackData) {
-            if (!existingIds.has(order.id)) {
-                allOrders.push(order);
-                existingIds.add(order.id);
-            }
-        }
-    }
-
-    // Sort combined uniquely by date descending
     allOrders.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-
     return allOrders;
 }
 
@@ -1640,124 +1595,38 @@ function getLocalDateStr() {
 }
 
 async function fetchVisits(GAS_URL) {
-    // 1. Try Supabase first (if configured)
-    if (window.supabaseClient) {
-        try {
-            console.log("Admin: Fetching visits from Supabase...");
-
-            // Get today's date YYYY-MM-DD in local time
-            const localDate = getLocalDateStr();
-
-            // Fetch all visits to calculate total and today's stats
-            const { data, error } = await window.supabaseClient.from('visits').select('date, count');
-
-            if (error) throw error;
-
-            if (data) {
-                let total = 0;
-                let daily = {};
-                let todayCount = 0;
-
-                data.forEach(row => {
-                    const count = parseInt(row.count, 10) || 0;
-                    total += count;
-                    daily[row.date] = count;
-                    if (row.date === localDate) {
-                        todayCount = count;
-                    }
-                });
-
-                // Fetch device logs from visit_logs table
-                let dailyLogs = {};
-                try {
-                    const { data: logsData, error: logsError } = await window.supabaseClient
-                        .from('visit_logs')
-                        .select('date, device_name');
-
-                    if (logsError) {
-                        console.warn("Admin: visit_logs Supabase error:", logsError.message, logsError.code, logsError.hint);
-                    } else if (logsData && logsData.length > 0) {
-                        logsData.forEach(row => {
-                            if (!dailyLogs[row.date]) dailyLogs[row.date] = [];
-                            dailyLogs[row.date].push(row.device_name);
-                        });
-                        console.log(`Admin: Loaded ${logsData.length} device log entries from Supabase.`);
-                    } else {
-                        console.warn("Admin: visit_logs returned 0 rows. Table may be empty or RLS is blocking reads.");
-                    }
-                } catch (e) { console.warn("Admin: Could not fetch visit_logs", e); }
-
-                // If no logs from Supabase, try GAS fallback (getVisits already returns dailyLogs)
-                if (Object.keys(dailyLogs).length === 0) {
-                    try {
-                        const localDate = getLocalDateStr();
-                        console.log("Admin: Trying GAS fallback for device logs via getVisits...");
-                        const res = await fetch(GAS_URL, {
-                            method: 'POST',
-                            mode: 'cors',
-                            redirect: 'follow',
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'getVisits', date: localDate })
-                        });
-                        if (res.ok) {
-                            const gasData = await res.json();
-                            if (gasData && gasData.dailyLogs && typeof gasData.dailyLogs === 'object') {
-                                Object.assign(dailyLogs, gasData.dailyLogs);
-                                console.log("Admin: GAS device logs loaded from getVisits:", Object.keys(dailyLogs).length, "dates");
-                            }
-                        }
-                    } catch (e) { console.warn("Admin: GAS device logs fallback failed", e); }
-                }
-
-                console.log(`Admin: Supabase visits loaded. Total: ${total}, Today: ${todayCount}`);
-                return { total: total, daily: daily, today: todayCount, dailyLogs: dailyLogs };
-
-            }
-        } catch (e) {
-            console.warn("Admin: Supabase visits fetch failed, falling back to legacy...", e);
-        }
-    }
-
-    // 2. Fallbacks
-    const isStatic = window.location.hostname.includes('github.io');
-
-    if (isStatic) {
-        try {
-            const localDate = getLocalDateStr();
-            console.log("Admin: Fetching visits from GAS (Static Mode/POST)... Date: " + localDate);
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                mode: 'cors',
-                redirect: 'follow',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: 'getVisits', date: localDate })
-            });
-            if (res.ok) return await res.json();
-        } catch (e) {
-            console.warn("Admin: GAS visits fetch failed", e);
-        }
-    }
-
+    let total = 0, daily = {}, dailyLogs = {}, todayCount = 0;
+    const localDate = getLocalDateStr();
     try {
-        const res = await fetch('/api/visits');
-        if (res.ok) return await res.json();
-    } catch (e) {
-        console.warn("Admin: Local visits fetch failed", e);
-    }
-
-    if (!isStatic) {
-        try {
-            const res = await fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'getVisits' })
+        const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/visits.csv?v=' + Date.now());
+        if(res.ok) {
+            const csvText = await res.text();
+            Papa.parse(csvText, {
+                header: true, skipEmptyLines: true,
+                complete: function(results) {
+                    results.data.forEach(row => {
+                        const count = parseInt(row.count, 10) || 0;
+                        total += count; daily[row.date] = count;
+                        if (row.date === localDate) todayCount = count;
+                    });
+                }
             });
-            if (res.ok) return await res.json();
-        } catch (e) {
-            console.error("Admin: All visit fetches failed", e);
         }
-    }
-
-    return { total: 0, daily: {}, today: 0, dailyLogs: {} };
+        const logsRes = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/visit_logs.csv?v=' + Date.now());
+        if(logsRes.ok) {
+            const logsText = await logsRes.text();
+            Papa.parse(logsText, {
+                header: true, skipEmptyLines: true,
+                complete: function(results) {
+                    results.data.forEach(row => {
+                        if(!dailyLogs[row.date]) dailyLogs[row.date] = [];
+                        dailyLogs[row.date].push(row.deviceName);
+                    });
+                }
+            });
+        }
+    } catch(e) { console.warn("Admin: Visits fetch failed", e); }
+    return { total, daily, today: todayCount, dailyLogs };
 }
 
 function getTodayStr() {

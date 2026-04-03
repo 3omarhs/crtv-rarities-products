@@ -724,41 +724,9 @@ function submitOrder() {
                     paymentMethod: checkoutState.paymentMethod
                 };
 
-                // --- SUPABASE & GITHUB PAGES PERSISTENCE VIA GAS ---
+                // --- GITHUB PAGES PERSISTENCE VIA GAS ---
                 const saveOrderData = async () => {
-                    // 1. Save to Supabase (Primary)
                     try {
-                        if (window.supabaseClient) {
-                            console.log("Saving order to Supabase...");
-                            const { error } = await window.supabaseClient
-                                .from('orders')
-                                .insert([{
-                                    id: newOrder.id,
-                                    address: newOrder.address,
-                                    currency: newOrder.currency,
-                                    customerName: newOrder.customerName,
-                                    customerPhone: newOrder.customerPhone,
-                                    date: newOrder.date,
-                                    items: JSON.stringify(newOrder.items),
-                                    method: newOrder.method,
-                                    paymentMethod: newOrder.paymentMethod,
-                                    selectedCompany: newOrder.selectedCompany,
-                                    selectedRegion: newOrder.selectedRegion,
-                                    status: 'Open',
-                                    timestamp: Date.now().toString(),
-                                    total: newOrder.total
-                                }]);
-                            
-                            if (error) console.error("Supabase order insert error:", error);
-                            else console.log("Order saved to Supabase successfully.");
-                        }
-                    } catch (supErr) {
-                        console.error("Failed to save to Supabase:", supErr);
-                    }
-
-                    // 2. Save to GAS (Fallback/Legacy Sync)
-                    try {
-                        // Using the global GAS_URL if available, otherwise fallback to the user's explicit URL
                         const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
                         await fetch(gasUrl, {
                             method: 'POST',
@@ -768,8 +736,9 @@ function submitOrder() {
                             },
                             body: JSON.stringify({ action: 'placeOrder', order: newOrder })
                         });
+                        console.log("Order submitted to GAS CSV bridge.");
                     } catch (e) {
-                        console.error("Failed to save order to GAS:", e);
+                        console.error("Failed to save order to backend:", e);
                     }
                 };
 
