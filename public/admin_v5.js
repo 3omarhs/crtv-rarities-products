@@ -1962,6 +1962,26 @@ function renderOrderItems(items) {
 }
 
 function renderOrderInfo(o) {
+    // Dynamically calculate delivery cost if not explicitly saved
+    let calculatedDelivery = 0;
+    if (o.deliveryCost !== undefined && o.deliveryCost !== null) {
+        calculatedDelivery = parseFloat(String(o.deliveryCost).replace(/[^\d.]/g, '')) || 0;
+    } else if (o.items && Array.isArray(o.items)) {
+        let itemsTotal = 0;
+        o.items.forEach(itemInfo => {
+            // itemInfo could be string or object depending on parseItemString mapping
+            const i = typeof itemInfo === 'string' ? parseItemString(itemInfo) : itemInfo;
+            const itemPrice = parseFloat(String(i.price).replace(/[^\d.]/g, '')) || 0;
+            const itemQty = parseInt(i.qty) || 1;
+            itemsTotal += itemPrice * itemQty;
+        });
+        const orderTotal = parseFloat(String(o.total).replace(/[^\d.]/g, '')) || 0;
+        calculatedDelivery = orderTotal - itemsTotal;
+        if (calculatedDelivery < 0) calculatedDelivery = 0;
+    }
+
+    const deliveryCostDisplay = (Math.round(calculatedDelivery * 1000) / 1000).toFixed(3);
+
     return `
         <div class="order-info-grid">
             <div class="info-group">
@@ -1984,7 +2004,7 @@ function renderOrderInfo(o) {
             </div>
             <div class="info-group">
                 <label>Delivery Cost</label>
-                <span>${o.deliveryCost || '0.00'} JOD</span>
+                <span>${deliveryCostDisplay} JOD</span>
             </div>
             <div class="info-group">
                 <label>Currency</label>
