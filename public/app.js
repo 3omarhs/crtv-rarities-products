@@ -554,6 +554,12 @@ async function fetchCurrencyRate() {
     console.log(`Using default static exchange rate: 1 USD = 0.7092 JOD. Exchange Rate (JOD->USD): ${EXCHANGE_RATE}`);
 }
 
+function getLocalDateStr() {
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    return new Date(today.getTime() - offset).toISOString().split('T')[0];
+}
+
 function getDeviceName() {
     const ua = navigator.userAgent;
     if (/android/i.test(ua)) {
