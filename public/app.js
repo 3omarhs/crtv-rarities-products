@@ -582,6 +582,42 @@ function getDeviceName() {
 }
 
 async function init() {
+    console.log("Storefront Init v5.1.20 - Starting...");
+    const deviceName = getDeviceName();
+    const localDate = getLocalDateStr();
+    const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+
+    // --- TRACK VISIT IMMEDIATELY ---
+    // Start tracking right away so it's not delayed by catalog loading
+    try {
+        fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
+            .then(res => res.text())
+            .then(csv => {
+                let targetUrl = fallbackGasUrl;
+                Papa.parse(csv, {
+                    header: true, skipEmptyLines: true,
+                    complete: function(results) {
+                        const s = results.data.find(r => r.key === 'google_script_url');
+                        if (s && s.value) targetUrl = s.value.trim();
+                        
+                        console.log("Reporting visit to: " + targetUrl);
+                        fetch(targetUrl, {
+                            method: 'POST', mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                        }).catch(e => console.error("Visit log failed", e));
+                    }
+                });
+            }).catch(() => {
+                // If CSV fails, use fallback immediately
+                fetch(fallbackGasUrl, {
+                    method: 'POST', mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                });
+            });
+    } catch (e) { console.error("Tracking Error:", e); }
+
     await fetchCurrencyRate();
 
     if (!currentLang) {
@@ -594,11 +630,9 @@ async function init() {
     // Check for Order Success Flag
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('orderSuccess') === 'true') {
-        // Clean URL
         const newUrl = window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
 
-        // Show Success Modal
         const t = translations[currentLang || 'en'] || translations['en'];
         setTimeout(() => {
             showModal({
@@ -607,7 +641,7 @@ async function init() {
                 type: 'success',
                 confirmText: t.ok
             });
-        }, 500); // Slight delay to ensure DOM is ready
+        }, 500);
     }
 
     // Only load products if we have a grid to put them in
@@ -630,51 +664,6 @@ async function init() {
     if (window.updateCheckoutLanguage && !document.getElementById('product-grid')) {
         window.updateCheckoutLanguage();
     }
-
-    // --- TRACK VISITS (Server Side) ---
-    // Only count unique sessions to prevent spamming stats on reload
-    // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
-    // --- TRACK VISITS (All-CSV / GAS) ---
-    // Count every single visit as requested by the user
-    const deviceName = getDeviceName();
-    const localDate = getLocalDateStr();
-
-    // Fetch settings to get current GAS_URL
-    fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
-        .then(res => res.text())
-        .then(csv => {
-            let dynamicGasUrl = '';
-            Papa.parse(csv, {
-                header: true, skipEmptyLines: true,
-                complete: function(results) {
-                    const s = results.data.find(r => r.key === 'google_script_url');
-                    if (s) dynamicGasUrl = s.value;
-                    
-                        if (dynamicGasUrl) {
-                            // Add a small random jitter (0-500ms) to prevent simultaneous API collisions
-                            setTimeout(() => {
-                                console.log("Tracking visit: " + dynamicGasUrl);
-                                fetch(dynamicGasUrl, {
-                                    method: 'POST',
-                                    mode: 'no-cors',
-                                    headers: { 'Content-Type': 'text/plain' },
-                                    body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-                                }).then(() => console.log("Visit recorded."));
-                            }, Math.random() * 500);
-                        } else {
-                            // FALLBACK: Use the latest verified GAS URL if CSV parsing fails
-                            const fallbackUrl = 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
-                            console.warn("Tracking visit via FALLBACK (CSV parsing issue).");
-                            fetch(fallbackUrl, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { 'Content-Type': 'text/plain' },
-                                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-                            }).then(() => console.log("Visit recorded via Fallback."));
-                        }
-                }
-            });
-        }).catch(e => console.warn("Failed to load GAS_URL for visit tracking", e));
 }
 
 function setLanguage(lang) {

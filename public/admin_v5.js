@@ -1150,8 +1150,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.14"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.14";
+            if (versionDisplay) versionDisplay.textContent = "v5.1.20"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.20";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
