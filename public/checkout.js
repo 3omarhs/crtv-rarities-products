@@ -720,6 +720,8 @@ function submitOrder() {
                     selectedCompany: checkoutState.selectedCompany || '',
                     address: checkoutState.address || '',
                     deliveryCost: deliveryCostFormatted, // Now formatted (e.g. "2.000 JOD" or "$2.82")
+                    calculate_delivery: true,
+                    delivery_fee: checkoutState.deliveryCost,
                     currency: window.currentCurrency || 'JOD',
                     paymentMethod: checkoutState.paymentMethod
                 };

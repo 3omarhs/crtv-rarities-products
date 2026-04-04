@@ -30,6 +30,7 @@ function handleAllActions(action, params) {
         if (action === 'proxyGemini') return handleGeminiProxy(params.payload || params);
         if (action === 'uploadImage') return handleImageUpload(params);
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
+        if (action === 'updateOrderDeliveryToggle') return handleUpdateOrderDeliveryToggle(params.orderId || params.id, params.calculateDelivery);
         
         return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
@@ -137,7 +138,7 @@ function handleGetGeminiKeys() {
 }
 
 function handleNewOrder(order) {
-    const headers = ['id', 'address', 'currency', 'customerName', 'customerPhone', 'date', 'items', 'method', 'paymentMethod', 'selectedCompany', 'selectedRegion', 'status', 'timestamp', 'total', 'deliveryCost'];
+    const headers = ['address', 'currency', 'customerName', 'customerPhone', 'date', 'id', 'items', 'method', 'paymentMethod', 'selectedCompany', 'selectedRegion', 'status', 'timestamp', 'total', 'calculate_delivery', 'delivery_fee'];
     
     // Ensure all quotes are escaped and arrays stringified securely
     const rowData = headers.map(header => {
@@ -221,6 +222,45 @@ function handleDeleteOrder(orderId) {
         return out.join('\n');
     };
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Deleted Order ${orderId}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleUpdateOrderDeliveryToggle(orderId, calculateDeliveryValue) {
+    const mutateFunc = (csvContent) => {
+        const rows = csvContent.split('\n');
+        if (rows.length < 2) return csvContent;
+        
+        const headers = rows[0].split(',');
+        const idIndex = headers.indexOf('id');
+        let calcDelivIndex = headers.indexOf('calculate_delivery');
+        
+        // If the column doesn't exist yet, we add it to the header
+        if (calcDelivIndex === -1) {
+            rows[0] = rows[0].trim() + ',calculate_delivery,delivery_fee';
+            calcDelivIndex = headers.length; 
+            headers.push('calculate_delivery');
+            headers.push('delivery_fee');
+        }
+        
+        let out = [rows[0]];
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            
+            // Expand row if it doesn't have the new columns yet
+            while (p.length < headers.length) {
+                p.push('');
+            }
+            
+            if (p[idIndex] == orderId) {
+                p[calcDelivIndex] = String(calculateDeliveryValue);
+            }
+            out.push(p.map(x => (String(x).includes(',') || String(x).includes('"')) ? '"' + String(x).replace(/"/g,'""') + '"' : x).join(','));
+        }
+        return out.join('\n');
+    };
+    
+    updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Delivery Toggle ${orderId}`);
     return jsonResponse({ status: 'success' });
 }
 

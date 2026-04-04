@@ -1688,7 +1688,16 @@ function renderDashboardStats(orders, visitsData) {
     orders.forEach(o => {
         if (o.status === 'Closed') {
             const amt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, ''));
-            if (!isNaN(amt)) revenue += amt;
+            if (!isNaN(amt)) {
+                let thisRevenue = amt;
+                if (String(o.calculate_delivery).toLowerCase() === 'false') {
+                    const delFee = parseFloat(String(o.delivery_fee || '0').replace(/[^\d.]/g, ''));
+                    if (!isNaN(delFee)) {
+                        thisRevenue -= delFee;
+                    }
+                }
+                revenue += thisRevenue;
+            }
         }
     });
     document.getElementById('stat-revenue').textContent = revenue.toFixed(3) + ' JOD';
@@ -1748,6 +1757,10 @@ function renderOrdersTable(orders) {
             <td>${new Date(o.date).toLocaleDateString()}</td>
             <td>
                 <div style="display:flex; align-items:center;">
+                    <label class="delivery-toggle-label" title="Calculate Delivery Fee" style="margin-right: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                        <input type="checkbox" onclick="event.stopPropagation(); window.toggleDeliveryCalc(event, '${idStr}')" ${String(o.calculate_delivery).toLowerCase() !== 'false' ? 'checked' : ''} style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer;">
+                        <span style="font-size: 0.7em; margin-left: 4px; color: var(--text-secondary)">Fee</span>
+                    </label>
                     ${renderStatusSelect(o.id, o.status || 'Placed')}
                     <button class="btn-icon" onclick="event.stopPropagation(); window.deleteOrder('${idStr}')" title="Delete Order" style="color:var(--danger); padding:4px; margin-left:8px; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
                         <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
@@ -2202,6 +2215,38 @@ window.updateOrderStatus = async function (id, newStatus) {
         loadData();
     } else {
         alert("Failed to update status. Please try again.");
+    }
+}
+
+window.toggleDeliveryCalc = async function(event, id) {
+    const isChecked = event.target.checked;
+    let success = false;
+    
+    // Try GAS
+    const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (GAS_URL && window.submitToGas) {
+        try {
+            await window.submitToGas(GAS_URL, { action: 'updateOrderDeliveryToggle', orderId: id, calculateDelivery: isChecked });
+            success = true;
+        } catch (e) { }
+    }
+    
+    // Fallback Local API
+    if (!success && !window.location.hostname.includes('github.io')) {
+        try {
+            const res = await fetch('/api/update-order-delivery-toggle', {
+                method: 'POST',
+                body: JSON.stringify({ orderId: id, calculateDelivery: isChecked })
+            });
+            if (res.ok) success = true;
+        } catch (e) { }
+    }
+
+    if (success) {
+        loadData();
+    } else {
+        alert("Failed to update delivery toggle. Please try again.");
+        event.target.checked = !isChecked; // revert
     }
 }
 
@@ -4109,7 +4154,12 @@ async function submitManualOrder() {
         status: 'Pending',
         timestamp: Date.now() / 1000,
         date: new Date().toISOString(),
-        currency: currency
+        currency: currency,
+        calculate_delivery: true,
+        delivery_fee: isDelivery ? (() => {
+            const selectedCard = document.querySelector('.delivery-option-card.selected');
+            return selectedCard ? parseFloat(selectedCard.dataset.price) : 0;
+        })() : 0
     };
 
     try {
