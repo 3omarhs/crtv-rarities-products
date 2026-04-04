@@ -629,42 +629,33 @@ async function init() {
     // Only count unique sessions to prevent spamming stats on reload
     // MODIFIED: We are temporarily allowing multiple counts or ensuring it runs if not set
     // --- TRACK VISITS (All-CSV / GAS) ---
-    // Only count one visit per hour per device to capture return traffic
-    const now = new Date();
-    const hourlyStamp = now.toISOString().substring(0, 13); // Format: YYYY-MM-DDTHH
-    const lastTrackedHour = localStorage.getItem('last_tracked_visit_hour');
+    // Count every single visit as requested by the user
+    const deviceName = getDeviceName();
+    const localDate = getLocalDateStr();
 
-    if (lastTrackedHour === hourlyStamp) {
-        console.log("Visit already recorded for this hour.");
-    } else {
-        localStorage.setItem('last_tracked_visit_hour', hourlyStamp);
-        const deviceName = getDeviceName();
-        const localDate = getLocalDateStr();
-
-        // Fetch settings to get current GAS_URL
-        fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
-            .then(res => res.text())
-            .then(csv => {
-                let dynamicGasUrl = '';
-                Papa.parse(csv, {
-                    header: true, skipEmptyLines: true,
-                    complete: function(results) {
-                        const s = results.data.find(r => r.key === 'google_script_url');
-                        if (s) dynamicGasUrl = s.value;
-                        
-                        if (dynamicGasUrl) {
-                            console.log("Tracking visit: " + dynamicGasUrl);
-                            fetch(dynamicGasUrl, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                headers: { 'Content-Type': 'text/plain' },
-                                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-                            }).then(() => console.log("Visit recorded."));
-                        }
+    // Fetch settings to get current GAS_URL
+    fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/settings.csv?v=' + Date.now())
+        .then(res => res.text())
+        .then(csv => {
+            let dynamicGasUrl = '';
+            Papa.parse(csv, {
+                header: true, skipEmptyLines: true,
+                complete: function(results) {
+                    const s = results.data.find(r => r.key === 'google_script_url');
+                    if (s) dynamicGasUrl = s.value;
+                    
+                    if (dynamicGasUrl) {
+                        console.log("Tracking visit: " + dynamicGasUrl);
+                        fetch(dynamicGasUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                        }).then(() => console.log("Visit recorded."));
                     }
-                });
-            }).catch(e => console.warn("Failed to load GAS_URL for visit tracking", e));
-    }
+                }
+            });
+        }).catch(e => console.warn("Failed to load GAS_URL for visit tracking", e));
 }
 
 function setLanguage(lang) {
