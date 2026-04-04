@@ -46,7 +46,7 @@ function updateGitHubFile(path, appendContentStr, mutateFunc, message) {
     if (!GITHUB_TOKEN) throw new Error("GITHUB_TOKEN missing in script properties.");
     
     const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
-    const options = {
+    const getOptions = {
         'method': 'get',
         'headers': {
             'Authorization': 'token ' + GITHUB_TOKEN,
@@ -55,49 +55,66 @@ function updateGitHubFile(path, appendContentStr, mutateFunc, message) {
         'muteHttpExceptions': true
     };
     
-    const res = UrlFetchApp.fetch(url, options);
-    let sha = null;
-    let contentStr = '';
-    
-    if (res.getResponseCode() === 200) {
-        const json = JSON.parse(res.getContentText());
-        sha = json.sha;
-        const decoded = Utilities.base64Decode(json.content);
-        contentStr = Utilities.newBlob(decoded).getDataAsString();
-    } else if (res.getResponseCode() !== 404) {
-        throw new Error("Failed to fetch file from GitHub: " + res.getContentText());
+    let maxRetries = 3;
+    let attempt = 0;
+    let lastError = null;
+
+    while (attempt < maxRetries) {
+        attempt++;
+        const res = UrlFetchApp.fetch(url, getOptions);
+        let sha = null;
+        let originalContent = '';
+        
+        if (res.getResponseCode() === 200) {
+            const json = JSON.parse(res.getContentText());
+            sha = json.sha;
+            const decodedBytes = Utilities.base64Decode(json.content);
+            originalContent = Utilities.newBlob(decodedBytes).getDataAsString("UTF-8");
+        } else if (res.getResponseCode() !== 404) {
+            throw new Error(`Failed to fetch ${path}: ` + res.getContentText());
+        }
+        
+        let newContent = originalContent;
+        if (appendContentStr) {
+            if (newContent && !newContent.endsWith('\n')) newContent += '\n';
+            newContent += appendContentStr;
+        } else if (mutateFunc) {
+            newContent = mutateFunc(originalContent);
+        }
+        
+        const payload = {
+            message: message,
+            content: Utilities.base64Encode(Utilities.newBlob(newContent, "UTF-8").getBytes()),
+            sha: sha
+        };
+        
+        const putOptions = {
+            'method': 'put',
+            'headers': {
+                'Authorization': 'token ' + GITHUB_TOKEN,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            'payload': JSON.stringify(payload),
+            'muteHttpExceptions': true
+        };
+        
+        const putRes = UrlFetchApp.fetch(url, putOptions);
+        const code = putRes.getResponseCode();
+        
+        if (code === 200 || code === 201) return JSON.parse(putRes.getContentText());
+        
+        if (code === 409) {
+            // Conflict - someone else updated the file first. Wait briefly and retry.
+            lastError = `Conflict (409) on attempt ${attempt}`;
+            Utilities.sleep(Math.random() * 500 + 200); 
+            continue;
+        }
+        
+        throw new Error(`GitHub Commit Failed (${code}): ` + putRes.getContentText());
     }
     
-    if (appendContentStr) {
-        // Ensure ends with newline
-        if (contentStr && !contentStr.endsWith('\n')) contentStr += '\n';
-        contentStr += appendContentStr;
-    } else if (mutateFunc) {
-        contentStr = mutateFunc(contentStr);
-    }
-    
-    const payload = {
-        message: message,
-        content: Utilities.base64Encode(Utilities.newBlob(contentStr).getBytes())
-    };
-    if (sha) payload.sha = sha;
-    
-    const putOptions = {
-        'method': 'put',
-        'headers': {
-            'Authorization': 'token ' + GITHUB_TOKEN,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-        },
-        'payload': JSON.stringify(payload),
-        'muteHttpExceptions': true
-    };
-    
-    const putRes = UrlFetchApp.fetch(url, putOptions);
-    if (putRes.getResponseCode() !== 200 && putRes.getResponseCode() !== 201) {
-        throw new Error("GitHub Commit Failed: " + putRes.getContentText());
-    }
-    return JSON.parse(putRes.getContentText());
+    throw new Error(`Exceeded max retries for ${path}. Last Error: ${lastError}`);
 }
 
 function fetchRawGitHubCSV(path) {

@@ -644,15 +644,18 @@ async function init() {
                     const s = results.data.find(r => r.key === 'google_script_url');
                     if (s) dynamicGasUrl = s.value;
                     
-                    if (dynamicGasUrl) {
-                        console.log("Tracking visit: " + dynamicGasUrl);
-                        fetch(dynamicGasUrl, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
-                        }).then(() => console.log("Visit recorded."));
-                    }
+                        if (dynamicGasUrl) {
+                            // Add a small random jitter (0-500ms) to prevent simultaneous API collisions
+                            setTimeout(() => {
+                                console.log("Tracking visit: " + dynamicGasUrl);
+                                fetch(dynamicGasUrl, {
+                                    method: 'POST',
+                                    mode: 'no-cors',
+                                    headers: { 'Content-Type': 'text/plain' },
+                                    body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                                }).then(() => console.log("Visit recorded."));
+                            }, Math.random() * 500);
+                        }
                 }
             });
         }).catch(e => console.warn("Failed to load GAS_URL for visit tracking", e));
