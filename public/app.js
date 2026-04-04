@@ -655,6 +655,16 @@ async function init() {
                                     body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
                                 }).then(() => console.log("Visit recorded."));
                             }, Math.random() * 500);
+                        } else {
+                            // FALLBACK: Use the latest verified GAS URL if CSV parsing fails
+                            const fallbackUrl = 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+                            console.warn("Tracking visit via FALLBACK (CSV parsing issue).");
+                            fetch(fallbackUrl, {
+                                method: 'POST',
+                                mode: 'no-cors',
+                                headers: { 'Content-Type': 'text/plain' },
+                                body: JSON.stringify({ action: 'recordVisit', deviceName: deviceName, date: localDate })
+                            }).then(() => console.log("Visit recorded via Fallback."));
                         }
                 }
             });
