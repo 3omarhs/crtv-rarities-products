@@ -3633,7 +3633,7 @@ window.setupCustomProductDropdown = function (config) {
         dropdown.innerHTML = matches.map(p => `
             <div class="dropdown-item" onclick="window._handleCustomSelect('${inputId}', '${dropdownId}', '${p.id}')">
                 <img src="${ASSETS_BASE_URL}${p.id}.jpg" onerror="this.src='${ASSETS_BASE_URL}${p.id}.png'; this.onerror=null;">
-                <div style="overflow:hidden;">
+                <div class="item-content">
                     <div class="item-name">${p.name}</div>
                     <div class="item-id">${p.id}</div>
                 </div>
