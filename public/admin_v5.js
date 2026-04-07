@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.36';
+const APP_VERSION = '5.1.37';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1397,14 +1397,15 @@ Instructions for the AI:
 
             if (!success) {
                 addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback...`);
-                // GAS Fallback logic...
                 try {
                     const gasFirstKey = GEMINI_API_KEYS.length > 0 ? decodeApiKey(GEMINI_API_KEYS[0]) : '';
+                    const gasController = new AbortController();
+                    const gasTimeout = setTimeout(() => gasController.abort(), 50000);
                     const response = await fetch(GAS_FALLBACK_URL, {
                         method: 'POST',
                         mode: 'cors',
                         redirect: 'follow',
-                        signal: controller.signal,
+                        signal: gasController.signal,
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({
                             action: 'proxyGemini',
@@ -1415,16 +1416,22 @@ Instructions for the AI:
                             }
                         })
                     });
-                    clearTimeout(timeoutId);
+                    clearTimeout(gasTimeout);
 
                     if (response.ok) {
                         const data = await response.json();
                         if (data.candidates && data.candidates[0].content) {
                             output.value = data.candidates[0].content.parts[0].text.trim();
+                            addSocialLog(`✅ GAS Fallback succeeded! Caption generated.`, 'success');
                             success = true;
+                        } else {
+                            addSocialLog(`❌ GAS Fallback returned invalid response.`, 'error');
                         }
+                    } else {
+                        addSocialLog(`❌ GAS Fallback HTTP error: ${response.status}`, 'error');
                     }
                 } catch (e) {
+                    addSocialLog(`❌ GAS Fallback error: ${e.message}`, 'error');
                     console.warn("GAS Social Fallback failed", e);
                 }
             }
