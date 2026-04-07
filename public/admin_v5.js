@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.37';
+const APP_VERSION = '5.1.38';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1419,16 +1419,28 @@ Instructions for the AI:
                     clearTimeout(gasTimeout);
 
                     if (response.ok) {
-                        const data = await response.json();
-                        if (data.candidates && data.candidates[0].content) {
+                        const rawText = await response.text();
+                        let data;
+                        try { data = JSON.parse(rawText); } catch(pe) {
+                            addSocialLog(`❌ GAS Fallback: Cannot parse response JSON.`, 'error');
+                            console.warn("GAS raw response:", rawText.substring(0, 300));
+                        }
+                        if (data && data.candidates && data.candidates[0].content) {
                             output.value = data.candidates[0].content.parts[0].text.trim();
                             addSocialLog(`✅ GAS Fallback succeeded! Caption generated.`, 'success');
                             success = true;
+                        } else if (data && data.error) {
+                            const gasErrCode = data.error.code || '';
+                            const gasErrMsg = data.error.message || 'Unknown';
+                            addSocialLog(`❌ GAS Fallback: Gemini API error ${gasErrCode} - ${gasErrMsg.substring(0, 80)}`, 'error');
+                            console.warn("GAS Gemini error:", data.error);
                         } else {
-                            addSocialLog(`❌ GAS Fallback returned invalid response.`, 'error');
+                            addSocialLog(`❌ GAS Fallback: No candidates in response.`, 'error');
+                            console.warn("GAS unexpected response:", data);
                         }
                     } else {
-                        addSocialLog(`❌ GAS Fallback HTTP error: ${response.status}`, 'error');
+                        const errBody = await response.text().catch(() => '');
+                        addSocialLog(`❌ GAS Fallback HTTP error: ${response.status} ${errBody.substring(0,80)}`, 'error');
                     }
                 } catch (e) {
                     addSocialLog(`❌ GAS Fallback error: ${e.message}`, 'error');
