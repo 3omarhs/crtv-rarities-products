@@ -21,9 +21,14 @@ function decodeApiKey(encoded) {
     try {
         const pwd = 'crtv_secure_2026';
         let raw = atob(cleaned);
-        let decoded = '';
+        const decoded = '';
         for (let i = 0; i < raw.length; i++) {
             decoded += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+        }
+        if (decoded.startsWith('AIza')) {
+            console.log(`Admin: Key decoded successfully (starts with ${decoded.substring(0, 4)})`);
+        } else {
+            console.warn(`Admin: Key decoded but prefix mismatch (starts with ${decoded.substring(0, 4)})`);
         }
         return decoded;
     } catch (e) {
@@ -1313,15 +1318,17 @@ Instructions for the AI:
             for (let i = 0; i < allKeys.length; i++) {
                 const apiKey = allKeys[i];
                 const keyLabel = `Key ${i + 1}`;
+                const decodedKey = decodeApiKey(apiKey);
+                const isDecoded = decodedKey.startsWith('AIza');
 
                 for (const model of modelsToTry) {
-                    addSocialLog(`Attempting ${model} with ${keyLabel}...`);
+                    addSocialLog(`Attempting ${model} with ${keyLabel} (${isDecoded ? 'Decoded' : 'Raw'})...`);
                     
                     try {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 45000); 
 
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${decodedKey}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             signal: controller.signal,
