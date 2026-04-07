@@ -352,9 +352,17 @@ function handleImageUpload(params) {
 }
 
 function handleGeminiProxy(payload) {
+    // Prefer the key stored securely in Script Properties over the client-provided one
+    const storedKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    const apiKey = storedKey || payload.key;
+    
+    if (!apiKey) {
+        return jsonResponse({ error: 'No Gemini API key available in Script Properties or payload.' });
+    }
+    
     // Support dynamic model from payload, fall back to known working model
     const model = payload.model || 'gemini-2.0-flash-latest';
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${payload.key}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const options = {
         'method': 'post',
         'contentType': 'application/json',
