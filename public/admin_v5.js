@@ -1,5 +1,5 @@
-console.log("!!! ADMIN JS V5.1.26 LOADED (Auth Fix) !!!");
-document.title = "Admin Portal (v5.1.26)";
+console.log("!!! ADMIN JS V5.1.34 LOADED (DEFINITIVE FIX) !!!");
+document.title = "Admin Portal (v5.1.34)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -20,8 +20,15 @@ function decodeApiKey(encoded) {
 
     try {
         const pwd = 'crtv_secure_2026';
-        let raw = atob(cleaned);
-        const decoded = '';
+        
+        // Robustness: Strip CSV labels if present (e.g., "Main_Key,BASE64_STRING")
+        let keyToDecode = cleaned;
+        if (cleaned.includes(',')) {
+            keyToDecode = cleaned.split(',')[1].trim();
+        }
+
+        let raw = atob(keyToDecode);
+        let decoded = '';
         for (let i = 0; i < raw.length; i++) {
             decoded += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
         }
