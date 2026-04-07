@@ -361,7 +361,7 @@ function handleGeminiProxy(payload) {
     }
     
     // Support dynamic model from payload, fall back to known working model
-    const model = payload.model || 'gemini-2.0-flash';
+    const model = payload.model || 'gemini-2.0-flash-lite';
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const options = {
         'method': 'post',

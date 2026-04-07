@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.40';
+const APP_VERSION = '5.1.41';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1325,8 +1325,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Only try models that actually exist in v1beta API
-            const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'];
+            // Models with SEPARATE quotas - if one is 429, the next may still work
+            const modelsToTry = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
@@ -1415,7 +1415,7 @@ Instructions for the AI:
                             action: 'proxyGemini',
                             payload: {
                                 key: gasFirstKey,
-                                model: 'gemini-2.0-flash',
+                                model: 'gemini-2.0-flash-lite',
                                 data: { contents: [{ parts: [{ text: prompt }] }] }
                             }
                         })
