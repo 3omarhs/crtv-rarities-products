@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.39';
+const APP_VERSION = '5.1.40';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -154,10 +154,14 @@ async function loadGeminiCredentials() {
     }
 }
 
-// Initialize on load
-document.addEventListener('DOMContentLoaded', () => {
-    updateDynamicVersion();
-});
+// Initialize version display immediately and on every possible trigger
+// (Handles both static HTML and dynamic SPA rendering)
+updateDynamicVersion(); // Run immediately since script is at end of body
+document.addEventListener('DOMContentLoaded', updateDynamicVersion);
+window.addEventListener('load', updateDynamicVersion);
+// Also run after a short delay in case the SPA overwrites the footer
+setTimeout(updateDynamicVersion, 500);
+setTimeout(updateDynamicVersion, 2000);
 
 // --- AI Product Analysis ---
 async function analyzeImageWithGemini(file) {
