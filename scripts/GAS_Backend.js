@@ -131,8 +131,9 @@ function fetchRawGitHubCSV(path) {
 // HANDLERS
 // ==============================================
 
-function handleGetGeminiKeys() {
-    const csv = fetchRawGitHubCSV('data/gemini_keys.csv');
+function handleGetGeminiKeys(filePath) {
+    const csv = fetchRawGitHubCSV(filePath || 'data/gemini_keys.csv');
+    if (!csv || csv.includes('404')) return jsonResponse({ keys: [] });
     const keys = csv.split('\n').slice(1).map(k => k.trim()).filter(k => k);
     return jsonResponse({ keys: keys });
 }

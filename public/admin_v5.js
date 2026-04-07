@@ -1,6 +1,5 @@
-// Admin Portal Logic
-console.log("!!! ADMIN JS V5.1.18 LOADED (Dropdown Fix) !!!");
-document.title = "Admin Portal (v5.1.18)";
+console.log("!!! ADMIN JS V5.1.24 LOADED (Robust Key Loading) !!!");
+document.title = "Admin Portal (v5.1.24)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -78,6 +77,24 @@ async function loadGeminiCredentials() {
                     GEMINI_API_KEYS = data.keys.map(decodeApiKey);
                     console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from GAS.`);
                 }
+            }
+
+            // --- DEEP REDUNDANCY: Check 'keys.csv' if 'gemini_keys.csv' was empty ---
+            if (GEMINI_API_KEYS.length === 0) {
+                 console.log("Admin: Key check fallback to keys.csv...");
+                 let altResponse = await fetch(gasUrl, {
+                     method: 'POST',
+                     mode: 'cors',
+                     headers: { 'Content-Type': 'text/plain' },
+                     body: JSON.stringify({ action: 'getGeminiKeys', file: 'data/keys.csv' })
+                 });
+                 if (altResponse.ok) {
+                     const altData = await altResponse.json();
+                     if (altData.keys && altData.keys.length > 0) {
+                         GEMINI_API_KEYS = altData.keys.map(decodeApiKey);
+                         console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from alternate keys.csv.`);
+                     }
+                 }
             }
         } catch (gasErr) {
             console.error("Admin: All Gemini key sources failed", gasErr);
