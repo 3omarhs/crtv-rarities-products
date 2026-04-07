@@ -45,7 +45,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
 
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
             if (window.supabaseClient) {
@@ -230,7 +230,7 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                 // 2. Fallback to GAS Proxy if everything else failed
                 if (!response || !response.ok) {
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
                     console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
 
                     const controller = new AbortController();
@@ -317,9 +317,16 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                             lastError.details.join("<br>") + "</small>";
                     }
                 } else {
+                    // Final safe stringification to avoid [object Object]
+                    if (typeof lastError === 'object') {
+                        userFriendlyErr = lastError.message || JSON.stringify(lastError);
+                    } else {
+                        userFriendlyErr = String(lastError);
+                    }
+
                     // Keep simplified messages for common issues
-                    if (lastError.includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
-                    if (lastError.includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
+                    if (userFriendlyErr.includes('429')) userFriendlyErr = "Gemini Quota Exceeded (429). Try again shortly.";
+                    if (userFriendlyErr.includes('403')) userFriendlyErr = "Access Denied (403). Check API keys.";
                 }
 
                 if (label) label.innerHTML = `Product Image <span style="color:var(--danger);">${userFriendlyErr}</span>`;

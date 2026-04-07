@@ -138,25 +138,31 @@ function handleGetGeminiKeys() {
 }
 
 function handleNewOrder(order) {
-    const headers = ['address', 'currency', 'customerName', 'customerPhone', 'date', 'id', 'items', 'method', 'paymentMethod', 'selectedCompany', 'selectedRegion', 'status', 'timestamp', 'total', 'calculate_delivery', 'delivery_fee'];
-    
-    // Ensure all quotes are escaped and arrays stringified securely
-    const rowData = headers.map(header => {
-        let val = order[header];
-        if (header === 'items' && Array.isArray(val)) val = val.join(' | ');
-        if (header === 'date' && !val) val = new Date().toISOString();
-        if (header === 'timestamp' && !val) val = Date.now().toString();
-        if (header === 'status' && !val) val = "Open";
-        if (val === undefined || val === null) val = "";
+    const mutateFunc = (csvContent) => {
+        const rows = csvContent.split('\n');
+        const headers = rows[0].split(',').map(h => h.trim());
         
-        let strVal = String(val).replace(/"/g, '""');
-        if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) {
-            strVal = `"${strVal}"`;
-        }
-        return strVal;
-    }).join(',');
-    
-    const res = updateGitHubFile('data/orders.csv', rowData, null, `Auto-Commit: New Order ${order.id}`);
+        // Map the order object to the CSV's current header alignment
+        const rowData = headers.map(header => {
+            let val = order[header];
+            if (header === 'items' && Array.isArray(val)) val = val.join(' | ');
+            if (header === 'date' && !val) val = new Date().toISOString();
+            if (header === 'timestamp' && !val) val = Date.now().toString();
+            if (header === 'status' && !val) val = "Open";
+            if (val === undefined || val === null) val = "";
+            
+            let strVal = String(val).replace(/"/g, '""');
+            if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) {
+                strVal = `"${strVal}"`;
+            }
+            return strVal;
+        }).join(',');
+        
+        // Append the new row to the end
+        return csvContent.trim() + '\n' + rowData;
+    };
+
+    const res = updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: New Order ${order.id}`);
     return jsonResponse({ status: 'success', message: 'Order recorded securely to GitHub CSV', github_sync: res });
 }
 
