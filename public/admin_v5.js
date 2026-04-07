@@ -1292,19 +1292,39 @@ Instructions for the AI:
             let success = false;
             const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
             const endpoint = 'v1beta';
+            const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+            const allKeys = GEMINI_API_KEYS;
+            const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+
+            const logContainer = document.getElementById('social-ai-log-container');
+            const logElement = document.getElementById('social-ai-log');
+            if (logContainer) logContainer.style.display = 'block';
+            if (logElement) logElement.innerHTML = '';
+
+            function addSocialLog(msg, type = 'info') {
+                if (!logElement) return;
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const color = type === 'error' ? '#f87171' : (type === 'success' ? '#34d399' : '#94a3b8');
+                logElement.innerHTML += `<div style="margin-bottom:4px; color:${color}">[${time}] ${msg}</div>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
 
             outerLoopSocial:
-            for (const modelName of models) {
-                for (const API_KEY of GEMINI_API_KEYS) {
-                    try {
-                        const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for heavy captions
+            for (let i = 0; i < allKeys.length; i++) {
+                const apiKey = allKeys[i];
+                const keyLabel = `Key ${i + 1}`;
 
-                        const response = await fetch(API_URL, {
+                for (const model of modelsToTry) {
+                    addSocialLog(`Attempting ${model} with ${keyLabel}...`);
+                    
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 45000); 
+
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                             method: 'POST',
-                            signal: controller.signal,
                             headers: { 'Content-Type': 'application/json' },
+                            signal: controller.signal,
                             body: JSON.stringify({
                                 contents: [{ parts: [{ text: prompt }] }]
                             })
@@ -1315,25 +1335,40 @@ Instructions for the AI:
                             const data = await response.json();
                             if (data.candidates && data.candidates[0].content) {
                                 output.value = data.candidates[0].content.parts[0].text.trim();
+                                addSocialLog(`✅ Success! Caption generated with ${keyLabel}.`, 'success');
                                 success = true;
                                 break outerLoopSocial;
                             }
-                        } else if (response.status === 404) {
-                            break; // Skip key rotation for broken model
+                        } else {
+                            const errData = await response.json().catch(() => ({}));
+                            const errCode = errData.error && errData.error.status ? errData.error.status : response.status;
+                            const errMsg = errData.error && errData.error.message ? errData.error.message : 'Unknown Error';
+                            
+                            if (response.status === 429) {
+                                addSocialLog(`❌ ${keyLabel}: Quota Exhausted (429).`, 'error');
+                            } else if (response.status === 400) {
+                                if (errMsg.includes('key not valid')) {
+                                    addSocialLog(`❌ ${keyLabel}: Key Invalid (400).`, 'error');
+                                } else {
+                                    addSocialLog(`❌ ${keyLabel}: Location Blocked or Bad Request (400).`, 'error');
+                                }
+                            } else {
+                                addSocialLog(`❌ ${keyLabel}: Failed (${response.status}).`, 'error');
+                            }
                         }
-                    } catch (e) { }
+                    } catch (e) {
+                        addSocialLog(`❌ ${keyLabel}: ${e.name === 'AbortError' ? 'Timed out (45s)' : 'Fetch Error'}.`, 'error');
+                    }
                 }
             }
-            // Fallback to GAS Proxy if Direct API failed (e.g. 429)
+
             if (!success) {
+                addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback...`);
+                // GAS Fallback logic...
                 try {
-                    console.log("Direct Social AI failed, falling back to GAS...");
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
-
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for social GAS fallback
-
-                    const response = await fetch(gasUrl, {
+                    const timeoutId = setTimeout(() => controller.abort(), 45000);
+                    const response = await fetch(GAS_FALLBACK_URL, {
                         method: 'POST',
                         mode: 'cors',
                         redirect: 'follow',
