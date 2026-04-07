@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.41';
+const APP_VERSION = '5.2.0';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1159,7 +1159,7 @@ async function loadSettings() {
 
     // Sync Version Display
     const versionDisplay = document.getElementById('app-version-display');
-    if (versionDisplay) versionDisplay.textContent = "v5.1.14";
+    if (versionDisplay) versionDisplay.textContent = "v5.2.0";
 
     // Initial fallback URL (will be overwritten by CSV load)
     const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbxP6nQvYQK3RvS7fYRM3KNdQrqapdBPVX0IE4pG51XpkE1CxUgA7oyAJOocfwS1xsrtmA/exec';
@@ -1217,8 +1217,8 @@ async function loadSettings() {
             if (footerVersionDisp) footerVersionDisp.textContent = data.version;
             console.log("Admin: Set version to", data.version);
         } else {
-            if (versionDisplay) versionDisplay.textContent = "v5.1.20"; // Fallback
-            if (footerVersionDisp) footerVersionDisp.textContent = "v5.1.20";
+            if (versionDisplay) versionDisplay.textContent = "v5.2.0"; // Fallback
+            if (footerVersionDisp) footerVersionDisp.textContent = "v5.2.0";
         }
 
         const settingsScriptUrl = document.getElementById('settings-google-script-url');
@@ -1325,8 +1325,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Models with SEPARATE quotas - if one is 429, the next may still work
-            const modelsToTry = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+            // Best available models in v1beta - gemini-flash-latest is our primary working model
+            const modelsToTry = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
@@ -1415,7 +1415,7 @@ Instructions for the AI:
                             action: 'proxyGemini',
                             payload: {
                                 key: gasFirstKey,
-                                model: 'gemini-2.0-flash-lite',
+                                model: 'gemini-flash-latest',
                                 data: { contents: [{ parts: [{ text: prompt }] }] }
                             }
                         })
