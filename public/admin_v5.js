@@ -1,5 +1,5 @@
-console.log("!!! ADMIN JS V5.1.25 LOADED (Timeout Fix) !!!");
-document.title = "Admin Portal (v5.1.25)";
+console.log("!!! ADMIN JS V5.1.26 LOADED (Auth Fix) !!!");
+document.title = "Admin Portal (v5.1.26)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -9,10 +9,18 @@ let GEMINI_API_KEYS = []; // Array for rotation
 
 // Decode Function for API Keys
 function decodeApiKey(encoded) {
-    if (!encoded || encoded.length < 20) return encoded; // Might be raw/dummy
+    const cleaned = encoded ? String(encoded).trim() : '';
+    if (!cleaned || cleaned.length < 20) return cleaned;
+    
+    // IF THE KEY STARTS WITH 'AIza', IT IS A RAW KEY. DO NOT ATTEMPT TO DECODE.
+    if (cleaned.startsWith('AIza')) {
+        console.log("Admin: Key check - raw key detected, skipping decode.");
+        return cleaned;
+    }
+
     try {
         const pwd = 'crtv_secure_2026';
-        let raw = atob(encoded);
+        let raw = atob(cleaned);
         let decoded = '';
         for (let i = 0; i < raw.length; i++) {
             decoded += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
