@@ -1,5 +1,5 @@
-console.log("!!! ADMIN JS V5.1.24 LOADED (Robust Key Loading) !!!");
-document.title = "Admin Portal (v5.1.24)";
+console.log("!!! ADMIN JS V5.1.25 LOADED (Timeout Fix) !!!");
+document.title = "Admin Portal (v5.1.25)";
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -251,7 +251,7 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                     console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
 
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s for GAS
+                    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for fallback proxy
 
                     response = await fetch(gasUrl, {
                         method: 'POST',
@@ -1291,7 +1291,7 @@ Instructions for the AI:
                     try {
                         const API_URL = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${API_KEY}`;
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 12000);
+                        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for heavy captions
 
                         const response = await fetch(API_URL, {
                             method: 'POST',
@@ -1320,10 +1320,10 @@ Instructions for the AI:
             if (!success) {
                 try {
                     console.log("Direct Social AI failed, falling back to GAS...");
-                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+                    const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
 
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for social GAS fallback
 
                     const response = await fetch(gasUrl, {
                         method: 'POST',
