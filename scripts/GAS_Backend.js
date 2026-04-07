@@ -134,7 +134,16 @@ function fetchRawGitHubCSV(path) {
 function handleGetGeminiKeys(filePath) {
     const csv = fetchRawGitHubCSV(filePath || 'data/gemini_keys.csv');
     if (!csv || csv.includes('404')) return jsonResponse({ keys: [] });
-    const keys = csv.split('\n').slice(1).map(k => k.trim()).filter(k => k);
+    const rows = csv.split('\n').slice(1); // Skip header row
+    const keys = rows
+        .map(row => row.trim())
+        .filter(row => row.length > 0)
+        .map(row => {
+            // CSV row format is: name,key  — extract only the key part
+            const parts = row.split(',');
+            return parts.length >= 2 ? parts.slice(1).join(',').trim() : parts[0].trim();
+        })
+        .filter(key => key.length > 0);
     return jsonResponse({ keys: keys });
 }
 
@@ -343,7 +352,9 @@ function handleImageUpload(params) {
 }
 
 function handleGeminiProxy(payload) {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${payload.key}`;
+    // Support dynamic model from payload, fall back to known working model
+    const model = payload.model || 'gemini-2.0-flash-latest';
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${payload.key}`;
     const options = {
         'method': 'post',
         'contentType': 'application/json',

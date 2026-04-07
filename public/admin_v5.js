@@ -1,4 +1,4 @@
-const APP_VERSION = '5.1.35';
+const APP_VERSION = '5.1.36';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1399,8 +1399,7 @@ Instructions for the AI:
                 addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback...`);
                 // GAS Fallback logic...
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 45000);
+                    const gasFirstKey = GEMINI_API_KEYS.length > 0 ? decodeApiKey(GEMINI_API_KEYS[0]) : '';
                     const response = await fetch(GAS_FALLBACK_URL, {
                         method: 'POST',
                         mode: 'cors',
@@ -1409,7 +1408,11 @@ Instructions for the AI:
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({
                             action: 'proxyGemini',
-                            payload: { contents: [{ parts: [{ text: prompt }] }] }
+                            payload: {
+                                key: gasFirstKey,
+                                model: 'gemini-2.0-flash-latest',
+                                data: { contents: [{ parts: [{ text: prompt }] }] }
+                            }
                         })
                     });
                     clearTimeout(timeoutId);
