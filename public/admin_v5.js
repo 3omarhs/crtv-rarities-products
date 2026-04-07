@@ -1,5 +1,19 @@
-console.log("!!! ADMIN JS V5.1.34 LOADED (DEFINITIVE FIX) !!!");
-document.title = "Admin Portal (v5.1.34)";
+const APP_VERSION = '5.1.35';
+console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
+document.title = `Admin Portal (v${APP_VERSION})`;
+
+function updateDynamicVersion() {
+    console.log(`Admin: Syncing dynamic version v${APP_VERSION} to UI...`);
+    const elements = document.querySelectorAll('.dynamic-version-val');
+    elements.forEach(el => {
+        el.textContent = `v${APP_VERSION}`;
+    });
+    
+    const footerDisplay = document.getElementById('footer-version-display');
+    if (footerDisplay) {
+        footerDisplay.innerHTML = `v${APP_VERSION} (DYNAMIC) | <span style="color:var(--accent); cursor:pointer;" onclick="location.reload(true)">Force Hard Refresh</span>`;
+    }
+}
 
 // Global handler for item clicks to avoid inline JS issues
 
@@ -139,6 +153,11 @@ async function loadGeminiCredentials() {
         }
     }
 }
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => {
+    updateDynamicVersion();
+});
 
 // --- AI Product Analysis ---
 async function analyzeImageWithGemini(file) {
