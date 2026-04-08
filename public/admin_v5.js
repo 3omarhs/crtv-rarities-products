@@ -1327,8 +1327,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Best available models in v1beta - gemini-flash-latest is our primary working model
-            const modelsToTry = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+            // Updated model rotation for Social Media Magic: exclude flash-latest due to access restrictions
+            const modelsToTry = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
