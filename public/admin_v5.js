@@ -244,7 +244,8 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+                    // Include primary flash model and fallback models
+                    const models = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-2.5-flash'];
                     const endpoint = 'v1beta';
 
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
