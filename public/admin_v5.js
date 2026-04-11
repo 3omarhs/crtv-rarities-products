@@ -956,7 +956,7 @@ async function handleProductSubmit(e) {
         'Arabic Name': data['Arabic Name'] || data['Name on Store'],
         'category': data['category'],
         'collection': data['collection'],
-        'description (80 word)': data['description (80 word)'],
+        'description (80 word)': String(data['description (80 word)']).replace(/\n/g, ' ').replace(/\r/g, ''),
         'Dimensions(mm) x y z': data['Dimensions(mm) x y z'],
         'Colors': data['Colors'],
         'Price < 25 QTY': data['Price < 25 QTY'],
