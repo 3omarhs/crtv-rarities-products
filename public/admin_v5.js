@@ -244,8 +244,8 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    // Updated model rotation: include 8B fallback for quota resilience
-                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+                    // Final resilient rotation: 2.0 -> 1.5 -> 8b -> 1.0 Pro
+                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.0-pro'];
                     const endpoint = 'v1beta';
 
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
@@ -1364,8 +1364,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Expanded rotation including 8B for quota survival
-            const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+            // Expanded rotation: 2.0 (High quality) -> 1.5 (Standard) -> 8b (Fast/Extra Quota) -> 1.0 Pro (Massive Quota)
+            const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.0-pro'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
@@ -1502,7 +1502,7 @@ Instructions for the AI:
                                         quotaBlockedProjects.add(projectID); 
                                         await new Promise(r => setTimeout(r, 1000));
                                     } else {
-                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 60)}`, 'error');
+                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg}`, 'error');
                                     }
                                 }
                             } else {
