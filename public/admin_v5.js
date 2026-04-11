@@ -1488,6 +1488,11 @@ Instructions for the AI:
                                     addSocialLog(`❌ GAS Fallback (${keyLabel}): Bad JSON.`, 'error');
                                     continue;
                                 }
+
+                                if (!data.gasVersion || data.gasVersion !== '5.2.0') {
+                                    addSocialLog(`🛑 CRITICAL: Your Google Script (GAS) is OUTDATED. Please update to version 5.2.0.`, 'error');
+                                }
+
                                 if (data && data.candidates && data.candidates[0].content) {
                                     output.value = data.candidates[0].content.parts[0].text.trim();
                                     addSocialLog(`✅ GAS Fallback Success with ${keyLabel}!`, 'success');

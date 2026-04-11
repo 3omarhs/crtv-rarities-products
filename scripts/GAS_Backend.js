@@ -395,12 +395,15 @@ function handleGeminiProxy(payload) {
                 const text = res.getContentText();
                 
                 if (status === 200) {
-                    return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+                    const parsed = JSON.parse(text);
+                    parsed.gasVersion = '5.2.0'; // Track backend version
+                    return ContentService.createTextOutput(JSON.stringify(parsed)).setMimeType(ContentService.MimeType.JSON);
                 } else {
                     lastError = text;
                     // If it's a 404, try the next variant/version
                     if (status === 404) continue;
                     // For 429 (Quota) or 400 (Invalid Key), return immediately as it's not a model/version issue
+                    // Wrap error in a JSON object so gasVersion can be added if needed, though usually just returns the error
                     return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
                 }
             } catch (e) {
