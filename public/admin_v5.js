@@ -2401,6 +2401,15 @@ function renderStatusSelect(id, currentStatus) {
 
 
 window.updateOrderStatus = async function (id, newStatus) {
+    // 1. Optimistic Update (Prevent UI revert)
+    if (window.allOrders) {
+        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+        if (order) {
+            order.status = newStatus;
+            renderOrdersTable(window.allOrders);
+        }
+    }
+
     let success = false;
 
     // Try Supabase first
@@ -2432,15 +2441,24 @@ window.updateOrderStatus = async function (id, newStatus) {
         } catch (e) { }
     }
 
-    if (success) {
-        loadData();
-    } else {
-        alert("Failed to update status. Please try again.");
+    if (!success) {
+        alert("Failed to update status in the database. Please try again.");
     }
 }
 
 window.toggleDeliveryCalc = async function(event, id) {
     const isChecked = event.target.checked;
+    
+    // 1. Optimistic Update (Prevent UI revert)
+    if (window.allOrders) {
+        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+        if (order) {
+            order.calculate_delivery = String(isChecked);
+            // Updating delivery toggle changes the total displayed in the row, so re-render
+            renderOrdersTable(window.allOrders);
+        }
+    }
+
     let success = false;
     
     // Try GAS
@@ -2463,11 +2481,16 @@ window.toggleDeliveryCalc = async function(event, id) {
         } catch (e) { }
     }
 
-    if (success) {
-        loadData();
-    } else {
+    if (!success) {
         alert("Failed to update delivery toggle. Please try again.");
-        event.target.checked = !isChecked; // revert
+        // Revert local state on failure
+        if (window.allOrders) {
+            const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+            if (order) {
+                order.calculate_delivery = String(!isChecked);
+                renderOrdersTable(window.allOrders);
+            }
+        }
     }
 }
 

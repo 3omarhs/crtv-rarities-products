@@ -215,7 +215,11 @@ function handleUpdateOrderStatus(orderId, newStatus) {
             if (p[idIndex] == orderId) {
                 p[statusIndex] = newStatus;
             }
-            out.push(p.map(x => (x.includes(',') || x.includes('"')) ? '"' + x.replace(/"/g,'""') + '"' : x).join(','));
+            // Ensure all elements are strings before calling includes/replace
+            out.push(p.map(x => {
+                let s = String(x || '');
+                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(','));
         }
         return out.join('\n');
     };
@@ -273,7 +277,11 @@ function handleUpdateOrderDeliveryToggle(orderId, calculateDeliveryValue) {
             if (p[idIndex] == orderId) {
                 p[calcDelivIndex] = String(calculateDeliveryValue);
             }
-            out.push(p.map(x => (String(x).includes(',') || String(x).includes('"')) ? '"' + String(x).replace(/"/g,'""') + '"' : x).join(','));
+            // Safely reconstruct the row
+            out.push(p.map(x => {
+                let s = String(x || '');
+                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(','));
         }
         return out.join('\n');
     };
