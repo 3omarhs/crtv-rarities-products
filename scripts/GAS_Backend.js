@@ -335,7 +335,7 @@ function saveImageToGitHub(base64Data, fileName) {
         sha = JSON.parse(getRes.getContentText()).sha;
     }
     
-    const pureBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
+    const pureBase64 = (typeof base64Data === 'string') ? base64Data.replace(/^data:[^;]+;base64,/, "") : base64Data;
     
     const payload = {
         message: `Auto-Commit: Upload image ${fileName}`,
@@ -535,8 +535,12 @@ function handleSaveWholesale(offer) {
 
 function handleImageUpload(params) {
     try {
-        const fileName = params.filename || `extra_${Date.now()}.jpg`;
-        const fileUrl = saveImageToGitHub(params.data, fileName);
+        const fileName = params.imageName || params.filename || `extra_${Date.now()}.jpg`;
+        const imageData = params.image || params.data;
+        
+        if (!imageData) throw new Error("No image data provided");
+        
+        const fileUrl = saveImageToGitHub(imageData, fileName);
         return jsonResponse({ status: 'success', id: fileName, url: fileName });
     } catch(e) {
         return jsonResponse({ status: 'error', message: 'GitHub upload failed. ' + e.toString() });

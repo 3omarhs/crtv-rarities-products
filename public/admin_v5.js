@@ -1639,7 +1639,8 @@ window.initUploadImages = async function () {
                         action: 'uploadImage',
                         imageName: newFileName,
                         image: base64Image,
-                        mimeType: file.type
+                        mimeType: file.type,
+                        productNo: productNo
                     })
                 });
 
