@@ -3,4 +3,4 @@ email_enabled,false
 receiver_email,
 sender_email,
 sender_pass,
-google_script_url,https://script.google.com/macros/s/AKfycbzwK8Eh-qliTnWwwCe81BSM3fxfihS9QM1dXN8FYdIwRTQWKF9RS3CHf_ysPZ3NGOM/exec
+google_script_url,https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec
