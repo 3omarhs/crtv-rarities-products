@@ -244,9 +244,8 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    // Include primary flash model and fallback models
-                    // Updated model rotation: use stable and widely available models
-                    const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+                    // Updated model rotation: include 8B fallback for quota resilience
+                    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
                     const endpoint = 'v1beta';
 
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
@@ -1365,8 +1364,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Updated model rotation for Social Media Magic: use stable models
-            const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+            // Expanded rotation including 8B for quota survival
+            const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
@@ -1481,8 +1480,13 @@ Instructions for the AI:
                                 } else if (data && data.error) {
                                     const gasErrMsg = data.error.message || 'Unknown';
                                     const isQuota = gasErrMsg.toLowerCase().includes('quota') || data.error.code === 429;
-                                    addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 60)}${isQuota ? ' (Wait...)' : ''}`, 'error');
-                                    if (isQuota) await new Promise(r => setTimeout(r, 2000)); // Burst limit protection
+                                    
+                                    if (isQuota) {
+                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): Quota reached. trying next...`, 'error');
+                                        await new Promise(r => setTimeout(r, 2000));
+                                    } else {
+                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 60)}`, 'error');
+                                    }
                                 }
                             } else {
                                 const errBody = await response.text().catch(() => '');

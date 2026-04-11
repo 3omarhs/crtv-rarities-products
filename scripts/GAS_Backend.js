@@ -352,48 +352,60 @@ function handleImageUpload(params) {
 }
 
 function handleGeminiProxy(payload) {
+    if (!payload) return ContentService.createTextOutput(JSON.stringify({ error: "Missing payload" })).setMimeType(ContentService.MimeType.JSON);
+    
     // Prefer the key stored securely in Script Properties over the client-provided one
     const storedKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    const apiKey = storedKey || payload.key;
+    const rawApiKey = storedKey || payload.key;
     
-    if (!apiKey) {
-        return jsonResponse({ error: 'No Gemini API key available in Script Properties or payload.' });
+    if (!rawApiKey) {
+        return ContentService.createTextOutput(JSON.stringify({ error: 'No Gemini API key available.' })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    // Support dynamic model from payload, fall back to known working model
-    const model = payload.model || 'gemini-1.5-flash';
+    const apiKey = rawApiKey.trim();
+    const modelInput = (payload.model || 'gemini-1.5-flash').trim();
+    // Normalize model name: remove 'models/' prefix if it's already there to avoid 'models/models/'
+    const modelBase = modelInput.replace(/^models\//, '');
+    
     const versions = ['v1beta', 'v1'];
     let lastError = "";
 
     for (const version of versions) {
-        try {
-            const geminiUrl = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
-            const options = {
-                'method': 'post',
-                'contentType': 'application/json',
-                'payload': JSON.stringify(payload.data),
-                'muteHttpExceptions': true
-            };
-            
-            const res = UrlFetchApp.fetch(geminiUrl, options);
-            const status = res.getResponseCode();
-            const text = res.getContentText();
-            
-            if (status === 200) {
-                return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
-            } else {
-                lastError = text;
-                // If it's a 404, maybe the model or version is wrong, try next version
-                if (status === 404) continue;
-                // For other errors (like 429 or 400), we return the error to the client
-                return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+        // Try both with and without the 'models/' prefix depending on version behavior
+        // (Most standard is with prefix: models/gemini-1.5-flash)
+        const modelVariants = [`models/${modelBase}`, modelBase];
+        
+        for (const modelName of modelVariants) {
+            try {
+                const geminiUrl = `https://generativelanguage.googleapis.com/${version}/${modelName}:generateContent?key=${apiKey}`;
+                const options = {
+                    'method': 'post',
+                    'contentType': 'application/json',
+                    'payload': JSON.stringify(payload.data),
+                    'muteHttpExceptions': true
+                };
+                
+                const res = UrlFetchApp.fetch(geminiUrl, options);
+                const status = res.getResponseCode();
+                const text = res.getContentText();
+                
+                if (status === 200) {
+                    return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+                } else {
+                    lastError = text;
+                    // If it's a 404, try the next variant/version
+                    if (status === 404) continue;
+                    // For 429 (Quota) or 400 (Invalid Key), return immediately as it's not a model/version issue
+                    return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+                }
+            } catch (e) {
+                lastError = e.toString();
             }
-        } catch (e) {
-            lastError = e.toString();
         }
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ error: lastError || "Proxy failed" })).setMimeType(ContentService.MimeType.JSON);
+    // If we're here, everything failed (likely all 404s or network errors)
+    return ContentService.createTextOutput(lastError || JSON.stringify({ error: "All proxy combinations failed" })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleSaveSettings(settings) {
