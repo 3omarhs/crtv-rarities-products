@@ -1911,7 +1911,7 @@ function renderDashboardStats(orders, visitsData) {
             const amt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, ''));
             if (!isNaN(amt)) {
                 let thisRevenue = amt;
-                if (String(o.calculate_delivery).toLowerCase() === 'false') {
+                if (String(o.calculate_delivery || '').toLowerCase() !== 'true') {
                     const delFee = parseFloat(String(o.delivery_fee || '0').replace(/[^\d.]/g, ''));
                     if (!isNaN(delFee)) {
                         thisRevenue -= delFee;
