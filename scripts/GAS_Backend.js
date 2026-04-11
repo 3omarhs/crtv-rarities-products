@@ -371,9 +371,14 @@ function handleGeminiProxy(payload) {
     let lastError = "";
 
     for (const version of versions) {
-        // Try both with and without the 'models/' prefix depending on version behavior
-        // (Most standard is with prefix: models/gemini-1.5-flash)
-        const modelVariants = [`models/${modelBase}`, modelBase];
+        // Try multiple model identifier variations to bypass regional/version naming inconsistencies
+        const modelVariants = [
+            `models/${modelBase}`, 
+            `models/${modelBase}-latest`,
+            `models/${modelBase}-001`,
+            `models/${modelBase}-002`,
+            modelBase
+        ];
         
         for (const modelName of modelVariants) {
             try {

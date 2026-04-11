@@ -1383,17 +1383,26 @@ Instructions for the AI:
                 logElement.scrollTop = logElement.scrollHeight;
             }
 
-            outerLoopSocial:
-            for (let i = 0; i < allKeys.length; i++) {
-                const rawKey = allKeys[i];
-                const keyLabel = `Key ${i + 1}`;
-                const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
-                const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
-                
-                // Debug logging (Developer console only)
-                console.log(`AI: ${keyLabel} length: ${decodedKey.length}, starts with: ${decodedKey.substring(0, 4)}`);
+                const quotaBlockedProjects = new Set();
 
-                for (const model of modelsToTry) {
+                outerLoopSocial:
+                for (let i = 0; i < allKeys.length; i++) {
+                    const rawKey = allKeys[i];
+                    const keyLabel = `Key ${i + 1}`;
+                    const projectID = rawKey.substring(0, 12); // Identify unique projects by key prefix
+                    
+                    if (quotaBlockedProjects.has(projectID)) {
+                        addSocialLog(`Skipping ${keyLabel} (Project already at quota)...`);
+                        continue;
+                    }
+
+                    const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
+                    const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
+                    
+                    // Debug logging (Developer console only)
+                    console.log(`AI: ${keyLabel} length: ${decodedKey.length}, starts with: ${decodedKey.substring(0, 4)}`);
+
+                    for (const model of modelsToTry) {
                     for (const apiVer of ['v1beta', 'v1']) {
                         addSocialLog(`Attempting ${model} (${apiVer}) with ${keyLabel} (${keyType})...`);
                         
@@ -1439,8 +1448,15 @@ Instructions for the AI:
                 
                 for (let k = 0; k < allKeys.length; k++) {
                     const rawKey = allKeys[k];
-                    const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                     const keyLabel = `Key ${k + 1}`;
+                    const projectID = rawKey.substring(0, 12);
+
+                    if (quotaBlockedProjects.has(projectID)) {
+                        addSocialLog(`Skipping GAS Fallback for ${keyLabel} (Project already at quota)...`);
+                        continue;
+                    }
+
+                    const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                     
                     for (const model of modelsToTry) {
                         addSocialLog(`Attempting GAS Fallback with ${keyLabel} (${model})...`);
@@ -1482,8 +1498,9 @@ Instructions for the AI:
                                     const isQuota = gasErrMsg.toLowerCase().includes('quota') || data.error.code === 429;
                                     
                                     if (isQuota) {
-                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): Quota reached. trying next...`, 'error');
-                                        await new Promise(r => setTimeout(r, 2000));
+                                        addSocialLog(`❌ GAS Fallback (${keyLabel}): Quota reached for this project.`, 'error');
+                                        quotaBlockedProjects.add(projectID); 
+                                        await new Promise(r => setTimeout(r, 1000));
                                     } else {
                                         addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 60)}`, 'error');
                                     }
