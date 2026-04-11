@@ -1390,6 +1390,9 @@ Instructions for the AI:
                 const keyLabel = `Key ${i + 1}`;
                 const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                 const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
+                
+                // Debug logging (Developer console only)
+                console.log(`AI: ${keyLabel} length: ${decodedKey.length}, starts with: ${decodedKey.substring(0, 4)}`);
 
                 for (const model of modelsToTry) {
                     for (const apiVer of ['v1beta', 'v1']) {
@@ -1477,7 +1480,9 @@ Instructions for the AI:
                                     return; // Successfully finished
                                 } else if (data && data.error) {
                                     const gasErrMsg = data.error.message || 'Unknown';
-                                    addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 50)}`, 'error');
+                                    const isQuota = gasErrMsg.toLowerCase().includes('quota') || data.error.code === 429;
+                                    addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 60)}${isQuota ? ' (Wait...)' : ''}`, 'error');
+                                    if (isQuota) await new Promise(r => setTimeout(r, 2000)); // Burst limit protection
                                 }
                             } else {
                                 const errBody = await response.text().catch(() => '');

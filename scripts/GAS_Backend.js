@@ -361,16 +361,39 @@ function handleGeminiProxy(payload) {
     }
     
     // Support dynamic model from payload, fall back to known working model
-    const model = payload.model || 'gemini-flash-latest';
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const options = {
-        'method': 'post',
-        'contentType': 'application/json',
-        'payload': JSON.stringify(payload.data),
-        'muteHttpExceptions': true
-    };
-    const res = UrlFetchApp.fetch(geminiUrl, options);
-    return ContentService.createTextOutput(res.getContentText()).setMimeType(ContentService.MimeType.JSON);
+    const model = payload.model || 'gemini-1.5-flash';
+    const versions = ['v1beta', 'v1'];
+    let lastError = "";
+
+    for (const version of versions) {
+        try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${apiKey}`;
+            const options = {
+                'method': 'post',
+                'contentType': 'application/json',
+                'payload': JSON.stringify(payload.data),
+                'muteHttpExceptions': true
+            };
+            
+            const res = UrlFetchApp.fetch(geminiUrl, options);
+            const status = res.getResponseCode();
+            const text = res.getContentText();
+            
+            if (status === 200) {
+                return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+            } else {
+                lastError = text;
+                // If it's a 404, maybe the model or version is wrong, try next version
+                if (status === 404) continue;
+                // For other errors (like 429 or 400), we return the error to the client
+                return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+            }
+        } catch (e) {
+            lastError = e.toString();
+        }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ error: lastError || "Proxy failed" })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function handleSaveSettings(settings) {
