@@ -27,6 +27,8 @@ function handleAllActions(action, params) {
         if (action === 'updateOrderStatus') return handleUpdateOrderStatus(params.orderId || params.id, params.status);
         if (action === 'recordVisit') return handleVisit(params);
         if (action === 'addProduct' || action === 'updateProduct') return handleProductUpdate(params.product || params);
+        if (action === 'deleteProduct') return handleProductDelete(params.no);
+        if (action === 'saveWholesale') return handleSaveWholesale(params.offer || params);
         if (action === 'proxyGemini') return handleGeminiProxy(params.payload || params);
         if (action === 'uploadImage') return handleImageUpload(params);
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
@@ -324,7 +326,8 @@ function handleProductUpdate(product) {
         // 2. Normalize incoming product keys for case-insensitive lookup
         const pNormalized = {};
         for (let k in product) {
-            pNormalized[k.toLowerCase().trim()] = product[k];
+            // Remove ALL spaces for normalization to match headerMap logic
+            pNormalized[k.toLowerCase().trim().replace(/ /g, "")] = product[k];
         }
 
         // 3. Build the new row based on CSV headers
@@ -392,6 +395,76 @@ function handleProductUpdate(product) {
 
     const res = updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Product ${product.No || product.no}`);
     return jsonResponse({ status: 'success', message: 'Product synced successfully', github_sync: res });
+}
+
+function handleProductDelete(no) {
+    const path = 'data/products.csv';
+    const mutateFunc = (csvContent) => {
+        if (!csvContent) return csvContent;
+        const allRows = Utilities.parseCsv(csvContent);
+        if (allRows.length === 0) return csvContent;
+        const headers = allRows[0].map(h => h.trim());
+        const noIndex = headers.findIndex(h => h.toLowerCase() === 'no' || h.toLowerCase() === 'sku');
+        if (noIndex === -1) return csvContent;
+
+        const filteredRows = allRows.filter((row, i) => {
+            if (i === 0) return true; // Keep Header
+            return String(row[noIndex]).trim() !== String(no).trim();
+        });
+
+        return filteredRows.map(row => {
+            return row.map(cell => {
+                let strVal = String(cell).replace(/"/g, '""');
+                if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) return `"${strVal}"`;
+                return strVal;
+            }).join(',');
+        }).join('\n');
+    };
+
+    updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Deleted Product #${no}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleSaveWholesale(offer) {
+    const path = 'data/wholesale.csv';
+    const mutateFunc = (csvContent) => {
+        // If file doesn't exist or is empty, start with headers
+        let content = csvContent || "item_no,special_price,category";
+        const allRows = Utilities.parseCsv(content);
+        const headers = allRows[0].map(h => h.trim());
+        const noIndex = headers.indexOf('item_no');
+        
+        const rowData = headers.map(h => {
+            if (h === 'item_no') return String(offer.item_no);
+            if (h === 'special_price') return String(offer.special_price);
+            if (h === 'category') return String(offer.category || '');
+            return '';
+        });
+
+        let found = false;
+        if (noIndex !== -1) {
+            for (let i = 1; i < allRows.length; i++) {
+                if (String(allRows[i][noIndex]).trim() === String(offer.item_no).trim()) {
+                    allRows[i] = rowData;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found) allRows.push(rowData);
+
+        return allRows.map(row => {
+            return row.map(cell => {
+                let strVal = String(cell).replace(/"/g, '""');
+                if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) return `"${strVal}"`;
+                return strVal;
+            }).join(',');
+        }).join('\n');
+    };
+
+    updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Wholesale Item #${offer.item_no}`);
+    return jsonResponse({ status: 'success' });
 }
 
 function handleImageUpload(params) {

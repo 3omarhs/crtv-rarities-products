@@ -991,10 +991,6 @@ async function handleProductSubmit(e) {
                 err.textContent = "Failed to read file";
                 err.classList.remove('hidden');
             }
-            alert("Product management is disabled on static GitHub Pages. Please add products directly to your Google Sheet and upload images to your GitHub assets repository.");
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalBtnText;
-            return;
         };
 
         reader.onload = async function (e) {
@@ -1049,7 +1045,7 @@ async function handleProductSubmit(e) {
 
     async function submitToLocal(payload) {
         // This function is effectively disabled for static GitHub Pages
-        console.warn("Local sync is disabled on static GitHub Pages.");
+        console.warn("Local sync is disabled on static GitHub Pages. Relying on Supabase and GAS.");
         return;
         // try {
         //     console.log("Syncing to local DB...");
@@ -3124,31 +3120,26 @@ window.editProduct = function (no) {
 window.deleteProduct = async function (no) {
     if (!confirm(`Are you sure you want to delete ${no}?`)) return;
 
-    alert("Product deletion via the dashboard is disabled on static GitHub Pages. Please remove the row directly from your Google Sheet.");
-    return;
+    const gasUrl = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (!gasUrl) {
+        alert("Error: No Google Apps Script URL defined. Delete action aborted.");
+        return;
+    }
 
     try {
-        const res = await fetch('/api/products', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item_no: no })
+        console.log("Admin: Deleting product via GAS...");
+        const res = await window.submitToGas(gasUrl, {
+            action: 'deleteProduct',
+            no: no
         });
-        const json = await res.json();
-        if (json.status === 'success') {
-            alert("Product deleted successfully!");
+
+        if (res) {
+            alert(`Product #${no} deleted successfully from Sheet/GitHub.`);
             if (window.loadProducts) window.loadProducts();
-        } else {
-            alert("Failed to delete product: " + (json.error || "Unknown error"));
         }
     } catch (e) {
         console.error("Delete product error", e);
-        alert("Error deleting product. Check console.");
-    }
-
-    // Also sync to GAS for legacy support if URL exists
-    const gasUrl = document.getElementById('google-script-url')?.value.trim();
-    if (gasUrl && window.submitToGas) {
-        await window.submitToGas(gasUrl, { action: 'deleteProduct', No: no });
+        alert("Failed to delete product: " + e.message);
     }
 };
 
@@ -3320,27 +3311,23 @@ window.submitWholesaleItem = async function () {
 
     if (supabaseSuccess) return;
 
-    alert("Adding special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
-    return;
-
-    try {
-        const response = await fetch('/api/special-offers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item_no: itemNo, special_price: specialPrice, category: category })
-        });
-
-        if (response.ok) {
+    const gasUrl = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (gasUrl) {
+        try {
+            console.log("Admin: Saving special offer to GAS...");
+            await window.submitToGas(gasUrl, {
+                action: 'saveWholesale',
+                offer: { item_no: itemNo, special_price: specialPrice, category: category }
+            });
             window.closeWholesaleModal();
-            loadWholesale(); // Refresh list
-        } else {
-            const err = await response.json();
-            alert("Error adding item: " + (err.error || "Unknown error"));
+            loadWholesale();
+            return;
+        } catch (e) {
+            console.error("GAS Wholesale error", e);
         }
-    } catch (e) {
-        console.error("Error submitting item:", e);
-        alert("Network error.");
     }
+
+    alert("No backend (Supabase/GAS) available to save special offer.");
 };
 
 window.loadWholesale = async function () {
@@ -3349,24 +3336,27 @@ window.loadWholesale = async function () {
 
     grid.innerHTML = '<p style="color:var(--text-secondary);">Loading items...</p>';
 
-    // Static host limitation
-    console.warn("Special offers static loading disabled.");
-    grid.innerHTML = '<p style="color:var(--text-secondary); text-align:center; grid-column:1/-1; padding:2rem;">Special offers are disabled on static GitHub Pages. They require a backend API.</p>';
-    return;
-
+    // 1. Try fetching from GitHub directly (Read-only view)
     try {
-        const response = await fetch('/api/special-offers');
-        if (response.ok) {
-            const offers = await response.json();
-            window.wholesaleOffers = offers; // Store globally for suggestions
-            renderWholesaleItems(offers);
-        } else {
-            grid.innerHTML = '<p style="color:red;">Failed to load items.</p>';
+        const CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/wholesale.csv';
+        const res = await fetch(CSV_URL);
+        if (res.ok) {
+            const text = await res.text();
+            Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    window.wholesaleOffers = results.data;
+                    renderWholesaleItems(results.data);
+                }
+            });
+            return;
         }
     } catch (e) {
-        console.error("Error loading items:", e);
-        grid.innerHTML = '<p style="color:red;">Error loading items.</p>';
+        console.warn("Wholesale: GitHub fetch failed, skipping...");
     }
+
+    grid.innerHTML = '<p style="color:var(--text-secondary); text-align:center; grid-column:1/-1; padding:2rem;">Unable to load Wholesale items.</p>';
 };
 
 function renderWholesaleItems(offers) {
