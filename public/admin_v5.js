@@ -1,4 +1,4 @@
-﻿const APP_VERSION = '5.2.0';
+const APP_VERSION = '5.2.0';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -2637,7 +2637,8 @@ async function initProductData() {
                 skipEmptyLines: true,
                 complete: (results) => {
                     if (results.data) {
-                        window.allProducts = results.data;
+                        // Reverse results data so latest products (last in CSV) appear first in UI
+                        window.allProducts = results.data.reverse();
                         window.manualProducts = window.allProducts.map(p => ({
                             id: p['No'],
                             name: p['Product Name'] || p['product name'] || p['Name on Store'] || 'Unknown Name',
@@ -2969,7 +2970,8 @@ window.getNextItemNumber = function (products) {
     // Let's look at the last few entries.
 
     let lastId = '';
-    for (let i = products.length - 1; i >= 0; i--) {
+    // Since products might be reversed (latest first), search from start to find the most recent valid ID
+    for (let i = 0; i < products.length; i++) {
         if (products[i]['No'] && products[i]['No'].trim() !== '') {
             lastId = products[i]['No'];
             break;
