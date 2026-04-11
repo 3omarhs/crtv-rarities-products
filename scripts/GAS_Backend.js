@@ -316,45 +316,56 @@ function handleProductUpdate(product) {
     const mutateFunc = (csvContent) => {
         if (!csvContent) return csvContent;
         
-        // Use Google's native CSV parser
+        // 1. Parse existing CSV
         const allRows = Utilities.parseCsv(csvContent);
         if (allRows.length === 0) return csvContent;
-        
         const headers = allRows[0].map(h => h.trim());
         
+        // 2. Normalize incoming product keys for case-insensitive lookup
+        const pNormalized = {};
+        for (let k in product) {
+            pNormalized[k.toLowerCase().trim()] = product[k];
+        }
+
+        // 3. Build the new row based on CSV headers
         const rowData = headers.map(header => {
-            const hLower = header.toLowerCase();
+            const hLower = header.toLowerCase().trim();
             
-            // Match Priority: Exact > Lowercase > Fuzzy/Inconsistency
+            // Try 1: Exact Match (Case-Sensitive)
             let val = product[header];
-            if (val === undefined || val === '') val = product[hLower];
             
+            // Try 2: Normalized Match (Case-Insensitive)
             if (val === undefined || val === '') {
-                if (hLower.includes('name on store')) val = product['Name on Store'] || product['store_name'];
-                else if (hLower.includes('product name')) val = product['Product Name'] || product['product name'];
-                else if (hLower.includes('arabic')) val = product['Arabic Name'] || product['arabic_name'];
-                else if (hLower.includes('description')) val = product['description (80 word)'] || product['Description'] || product['description'];
-                else if (hLower.includes('price') && hLower.includes('<')) val = product['Price < 25 QTY'] || product['price_low_qty'];
-                else if (hLower.includes('price') && hLower.includes('>=')) val = product['Price >=25 QTY'] || product['price_high_qty'];
-                else if (hLower.includes('colors')) val = product['Colors'] || product['color'];
-                else if (hLower.includes('dimensions')) val = product['Dimensions(mm) x y z'] || product['dimensions'];
-                else if (hLower.includes('target market')) val = product['target market'] || product['target_market'];
-                else if (hLower.includes('available')) val = product['Available'] || "TRUE";
-                else if (hLower.includes('hidden')) val = product['Hidden'] || "FALSE";
+                val = pNormalized[hLower];
+            }
+            
+            // Try 3: Fuzzy / Inconsistency Fallback
+            if (val === undefined || val === '') {
+                if (hLower.includes('name on store')) val = pNormalized['name on store'] || pNormalized['store_name'];
+                else if (hLower.includes('product name')) val = pNormalized['product name'] || pNormalized['product_name'];
+                else if (hLower.includes('arabic')) val = pNormalized['arabic name'] || pNormalized['arabic_name'];
+                else if (hLower.includes('description')) val = pNormalized['description (80 word)'] || pNormalized['description'];
+                else if (hLower.includes('price') && hLower.includes('<')) val = pNormalized['price < 25 qty'] || pNormalized['price'];
+                else if (hLower.includes('price') && hLower.includes('>=')) val = pNormalized['price >=25 qty'];
+                else if (hLower.includes('category')) val = pNormalized['category'];
+                else if (hLower.includes('collection')) val = pNormalized['collection'];
+                else if (hLower.includes('available')) val = pNormalized['available'] || "TRUE";
+                else if (hLower.includes('hidden')) val = pNormalized['hidden'] || "FALSE";
             }
 
-            return val === undefined || val === null ? '' : String(val);
+            return (val === undefined || val === null) ? '' : String(val);
         });
 
+        // 4. Update existing or Append new
         const action = product.action || 'addProduct';
         let found = false;
-        const noIndex = headers.findIndex(h => h.toLowerCase() === 'no');
+        const noIndex = headers.findIndex(h => h.toLowerCase() === 'no' || h.toLowerCase() === 'sku' || h.toLowerCase() === 'id');
         
         if (action === 'updateProduct' && noIndex !== -1) {
-            const targetNo = String(product.No || product.no || "");
+            const targetNo = String(product.No || product.no || "").trim();
             if (targetNo) {
                 for (let i = 1; i < allRows.length; i++) {
-                    if (String(allRows[i][noIndex]) === targetNo) {
+                    if (String(allRows[i][noIndex]).trim() === targetNo) {
                         allRows[i] = rowData;
                         found = true;
                         break;
@@ -367,6 +378,7 @@ function handleProductUpdate(product) {
             allRows.push(rowData);
         }
 
+        // 5. Reconstruct CSV safely
         return allRows.map(row => {
             return row.map(cell => {
                 let strVal = String(cell).replace(/"/g, '""');
@@ -378,8 +390,8 @@ function handleProductUpdate(product) {
         }).join('\n');
     };
 
-    const res = updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Product ${product.action || 'update'} ${product.No || product.no}`);
-    return jsonResponse({ status: 'success', message: 'Product updated and synced to GitHub', github_sync: res });
+    const res = updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Product ${product.No || product.no}`);
+    return jsonResponse({ status: 'success', message: 'Product synced successfully', github_sync: res });
 }
 
 function handleImageUpload(params) {
