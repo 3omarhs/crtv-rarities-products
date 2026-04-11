@@ -1908,17 +1908,27 @@ function renderDashboardStats(orders, visitsData) {
     let revenue = 0;
     orders.forEach(o => {
         if (o.status === 'Closed') {
-            const amt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, ''));
-            if (!isNaN(amt)) {
-                let thisRevenue = amt;
-                if (String(o.calculate_delivery || '').toLowerCase() !== 'true') {
-                    const delFee = parseFloat(String(o.delivery_fee || '0').replace(/[^\d.]/g, ''));
-                    if (!isNaN(delFee)) {
-                        thisRevenue -= delFee;
-                    }
-                }
-                revenue += thisRevenue;
+            // Calculate items subtotal from the parsed items array (robust calculation)
+            let itemsSubtotal = 0;
+            if (Array.isArray(o.items)) {
+                o.items.forEach(item => {
+                    const priceVal = parseFloat(String(item.price || '0').replace(/[^\d.]/g, '')) || 0;
+                    const qtyVal = parseInt(item.qty || item.quantity) || 0;
+                    itemsSubtotal += priceVal * qtyVal;
+                });
             }
+
+            let thisRevenue = itemsSubtotal;
+
+            // Only add delivery fee to revenue if "Fee" is explicitly checked (true)
+            if (String(o.calculate_delivery || '').toLowerCase() === 'true') {
+                const totalAmt = parseFloat(String(o.total || '0').replace(/[^\d.]/g, '')) || 0;
+                // If total is greater than items, the difference is the delivery fee
+                const inferredDelFee = Math.max(0, totalAmt - itemsSubtotal);
+                thisRevenue += inferredDelFee;
+            }
+
+            revenue += thisRevenue;
         }
     });
     document.getElementById('stat-revenue').textContent = revenue.toFixed(3) + ' JOD';
