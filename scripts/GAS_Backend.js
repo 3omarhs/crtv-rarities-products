@@ -313,31 +313,55 @@ function handleVisit(params) {
     return jsonResponse({ status: 'success' });
 }
 
-function saveImageToDrive(base64Data, fileName, mimeType) {
-    const FOLDER_NAME = "Storefront Images";
-    let folder;
-    const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+function saveImageToGitHub(base64Data, fileName) {
+    const GITHUB_TOKEN = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+    if (!GITHUB_TOKEN) throw new Error("GITHUB_TOKEN missing in script properties.");
     
-    if (folders.hasNext()) {
-      folder = folders.next();
-    } else {
-      folder = DriveApp.createFolder(FOLDER_NAME);
-      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const path = `public/assets/products/${fileName}`;
+    const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
+    
+    let sha = null;
+    const getOptions = {
+        'method': 'get',
+        'headers': {
+            'Authorization': 'token ' + GITHUB_TOKEN,
+            'Accept': 'application/vnd.github.v3+json'
+        },
+        'muteHttpExceptions': true
+    };
+    
+    const getRes = UrlFetchApp.fetch(url, getOptions);
+    if (getRes.getResponseCode() === 200) {
+        sha = JSON.parse(getRes.getContentText()).sha;
     }
     
-    const contentType = base64Data.match(/^data:([^;]+);base64,/);
     const pureBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
-    const blob = Utilities.newBlob(Utilities.base64Decode(pureBase64), mimeType || (contentType ? contentType[1] : "image/jpeg"), fileName);
     
-    const existingFiles = folder.getFilesByName(fileName);
-    while (existingFiles.hasNext()) {
-      existingFiles.next().setTrashed(true);
+    const payload = {
+        message: `Auto-Commit: Upload image ${fileName}`,
+        content: pureBase64
+    };
+    if (sha) payload.sha = sha;
+    
+    const putOptions = {
+        'method': 'put',
+        'headers': {
+            'Authorization': 'token ' + GITHUB_TOKEN,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        },
+        'payload': JSON.stringify(payload),
+        'muteHttpExceptions': true
+    };
+    
+    const putRes = UrlFetchApp.fetch(url, putOptions);
+    const code = putRes.getResponseCode();
+    
+    if (code === 200 || code === 201) {
+        return fileName;
     }
     
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    return `https://drive.google.com/file/d/${file.getId()}/view?usp=drive_link`;
+    throw new Error(`GitHub Upload Failed (${code}): ` + putRes.getContentText());
 }
 
 function handleProductUpdate(product) {
@@ -345,9 +369,9 @@ function handleProductUpdate(product) {
     if (product.image && typeof product.image === 'string' && product.image.length > 500) {
         try {
             const fileName = product.imageName || `${product['No'] || product['no'] || 'image'}.jpg`;
-            const driveUrl = saveImageToDrive(product.image, fileName, product.mimeType);
-            product.image = driveUrl; // Replace base64 with URL
-            product.Image = driveUrl; // Catch both casings
+            const fileUrl = saveImageToGitHub(product.image, fileName);
+            product.image = fileUrl; // Replace base64 with URL
+            product.Image = fileUrl; // Catch both casings
         } catch (e) {
             // Failsafe: if Drive API fails, drop the base64 instead of corrupting the CSV
             product.image = '';
@@ -510,22 +534,12 @@ function handleSaveWholesale(offer) {
 }
 
 function handleImageUpload(params) {
-    // If you need direct GitHub upload, Utilities.base64Decode and commitToGitHub equivalent
-    // The previous implementation used DriveApp. That is the ONLY non-GitHub feature left.
-    // If the user uploads images, they MUST be stored in Drive because GitHub is bad for massive image hosting.
-    // NOTE: Keep DriveApp ONLY for images, it does not touch Spreadsheet.
-    const folderId = "1O3f31835A1OQd1wQd66_I3Owhs6fenFc4UlbwPU"; // Placeholder
     try {
-        const folder = DriveApp.getFolderById(folderId);
-        const blob = Utilities.newBlob(Utilities.base64Decode(params.data), params.mimeType, params.filename);
-        const file = folder.createFile(blob);
-        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        
-        // Ensure products_extra_images.json is updated?
-        // Wait, app.js logic does this.
-        return jsonResponse({ status: 'success', id: file.getId(), url: file.getUrl() });
+        const fileName = params.filename || `extra_${Date.now()}.jpg`;
+        const fileUrl = saveImageToGitHub(params.data, fileName);
+        return jsonResponse({ status: 'success', id: fileName, url: fileName });
     } catch(e) {
-        return jsonResponse({ status: 'error', message: 'Drive Folder unavailable or not set. ' + e.toString() });
+        return jsonResponse({ status: 'error', message: 'GitHub upload failed. ' + e.toString() });
     }
 }
 
