@@ -331,25 +331,26 @@ function handleProductUpdate(product) {
         }
 
         // 3. Build the new row based on CSV headers
+        // 3. Build the new row based on CSV headers
         const rowData = headers.map(header => {
-            const hLower = header.toLowerCase().trim();
+            const hLower = header.toLowerCase().trim().replace(/ /g, "");
             
             // Try 1: Exact Match (Case-Sensitive)
             let val = product[header];
             
-            // Try 2: Normalized Match (Case-Insensitive)
+            // Try 2: Normalized Match (Case-Insensitive, no spaces)
             if (val === undefined || val === '') {
                 val = pNormalized[hLower];
             }
             
             // Try 3: Fuzzy / Inconsistency Fallback
             if (val === undefined || val === '') {
-                if (hLower.includes('name on store')) val = pNormalized['name on store'] || pNormalized['store_name'];
-                else if (hLower.includes('product name')) val = pNormalized['product name'] || pNormalized['product_name'];
-                else if (hLower.includes('arabic')) val = pNormalized['arabic name'] || pNormalized['arabic_name'];
-                else if (hLower.includes('description')) val = pNormalized['description (80 word)'] || pNormalized['description'];
-                else if (hLower.includes('price') && hLower.includes('<')) val = pNormalized['price < 25 qty'] || pNormalized['price'];
-                else if (hLower.includes('price') && hLower.includes('>=')) val = pNormalized['price >=25 qty'];
+                if (hLower.includes('nameonstore')) val = pNormalized['nameonstore'] || pNormalized['store_name'];
+                else if (hLower.includes('productname')) val = pNormalized['productname'] || pNormalized['product_name'];
+                else if (hLower.includes('arabic')) val = pNormalized['arabicname'] || pNormalized['arabic_name'];
+                else if (hLower.includes('description')) val = pNormalized['description(80word)'] || pNormalized['description'] || pNormalized['description(80words)'];
+                else if (hLower.includes('price') && hLower.includes('<')) val = pNormalized['price<25qty'] || pNormalized['price'];
+                else if (hLower.includes('price') && hLower.includes('>=')) val = pNormalized['price>=25qty'];
                 else if (hLower.includes('category')) val = pNormalized['category'];
                 else if (hLower.includes('collection')) val = pNormalized['collection'];
                 else if (hLower.includes('available')) val = pNormalized['available'] || "TRUE";
