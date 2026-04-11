@@ -78,7 +78,7 @@ async function loadGeminiCredentials() {
     } catch (e) {
         console.warn("Admin: Failed to load Gemini keys from local API, trying GAS...", e);
         try {
-            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+            const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbyboPJ2chc70YohVOA5Q94oQUp8uxwbk293KK56Ru7sKIKrfIkUktM1VyXfnTSBTpsDoA/exec';
 
             // --- TRY SUPABASE FIRST (Reliable CORS) ---
             if (window.supabaseClient) {
@@ -1368,7 +1368,7 @@ Instructions for the AI:
             const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.0-pro'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
-            const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+            const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyboPJ2chc70YohVOA5Q94oQUp8uxwbk293KK56Ru7sKIKrfIkUktM1VyXfnTSBTpsDoA/exec';
 
             const logContainer = document.getElementById('social-ai-log-container');
             const logElement = document.getElementById('social-ai-log');

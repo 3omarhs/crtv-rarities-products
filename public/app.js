@@ -6,7 +6,7 @@ const GID = '897526080';
 const CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/products.csv';
 
 // IMPORTANT: Replace this URL with your new Google Apps Script Web App URL!
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyboPJ2chc70YohVOA5Q94oQUp8uxwbk293KK56Ru7sKIKrfIkUktM1VyXfnTSBTpsDoA/exec';
 window.GAS_URL = GAS_URL;
 
 // Assets Configuration
@@ -585,7 +585,7 @@ async function init() {
     console.log("Storefront Init v5.1.20 - Starting...");
     const deviceName = getDeviceName();
     const localDate = getLocalDateStr();
-    const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
+    const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbyboPJ2chc70YohVOA5Q94oQUp8uxwbk293KK56Ru7sKIKrfIkUktM1VyXfnTSBTpsDoA/exec';
 
     // --- TRACK VISIT IMMEDIATELY ---
     // Start tracking right away so it's not delayed by catalog loading
