@@ -316,46 +316,43 @@ function handleProductUpdate(product) {
     const mutateFunc = (csvContent) => {
         if (!csvContent) return csvContent;
         
-        // Use Google's native CSV parser to handle multi-line fields correctly
+        // Use Google's native CSV parser
         const allRows = Utilities.parseCsv(csvContent);
         if (allRows.length === 0) return csvContent;
         
         const headers = allRows[0].map(h => h.trim());
         
-        // Build the new row data
         const rowData = headers.map(header => {
             const hLower = header.toLowerCase();
             
-            // Try explicit matches first
+            // Match Priority: Exact > Lowercase > Fuzzy/Inconsistency
             let val = product[header];
-            if (val === undefined) val = product[hLower];
+            if (val === undefined || val === '') val = product[hLower];
             
-            // Fuzzy/Inconsistency matching
-            if (val === undefined) {
+            if (val === undefined || val === '') {
                 if (hLower.includes('name on store')) val = product['Name on Store'] || product['store_name'];
-                if (hLower.includes('product name')) val = product['Product Name'] || product['product name'];
-                if (hLower.includes('arabic')) val = product['Arabic Name'] || product['arabic_name'];
-                if (hLower.includes('description')) val = product['description (80 word)'] || product['Description'] || product['description'];
-                if (hLower.includes('price') && hLower.includes('<')) val = product['Price < 25 QTY'] || product['price_low_qty'];
-                if (hLower.includes('price') && hLower.includes('>=')) val = product['Price >=25 QTY'] || product['price_high_qty'];
-                if (hLower.includes('colors')) val = product['Colors'] || product['color'];
-                if (hLower.includes('dimensions')) val = product['Dimensions(mm) x y z'] || product['dimensions'];
-                if (hLower.includes('target market')) val = product['target market'] || product['target_market'];
-                if (hLower.includes('collection')) val = product['collection'];
-                if (hLower.includes('category')) val = product['category'];
+                else if (hLower.includes('product name')) val = product['Product Name'] || product['product name'];
+                else if (hLower.includes('arabic')) val = product['Arabic Name'] || product['arabic_name'];
+                else if (hLower.includes('description')) val = product['description (80 word)'] || product['Description'] || product['description'];
+                else if (hLower.includes('price') && hLower.includes('<')) val = product['Price < 25 QTY'] || product['price_low_qty'];
+                else if (hLower.includes('price') && hLower.includes('>=')) val = product['Price >=25 QTY'] || product['price_high_qty'];
+                else if (hLower.includes('colors')) val = product['Colors'] || product['color'];
+                else if (hLower.includes('dimensions')) val = product['Dimensions(mm) x y z'] || product['dimensions'];
+                else if (hLower.includes('target market')) val = product['target market'] || product['target_market'];
+                else if (hLower.includes('available')) val = product['Available'] || "TRUE";
+                else if (hLower.includes('hidden')) val = product['Hidden'] || "FALSE";
             }
 
-            if (typeof val === 'undefined' || val === null) val = '';
-            return String(val);
+            return val === undefined || val === null ? '' : String(val);
         });
 
         const action = product.action || 'addProduct';
         let found = false;
+        const noIndex = headers.findIndex(h => h.toLowerCase() === 'no');
         
-        if (action === 'updateProduct') {
-            const noIndex = headers.findIndex(h => h.toLowerCase() === 'no');
-            if (noIndex !== -1) {
-                const targetNo = String(product.No || product.no);
+        if (action === 'updateProduct' && noIndex !== -1) {
+            const targetNo = String(product.No || product.no || "");
+            if (targetNo) {
                 for (let i = 1; i < allRows.length; i++) {
                     if (String(allRows[i][noIndex]) === targetNo) {
                         allRows[i] = rowData;
@@ -370,7 +367,6 @@ function handleProductUpdate(product) {
             allRows.push(rowData);
         }
 
-        // Reconstruct CSV safely
         return allRows.map(row => {
             return row.map(cell => {
                 let strVal = String(cell).replace(/"/g, '""');
