@@ -313,48 +313,7 @@ function handleVisit(params) {
     return jsonResponse({ status: 'success' });
 }
 
-function saveImageToDrive(base64Data, fileName, mimeType) {
-    const FOLDER_NAME = "Storefront Images";
-    let folder;
-    const folders = DriveApp.getFoldersByName(FOLDER_NAME);
-    
-    if (folders.hasNext()) {
-      folder = folders.next();
-    } else {
-      folder = DriveApp.createFolder(FOLDER_NAME);
-      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    }
-    
-    const contentType = base64Data.match(/^data:([^;]+);base64,/);
-    const pureBase64 = base64Data.replace(/^data:[^;]+;base64,/, "");
-    const blob = Utilities.newBlob(Utilities.base64Decode(pureBase64), mimeType || (contentType ? contentType[1] : "image/jpeg"), fileName);
-    
-    const existingFiles = folder.getFilesByName(fileName);
-    while (existingFiles.hasNext()) {
-      existingFiles.next().setTrashed(true);
-    }
-    
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    return `https://drive.google.com/file/d/${file.getId()}/view?usp=drive_link`;
-}
-
 function handleProductUpdate(product) {
-    // Intercept image base64 and turn it into a Drive URL
-    if (product.image && typeof product.image === 'string' && product.image.length > 500) {
-        try {
-            const fileName = product.imageName || `${product['No'] || product['no'] || 'image'}.jpg`;
-            const driveUrl = saveImageToDrive(product.image, fileName, product.mimeType);
-            product.image = driveUrl; // Replace base64 with URL
-            product.Image = driveUrl; // Catch both casings
-        } catch (e) {
-            // Failsafe: if Drive API fails, drop the base64 instead of corrupting the CSV
-            product.image = '';
-            product.Image = '';
-        }
-    }
-
     const path = 'data/products.csv';
     const mutateFunc = (csvContent) => {
         if (!csvContent) return csvContent;
