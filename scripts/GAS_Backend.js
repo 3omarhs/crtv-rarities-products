@@ -314,64 +314,72 @@ function handleVisit(params) {
 function handleProductUpdate(product) {
     const path = 'data/products.csv';
     const mutateFunc = (csvContent) => {
-        const rows = csvContent.split('\n');
-        if (rows.length === 0) return csvContent;
+        if (!csvContent) return csvContent;
         
-        // Get existing headers from the CSV
-        const headers = rows[0].split(',').map(h => h.trim());
+        // Use Google's native CSV parser to handle multi-line fields correctly
+        const allRows = Utilities.parseCsv(csvContent);
+        if (allRows.length === 0) return csvContent;
         
-        // Map product object to headers
+        const headers = allRows[0].map(h => h.trim());
+        
+        // Build the new row data
         const rowData = headers.map(header => {
             const hLower = header.toLowerCase();
             
-            // Priority matching: Try exact match, then lowercase, then fuzzy
+            // Try explicit matches first
             let val = product[header];
             if (val === undefined) val = product[hLower];
             
-            // Special mappings for common inconsistencies
+            // Fuzzy/Inconsistency matching
             if (val === undefined) {
                 if (hLower.includes('name on store')) val = product['Name on Store'] || product['store_name'];
                 if (hLower.includes('product name')) val = product['Product Name'] || product['product name'];
                 if (hLower.includes('arabic')) val = product['Arabic Name'] || product['arabic_name'];
-                if (hLower.includes('description')) val = product['description (80 word)'] || product['Description'];
+                if (hLower.includes('description')) val = product['description (80 word)'] || product['Description'] || product['description'];
                 if (hLower.includes('price') && hLower.includes('<')) val = product['Price < 25 QTY'] || product['price_low_qty'];
                 if (hLower.includes('price') && hLower.includes('>=')) val = product['Price >=25 QTY'] || product['price_high_qty'];
                 if (hLower.includes('colors')) val = product['Colors'] || product['color'];
                 if (hLower.includes('dimensions')) val = product['Dimensions(mm) x y z'] || product['dimensions'];
                 if (hLower.includes('target market')) val = product['target market'] || product['target_market'];
+                if (hLower.includes('collection')) val = product['collection'];
+                if (hLower.includes('category')) val = product['category'];
             }
 
             if (typeof val === 'undefined' || val === null) val = '';
-            
-            // CSV Escape
-            let strVal = String(val).replace(/"/g, '""');
-            if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) {
-                strVal = `"${strVal}"`;
-            }
-            return strVal;
-        }).join(',');
+            return String(val);
+        });
 
         const action = product.action || 'addProduct';
+        let found = false;
+        
         if (action === 'updateProduct') {
             const noIndex = headers.findIndex(h => h.toLowerCase() === 'no');
             if (noIndex !== -1) {
                 const targetNo = String(product.No || product.no);
-                let out = [rows[0]];
-                for (let i = 1; i < rows.length; i++) {
-                    if (!rows[i].trim()) continue;
-                    const p = parseCSVLine(rows[i]);
-                    if (p[noIndex] == targetNo) {
-                        out.push(rowData);
-                    } else {
-                        out.push(rows[i]);
+                for (let i = 1; i < allRows.length; i++) {
+                    if (String(allRows[i][noIndex]) === targetNo) {
+                        allRows[i] = rowData;
+                        found = true;
+                        break;
                     }
                 }
-                return out.join('\n');
             }
         }
 
-        // Default: Add as new row
-        return csvContent.trim() + '\n' + rowData;
+        if (!found) {
+            allRows.push(rowData);
+        }
+
+        // Reconstruct CSV safely
+        return allRows.map(row => {
+            return row.map(cell => {
+                let strVal = String(cell).replace(/"/g, '""');
+                if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) {
+                    return `"${strVal}"`;
+                }
+                return strVal;
+            }).join(',');
+        }).join('\n');
     };
 
     const res = updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Product ${product.action || 'update'} ${product.No || product.no}`);
