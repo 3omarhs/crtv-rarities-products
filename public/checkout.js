@@ -1,4 +1,4 @@
-// Checkout System Logic
+﻿// Checkout System Logic
 // Handles the multi-step modal, delivery calculation, and WhatsApp submission
 
 let checkoutState = {
@@ -729,7 +729,7 @@ function submitOrder() {
                 // --- GITHUB PAGES PERSISTENCE VIA GAS ---
                 const saveOrderData = async () => {
                     try {
-                        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+                        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
                         await fetch(gasUrl, {
                             method: 'POST',
                             mode: 'no-cors',

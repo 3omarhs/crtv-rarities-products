@@ -1,8 +1,8 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzzrf3GIJo4fS2nkJrBR4-LaEdYRh19QyrPXTgLA6_7Ya1iX0joKtwLSjWp9WU8CcJ_Fw/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
 const DATA_DIR = path.join(__dirname, '..', 'data');
 
 async function migrate() {
