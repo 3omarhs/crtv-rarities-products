@@ -85,8 +85,8 @@ async function loadGeminiCredentials() {
                 console.log("Admin: Trying to fetch Gemini keys from Supabase...");
                 const { data: supaKeys, error } = await window.supabaseClient.from('gemini_keys').select('key');
                 if (!error && supaKeys && supaKeys.length > 0) {
-                    GEMINI_API_KEYS = supaKeys.map(item => decodeApiKey(item.key));
-                    console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} keys from Supabase.`);
+                    GEMINI_API_KEYS = supaKeys.map(item => item.key).filter(k => k);
+                    console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} keys (Raw/Encoded) from Supabase.`);
                     return;
                 }
             }
@@ -108,8 +108,8 @@ async function loadGeminiCredentials() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.keys && Array.isArray(data.keys)) {
-                    GEMINI_API_KEYS = data.keys.map(decodeApiKey);
-                    console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from GAS.`);
+                    GEMINI_API_KEYS = data.keys.filter(k => k && k.trim().length > 0);
+                    console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys (Raw/Encoded) from GAS.`);
                 }
             }
 
@@ -125,7 +125,7 @@ async function loadGeminiCredentials() {
                  if (altResponse.ok) {
                      const altData = await altResponse.json();
                      if (altData.keys && altData.keys.length > 0) {
-                         GEMINI_API_KEYS = altData.keys.map(decodeApiKey);
+                         GEMINI_API_KEYS = altData.keys.filter(k => k && k.trim().length > 0);
                          console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from alternate keys.csv.`);
                      }
                  }
@@ -253,71 +253,108 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                     outerLoop:
                     for (const modelName of models) {
-                        for (let rawKey of GEMINI_API_KEYS) {
-                            try {
-                                const apiKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
-                                const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
+                        for (const apiVer of ['v1beta', 'v1']) {
+                            for (let k = 0; k < GEMINI_API_KEYS.length; k++) {
+                                let rawKey = GEMINI_API_KEYS[k];
+                                try {
+                                    const apiKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
+                                    const directUrl = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${apiKey}`;
 
-                                const directRes = await fetch(directUrl, {
-                                    method: 'POST',
-                                    mode: 'cors',
-                                    redirect: 'follow',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        contents: [{
-                                            parts: [
-                                                { text: prompt },
-                                                { inlineData: { mimeType: mimeType, data: base64Data } }
-                                            ]
-                                        }]
-                                    })
-                                });
+                                    console.log(`Attempting Direct AI: ${modelName} (${apiVer}) with Key ${k+1}...`);
 
-                                if (directRes.ok) {
-                                    response = directRes;
-                                    break outerLoop;
-                                } else {
-                                    const code = directRes.status;
-                                    console.warn(`AI (${modelName}) failed: ${code}`);
-                                    if (code === 429) {
-                                        console.log("Rate limited. Waiting 2s before next key...");
-                                        await new Promise(r => setTimeout(r, 2000));
+                                    const directRes = await fetch(directUrl, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            contents: [{
+                                                parts: [
+                                                    { text: prompt },
+                                                    { inlineData: { mimeType: mimeType, data: base64Data } }
+                                                ]
+                                            }]
+                                        })
+                                    });
+
+                                    if (directRes.ok) {
+                                        response = directRes;
+                                        success = true;
+                                        break outerLoop;
+                                    } else {
+                                        const errText = await directRes.text();
+                                        console.warn(`Direct AI (${modelName}) failed with status ${directRes.status}: ${errText.substring(0, 100)}`);
+                                        if (directRes.status === 429) {
+                                            await new Promise(r => setTimeout(r, 1000));
+                                        }
                                     }
+                                } catch (e) {
+                                    console.warn(`Direct AI Attempt Error:`, e.name === 'AbortError' ? 'Timeout' : e.message);
                                 }
-                            } catch (e) {
-                                console.warn(`AI Attempt Error:`, e.name === 'AbortError' ? 'Timeout' : e.message);
                             }
                         }
                     }
                 }
 
                 // 2. Fallback to GAS Proxy if everything else failed
-                if (!response || !response.ok) {
+                if (!success) {
                     const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
-                    console.log(`Universal Direct AI failed, extreme fallback to GAS...`);
+                    console.log(`Universal Direct AI failed, extreme fallback to GAS with ${GEMINI_API_KEYS.length} keys...`);
 
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for fallback proxy
+                    for (let k = 0; k < GEMINI_API_KEYS.length; k++) {
+                        let rawKey = GEMINI_API_KEYS[k];
+                        const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
+                        
+                        // Try models in GAS too
+                        for (const modelName of models) {
+                            try {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 50000); 
 
-                    response = await fetch(gasUrl, {
-                        method: 'POST',
-                        mode: 'cors',
-                        redirect: 'follow',
-                        signal: controller.signal,
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({
-                            action: 'proxyGemini',
-                            payload: {
-                                contents: [{
-                                    parts: [
-                                        { text: prompt },
-                                        { inlineData: { mimeType: mimeType, data: base64Data } }
-                                    ]
-                                }]
+                                const gasRes = await fetch(gasUrl, {
+                                    method: 'POST',
+                                    mode: 'cors',
+                                    redirect: 'follow',
+                                    signal: controller.signal,
+                                    headers: { 'Content-Type': 'text/plain' },
+                                    body: JSON.stringify({
+                                        action: 'proxyGemini',
+                                        payload: {
+                                            key: gasKey,
+                                            model: modelName,
+                                            data: {
+                                                contents: [{
+                                                    parts: [
+                                                        { text: prompt },
+                                                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                                                    ]
+                                                }]
+                                            }
+                                        }
+                                    })
+                                });
+                                clearTimeout(timeoutId);
+
+                                if (gasRes.ok) {
+                                    const rawRes = await gasRes.text();
+                                    let jsonRes;
+                                    try { jsonRes = JSON.parse(rawRes); } catch(e) {}
+                                    
+                                    if (jsonRes && jsonRes.candidates && jsonRes.candidates[0].content) {
+                                        // Wrap jsonRes to match fetch response interface expected later
+                                        response = { 
+                                            ok: true, 
+                                            json: async () => jsonRes,
+                                            text: async () => JSON.stringify(jsonRes)
+                                        };
+                                        success = true;
+                                        break;
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`GAS Fallback Error (${modelName}):`, e.message);
                             }
-                        })
-                    });
-                    clearTimeout(timeoutId);
+                        }
+                        if (success) break;
+                    }
                 }
 
                 if (!response.ok) {
@@ -1343,62 +1380,54 @@ Instructions for the AI:
                 if (!logElement) return;
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 const color = type === 'error' ? '#f87171' : (type === 'success' ? '#34d399' : '#94a3b8');
-                logElement.innerHTML += `<div style="margin-bottom:4px; color:${color}">[${time}] ${msg}</div>`;
+                logElement.innerHTML += `<div style="margin-bottom:4px; font-size:0.85rem; color:${color}">[${time}] ${msg}</div>`;
                 logElement.scrollTop = logElement.scrollHeight;
             }
 
             outerLoopSocial:
             for (let i = 0; i < allKeys.length; i++) {
-                const apiKey = allKeys[i];
+                const rawKey = allKeys[i];
                 const keyLabel = `Key ${i + 1}`;
-                const decodedKey = decodeApiKey(apiKey);
-                const isDecoded = decodedKey.startsWith('AIza');
+                const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
+                const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
 
                 for (const model of modelsToTry) {
-                    const isDecoded = !apiKey.startsWith('AIza');
-                    addSocialLog(`Attempting ${model} with ${keyLabel} (${isDecoded ? 'Decoded' : 'Raw'})...`);
-                    
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 45000); 
+                    for (const apiVer of ['v1beta', 'v1']) {
+                        addSocialLog(`Attempting ${model} (${apiVer}) with ${keyLabel} (${keyType})...`);
+                        
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 45000); 
 
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${decodedKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            signal: controller.signal,
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: prompt }] }]
-                            })
-                        });
-                        clearTimeout(timeoutId);
+                            const response = await fetch(`https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${decodedKey}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                signal: controller.signal,
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: prompt }] }]
+                                })
+                            });
+                            clearTimeout(timeoutId);
 
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.candidates && data.candidates[0].content) {
-                                output.value = data.candidates[0].content.parts[0].text.trim();
-                                addSocialLog(`✅ Success! Caption generated with ${keyLabel}.`, 'success');
-                                success = true;
-                                break outerLoopSocial;
-                            }
-                        } else {
-                            const errData = await response.json().catch(() => ({}));
-                            const errCode = errData.error && errData.error.status ? errData.error.status : response.status;
-                            const errMsg = errData.error && errData.error.message ? errData.error.message : 'Unknown Error';
-                            
-                            if (response.status === 429) {
-                                addSocialLog(`❌ ${keyLabel}: Quota Exhausted (429).`, 'error');
-                            } else if (response.status === 400) {
-                                if (errMsg.includes('key not valid')) {
-                                    addSocialLog(`❌ ${keyLabel}: Key Invalid (400).`, 'error');
-                                } else {
-                                    addSocialLog(`❌ ${keyLabel}: Location Blocked or Bad Request (400).`, 'error');
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.candidates && data.candidates[0].content) {
+                                    output.value = data.candidates[0].content.parts[0].text.trim();
+                                    addSocialLog(`✅ Success with ${keyLabel}!`, 'success');
+                                    success = true;
+                                    break outerLoopSocial;
                                 }
                             } else {
-                                addSocialLog(`❌ ${keyLabel}: Failed (${response.status}).`, 'error');
+                                const errText = await response.text();
+                                let errData = {};
+                                try { errData = JSON.parse(errText); } catch(e) {}
+                                
+                                const errMsg = errData.error?.message || errText.substring(0, 50) || 'Unknown';
+                                addSocialLog(`❌ ${keyLabel}: ${response.status} - ${errMsg}`, 'error');
                             }
+                        } catch (e) {
+                            addSocialLog(`❌ ${keyLabel}: ${e.name === 'AbortError' ? 'Timeout' : e.message}`, 'error');
                         }
-                    } catch (e) {
-                        addSocialLog(`❌ ${keyLabel}: ${e.name === 'AbortError' ? 'Timed out (45s)' : 'Fetch Error'}.`, 'error');
                     }
                 }
             }
@@ -1407,54 +1436,56 @@ Instructions for the AI:
                 addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback with ${allKeys.length} keys...`);
                 
                 for (let k = 0; k < allKeys.length; k++) {
-                    const gasKey = decodeApiKey(allKeys[k]);
+                    const rawKey = allKeys[k];
+                    const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                     const keyLabel = `Key ${k + 1}`;
-                    addSocialLog(`Attempting GAS Fallback with ${keyLabel}...`);
+                    
+                    for (const model of modelsToTry) {
+                        addSocialLog(`Attempting GAS Fallback with ${keyLabel} (${model})...`);
 
-                    try {
-                        const gasController = new AbortController();
-                        const gasTimeout = setTimeout(() => gasController.abort(), 50000);
-                        const response = await fetch(GAS_FALLBACK_URL, {
-                            method: 'POST',
-                            mode: 'cors',
-                            redirect: 'follow',
-                            signal: gasController.signal,
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify({
-                                action: 'proxyGemini',
-                                payload: {
-                                    key: gasKey,
-                                    model: 'gemini-1.5-flash',
-                                    data: { contents: [{ parts: [{ text: prompt }] }] }
+                        try {
+                            const gasController = new AbortController();
+                            const gasTimeout = setTimeout(() => gasController.abort(), 50000);
+                            const response = await fetch(GAS_FALLBACK_URL, {
+                                method: 'POST',
+                                mode: 'cors',
+                                redirect: 'follow',
+                                signal: gasController.signal,
+                                headers: { 'Content-Type': 'text/plain' },
+                                body: JSON.stringify({
+                                    action: 'proxyGemini',
+                                    payload: {
+                                        key: gasKey,
+                                        model: model,
+                                        data: { contents: [{ parts: [{ text: prompt }] }] }
+                                    }
+                                })
+                            });
+                            clearTimeout(gasTimeout);
+
+                            if (response.ok) {
+                                const rawText = await response.text();
+                                let data;
+                                try { data = JSON.parse(rawText); } catch(pe) {
+                                    addSocialLog(`❌ GAS Fallback (${keyLabel}): Bad JSON.`, 'error');
+                                    continue;
                                 }
-                            })
-                        });
-                        clearTimeout(gasTimeout);
-
-                        if (response.ok) {
-                            const rawText = await response.text();
-                            let data;
-                            try { data = JSON.parse(rawText); } catch(pe) {
-                                addSocialLog(`❌ GAS Fallback (${keyLabel}): Cannot parse response JSON.`, 'error');
-                                continue;
-                            }
-                            if (data && data.candidates && data.candidates[0].content) {
-                                output.value = data.candidates[0].content.parts[0].text.trim();
-                                addSocialLog(`✅ GAS Fallback succeeded with ${keyLabel}!`, 'success');
-                                success = true;
-                                break;
-                            } else if (data && data.error) {
-                                const gasErrCode = data.error.code || '';
-                                const gasErrMsg = data.error.message || 'Unknown';
-                                addSocialLog(`❌ GAS Fallback (${keyLabel}): API error ${gasErrCode}.`, 'error');
+                                if (data && data.candidates && data.candidates[0].content) {
+                                    output.value = data.candidates[0].content.parts[0].text.trim();
+                                    addSocialLog(`✅ GAS Fallback Success with ${keyLabel}!`, 'success');
+                                    success = true;
+                                    return; // Successfully finished
+                                } else if (data && data.error) {
+                                    const gasErrMsg = data.error.message || 'Unknown';
+                                    addSocialLog(`❌ GAS Fallback (${keyLabel}): ${gasErrMsg.substring(0, 50)}`, 'error');
+                                }
                             } else {
-                                addSocialLog(`❌ GAS Fallback (${keyLabel}): No candidates.`, 'error');
+                                const errBody = await response.text().catch(() => '');
+                                addSocialLog(`❌ GAS Fallback (${keyLabel}): ${response.status} ${errBody.substring(0, 30)}`, 'error');
                             }
-                        } else {
-                            addSocialLog(`❌ GAS Fallback (${keyLabel}): HTTP ${response.status}.`, 'error');
+                        } catch (e) {
+                            addSocialLog(`❌ GAS Fallback (${keyLabel}): ${e.message}`, 'error');
                         }
-                    } catch (e) {
-                        addSocialLog(`❌ GAS Fallback (${keyLabel}): ${e.message}`, 'error');
                     }
                 }
             }
