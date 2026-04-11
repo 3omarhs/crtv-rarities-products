@@ -113,7 +113,7 @@ async function loadGeminiCredentials() {
                 }
             }
 
-            // --- DEEP REDUNDANCY: Check 'keys.csv' if 'gemini_keys.csv' was empty ---
+            // --- DEEP REDUNDANCY 1: Check 'keys.csv' if 'gemini_keys.csv' was empty ---
             if (GEMINI_API_KEYS.length === 0) {
                  console.log("Admin: Key check fallback to keys.csv...");
                  let altResponse = await fetch(gasUrl, {
@@ -129,6 +129,35 @@ async function loadGeminiCredentials() {
                          console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from alternate keys.csv.`);
                      }
                  }
+            }
+
+            // --- THE ULTIMATE FALLBACK: DIRECT FETCH FROM GITHUB (BYPASS PROXY) ---
+            if (GEMINI_API_KEYS.length === 0) {
+                console.log("Admin: ALL proxies failed. Attempting DIRECT GitHub fetch for keys...");
+                try {
+                    const githubRawUrl = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/gemini_keys.csv?v=' + Date.now();
+                    const ghResponse = await fetch(githubRawUrl);
+                    if (ghResponse.ok) {
+                        const csvText = await ghResponse.text();
+                        // Parse simple CSV: Skip header, get second column
+                        const rows = csvText.split('\n').slice(1);
+                        const extractedKeys = rows
+                            .map(r => r.trim())
+                            .filter(r => r.length > 0)
+                            .map(r => {
+                                const parts = r.split(',');
+                                return parts.length >= 2 ? parts.slice(1).join(',').trim() : parts[0].trim();
+                            })
+                            .filter(k => k.length > 5); // Ignore very short/empty keys
+                        
+                        if (extractedKeys.length > 0) {
+                            GEMINI_API_KEYS = extractedKeys;
+                            console.log(`Admin: 🚀 ULTIMATE SUCCESS! Loaded ${GEMINI_API_KEYS.length} keys directly from GitHub.`);
+                        }
+                    }
+                } catch (ghErr) {
+                    console.error("Admin: Direct GitHub fetch failed as well.", ghErr);
+                }
             }
         } catch (gasErr) {
             console.error("Admin: All Gemini key sources failed", gasErr);
