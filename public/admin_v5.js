@@ -21,6 +21,15 @@ function updateDynamicVersion() {
 let ADMIN_USERS = [];
 let GEMINI_API_KEYS = []; // Array for rotation
 
+// --- CENTRAL CONFIG ---
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
+function getGasUrl() {
+    return (document.getElementById('settings-google-script-url')?.value || 
+            document.getElementById('google-script-url')?.value || 
+            window.GAS_URL || 
+            DEFAULT_GAS_URL).trim();
+}
+
 // Decode Function for API Keys
 function decodeApiKey(encoded) {
     const cleaned = encoded ? String(encoded).trim() : '';
@@ -2435,7 +2444,7 @@ window.updateOrderStatus = async function (id, newStatus) {
     }
 
     // Try GAS
-    const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderStatus', orderId: id, status: newStatus });
@@ -2476,7 +2485,7 @@ window.toggleDeliveryCalc = async function(event, id) {
     let success = false;
     
     // Try GAS
-    const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderDeliveryToggle', orderId: id, calculateDelivery: isChecked });
