@@ -245,16 +245,17 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
                     // Include primary flash model and fallback models
-                    // Updated model rotation: exclude flash-latest due to access restrictions
-                    const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+                    // Updated model rotation: use stable and widely available models
+                    const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
                     const endpoint = 'v1beta';
 
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
 
                     outerLoop:
                     for (const modelName of models) {
-                        for (const apiKey of GEMINI_API_KEYS) {
+                        for (let rawKey of GEMINI_API_KEYS) {
                             try {
+                                const apiKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                                 const directUrl = `https://generativelanguage.googleapis.com/${endpoint}/models/${modelName}:generateContent?key=${apiKey}`;
 
                                 const directRes = await fetch(directUrl, {
@@ -1327,8 +1328,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Updated model rotation for Social Media Magic: exclude flash-latest due to access restrictions
-            const modelsToTry = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+            // Updated model rotation for Social Media Magic: use stable models
+            const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyaM9NNHAXKXg-6ECi_Hx6Qn7tyoOyNd7YgfLGXfSNtkWUZXD1m5XChvXC2vL0oJ8Wdkw/exec';
@@ -1354,6 +1355,7 @@ Instructions for the AI:
                 const isDecoded = decodedKey.startsWith('AIza');
 
                 for (const model of modelsToTry) {
+                    const isDecoded = !apiKey.startsWith('AIza');
                     addSocialLog(`Attempting ${model} with ${keyLabel} (${isDecoded ? 'Decoded' : 'Raw'})...`);
                     
                     try {
@@ -1402,55 +1404,58 @@ Instructions for the AI:
             }
 
             if (!success) {
-                addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback...`);
-                try {
-                    const gasFirstKey = GEMINI_API_KEYS.length > 0 ? decodeApiKey(GEMINI_API_KEYS[0]) : '';
-                    const gasController = new AbortController();
-                    const gasTimeout = setTimeout(() => gasController.abort(), 50000);
-                    const response = await fetch(GAS_FALLBACK_URL, {
-                        method: 'POST',
-                        mode: 'cors',
-                        redirect: 'follow',
-                        signal: gasController.signal,
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({
-                            action: 'proxyGemini',
-                            payload: {
-                                key: gasFirstKey,
-                                model: 'gemini-flash-latest',
-                                data: { contents: [{ parts: [{ text: prompt }] }] }
-                            }
-                        })
-                    });
-                    clearTimeout(gasTimeout);
+                addSocialLog(`⚠️ Direct attempts failed. Trying GAS Fallback with ${allKeys.length} keys...`);
+                
+                for (let k = 0; k < allKeys.length; k++) {
+                    const gasKey = decodeApiKey(allKeys[k]);
+                    const keyLabel = `Key ${k + 1}`;
+                    addSocialLog(`Attempting GAS Fallback with ${keyLabel}...`);
 
-                    if (response.ok) {
-                        const rawText = await response.text();
-                        let data;
-                        try { data = JSON.parse(rawText); } catch(pe) {
-                            addSocialLog(`❌ GAS Fallback: Cannot parse response JSON.`, 'error');
-                            console.warn("GAS raw response:", rawText.substring(0, 300));
-                        }
-                        if (data && data.candidates && data.candidates[0].content) {
-                            output.value = data.candidates[0].content.parts[0].text.trim();
-                            addSocialLog(`✅ GAS Fallback succeeded! Caption generated.`, 'success');
-                            success = true;
-                        } else if (data && data.error) {
-                            const gasErrCode = data.error.code || '';
-                            const gasErrMsg = data.error.message || 'Unknown';
-                            addSocialLog(`❌ GAS Fallback: Gemini API error ${gasErrCode} - ${gasErrMsg.substring(0, 80)}`, 'error');
-                            console.warn("GAS Gemini error:", data.error);
+                    try {
+                        const gasController = new AbortController();
+                        const gasTimeout = setTimeout(() => gasController.abort(), 50000);
+                        const response = await fetch(GAS_FALLBACK_URL, {
+                            method: 'POST',
+                            mode: 'cors',
+                            redirect: 'follow',
+                            signal: gasController.signal,
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({
+                                action: 'proxyGemini',
+                                payload: {
+                                    key: gasKey,
+                                    model: 'gemini-1.5-flash',
+                                    data: { contents: [{ parts: [{ text: prompt }] }] }
+                                }
+                            })
+                        });
+                        clearTimeout(gasTimeout);
+
+                        if (response.ok) {
+                            const rawText = await response.text();
+                            let data;
+                            try { data = JSON.parse(rawText); } catch(pe) {
+                                addSocialLog(`❌ GAS Fallback (${keyLabel}): Cannot parse response JSON.`, 'error');
+                                continue;
+                            }
+                            if (data && data.candidates && data.candidates[0].content) {
+                                output.value = data.candidates[0].content.parts[0].text.trim();
+                                addSocialLog(`✅ GAS Fallback succeeded with ${keyLabel}!`, 'success');
+                                success = true;
+                                break;
+                            } else if (data && data.error) {
+                                const gasErrCode = data.error.code || '';
+                                const gasErrMsg = data.error.message || 'Unknown';
+                                addSocialLog(`❌ GAS Fallback (${keyLabel}): API error ${gasErrCode}.`, 'error');
+                            } else {
+                                addSocialLog(`❌ GAS Fallback (${keyLabel}): No candidates.`, 'error');
+                            }
                         } else {
-                            addSocialLog(`❌ GAS Fallback: No candidates in response.`, 'error');
-                            console.warn("GAS unexpected response:", data);
+                            addSocialLog(`❌ GAS Fallback (${keyLabel}): HTTP ${response.status}.`, 'error');
                         }
-                    } else {
-                        const errBody = await response.text().catch(() => '');
-                        addSocialLog(`❌ GAS Fallback HTTP error: ${response.status} ${errBody.substring(0,80)}`, 'error');
+                    } catch (e) {
+                        addSocialLog(`❌ GAS Fallback (${keyLabel}): ${e.message}`, 'error');
                     }
-                } catch (e) {
-                    addSocialLog(`❌ GAS Fallback error: ${e.message}`, 'error');
-                    console.warn("GAS Social Fallback failed", e);
                 }
             }
 
