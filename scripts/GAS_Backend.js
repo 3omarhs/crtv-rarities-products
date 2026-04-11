@@ -34,6 +34,7 @@ function handleAllActions(action, params) {
         if (action === 'uploadImage') return handleImageUpload(params);
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
         if (action === 'updateOrderDeliveryToggle') return handleUpdateOrderDeliveryToggle(params.orderId || params.id, params.calculateDelivery);
+        if (action === 'updateOrderDate') return handleUpdateOrderDate(params.orderId || params.id, params.date);
         
         return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
@@ -72,6 +73,7 @@ function updateGitHubFile(path, appendContentStr, mutateFunc, message) {
         if (res.getResponseCode() === 200) {
             const json = JSON.parse(res.getContentText());
             sha = json.sha;
+            // Robust Base64 decode to UTF-8
             const decodedBytes = Utilities.base64Decode(json.content);
             originalContent = Utilities.newBlob(decodedBytes).getDataAsString("UTF-8");
         } else if (res.getResponseCode() !== 404) {
@@ -88,7 +90,8 @@ function updateGitHubFile(path, appendContentStr, mutateFunc, message) {
         
         const payload = {
             message: message,
-            content: Utilities.base64Encode(Utilities.newBlob(newContent, "UTF-8").getBytes()),
+            // Use explicit UTF-8 charset for Base64 encoding
+            content: Utilities.base64Encode(newContent, Utilities.Charset.UTF_8),
             sha: sha
         };
         
@@ -126,7 +129,7 @@ function fetchRawGitHubCSV(path) {
     const url = `https://raw.githubusercontent.com/${REPO}/main/${path}?v=${Date.now()}`;
     const headers = GITHUB_TOKEN ? { 'Authorization': 'token ' + GITHUB_TOKEN } : {};
     const res = UrlFetchApp.fetch(url, { headers: headers, muteHttpExceptions: true });
-    if (res.getResponseCode() === 200) return res.getContentText();
+    if (res.getResponseCode() === 200) return res.getContentText("UTF-8");
     return "";
 }
 
@@ -288,6 +291,37 @@ function handleUpdateOrderDeliveryToggle(orderId, calculateDeliveryValue) {
     };
     
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Delivery Toggle ${orderId}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleUpdateOrderDate(orderId, newDate) {
+    const path = 'data/orders.csv';
+    const mutateFunc = (csvContent) => {
+        if (!csvContent) return csvContent;
+        const allRows = Utilities.parseCsv(csvContent);
+        const headers = allRows[0].map(h => h.trim());
+        const idIndex = headers.indexOf('id');
+        const dateIndex = headers.indexOf('date');
+        
+        if (idIndex === -1 || dateIndex === -1) return csvContent;
+
+        for (let i = 1; i < allRows.length; i++) {
+            if (String(allRows[i][idIndex]).trim() === String(orderId).trim()) {
+                allRows[i][dateIndex] = newDate;
+                break;
+            }
+        }
+
+        return allRows.map(row => {
+            return row.map(cell => {
+                let strVal = String(cell).replace(/"/g, '""');
+                if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) return `"${strVal}"`;
+                return strVal;
+            }).join(',');
+        }).join('\n');
+    };
+
+    updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Updated Order Date ${orderId}`);
     return jsonResponse({ status: 'success' });
 }
 

@@ -1994,7 +1994,11 @@ function renderOrdersTable(orders) {
 
             <td>${o.items ? o.items.length : 0} Items</td>
             <td>${o.total}</td>
-            <td>${new Date(o.date).toLocaleDateString()}</td>
+            <td onclick="event.stopPropagation()">
+                <input type="date" value="${o.date ? new Date(o.date).toISOString().split('T')[0] : ''}" 
+                    onchange="window.updateOrderDate('${idStr}', this.value)"
+                    style="background: transparent; border: 1px solid var(--border); color: var(--text-main); font-family: inherit; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; cursor: pointer; width: 125px;">
+            </td>
             <td>
                 <div style="display:flex; align-items:center;">
                     <div title="Delivery Fee Toggled">
@@ -2514,6 +2518,35 @@ window.toggleDeliveryCalc = async function(event, id) {
                 renderOrdersTable(window.allOrders);
             }
         }
+    }
+}
+
+window.updateOrderDate = async function(id, newDate) {
+    if (!newDate) return;
+    
+    // 1. Optimistic Update
+    if (window.allOrders) {
+        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+        if (order) {
+             // Convert '2026-04-12' back to ISO '2026-04-12T00:00:00.000Z' to maintain consistency
+            order.date = new Date(newDate).toISOString();
+            renderDashboardStats(window.allOrders, window.currentVisits);
+        }
+    }
+
+    let success = false;
+    const GAS_URL = getGasUrl();
+    if (GAS_URL && window.submitToGas) {
+        try {
+            await window.submitToGas(GAS_URL, { action: 'updateOrderDate', orderId: id, date: new Date(newDate).toISOString() });
+            success = true;
+        } catch (e) {
+            console.error("GAS Date update error", e);
+        }
+    }
+
+    if (!success) {
+        alert("Failed to update date. Please try again.");
     }
 }
 
