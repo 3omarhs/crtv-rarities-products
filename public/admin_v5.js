@@ -3339,44 +3339,49 @@ window.submitWholesaleItem = async function () {
 
     if (isNaN(specialPrice)) { alert("Please enter a valid wholesale price"); return; }
 
-    let supabaseSuccess = false;
-    if (window.supabaseClient) {
-        try {
-            console.log("Adding special offer to Supabase...");
-            const { error } = await window.supabaseClient.from('wholesale').upsert({
-                item_no: itemNo,
-                special_price: specialPrice,
-                category: category || null
-            }, { onConflict: 'item_no' });
-            if (error) throw error;
-            console.log("Special offer added to Supabase.");
-            supabaseSuccess = true;
-            window.closeWholesaleModal();
-            alert("Special offer saved to Supabase.");
-        } catch (e) {
-            console.error("Supabase Add Wholesale Error:", e);
-        }
-    }
-
-    if (supabaseSuccess) return;
-
-    const gasUrl = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    // 1. Try GAS (Primary for GitHub Pages / CSV workflow)
+    const gasUrl = getGasUrl();
     if (gasUrl) {
         try {
-            console.log("Admin: Saving special offer to GAS...");
+            console.log("Admin: Saving wholesale offer to GitHub CSV via GAS...");
             await window.submitToGas(gasUrl, {
                 action: 'saveWholesale',
                 offer: { item_no: itemNo, special_price: specialPrice, category: category }
             });
             window.closeWholesaleModal();
             loadWholesale();
+            
+            // Success in GAS usually means it's pushed to GitHub
+            alert("Wholesale offer saved to GitHub successfully.");
             return;
         } catch (e) {
             console.error("GAS Wholesale error", e);
         }
     }
 
-    alert("No backend (Supabase/GAS) available to save special offer.");
+    // 2. Fallback to Supabase
+    if (window.supabaseClient) {
+        try {
+            console.log("Adding wholesale offer to Supabase...");
+            const { error } = await window.supabaseClient.from('wholesale').upsert({
+                item_no: itemNo,
+                special_price: specialPrice,
+                category: category || null
+            }, { onConflict: 'item_no' });
+            
+            if (!error) {
+                console.log("Wholesale offer added to Supabase.");
+                window.closeWholesaleModal();
+                loadWholesale();
+                alert("Wholesale offer saved to Supabase.");
+                return;
+            }
+        } catch (e) {
+            console.error("Supabase Wholesale Error:", e);
+        }
+    }
+
+    alert("Failed to save wholesale offer. Ensure your GAS URL or Supabase is connected.");
 };
 
 window.loadWholesale = async function () {
@@ -3562,27 +3567,43 @@ window.submitWholesaleEdit = async function () {
 window.confirmWholesaleDelete = async function () {
     const itemNo = document.getElementById('delete-so-item-no').value;
 
-    let supabaseSuccess = false;
+    // 1. Try GAS (Primary for CSV delete)
+    const gasUrl = getGasUrl();
+    if (gasUrl) {
+        try {
+            console.log("Admin: Removing wholesale item via GAS...");
+            await window.submitToGas(gasUrl, {
+                action: 'deleteWholesale',
+                item_no: itemNo
+            });
+            window.closeDeleteWholesaleModal();
+            loadWholesale();
+            alert("Wholesale item removed from GitHub.");
+            return;
+        } catch (e) {
+            console.error("GAS Wholesale delete error", e);
+        }
+    }
+
+    // 2. Fallback to Supabase
     if (window.supabaseClient) {
         try {
-            console.log("Removing special offer from Supabase...");
+            console.log("Removing wholesale offer from Supabase...");
             const { error } = await window.supabaseClient.from('wholesale').delete().eq('item_no', itemNo);
-            if (error) throw error;
-            console.log("Special offer removed from Supabase.");
-            supabaseSuccess = true;
-            window.closeDeleteWholesaleModal();
-            alert("Special offer removed from Supabase.");
+            if (!error) {
+                console.log("Wholesale offer removed from Supabase.");
+                window.closeDeleteWholesaleModal();
+                loadWholesale();
+                alert("Wholesale offer removed from Supabase.");
+                return;
+            }
         } catch (e) {
             console.error("Supabase Delete Wholesale Error:", e);
         }
     }
 
-    if (supabaseSuccess) return;
-
-    // Static host limitation
-    console.warn("Removing special offer disabled.");
-    alert("Removing special offers is disabled on static GitHub Pages. Please update your backend API or Google Sheet directly.");
-    return;
+    alert("Failed to remove item. Please check your backend connection.");
+};
 
     try {
         const response = await fetch('/api/special-offers', {

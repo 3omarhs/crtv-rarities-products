@@ -29,6 +29,7 @@ function handleAllActions(action, params) {
         if (action === 'addProduct' || action === 'updateProduct') return handleProductUpdate(params.product || params);
         if (action === 'deleteProduct') return handleProductDelete(params.no);
         if (action === 'saveWholesale') return handleSaveWholesale(params.offer || params);
+        if (action === 'deleteWholesale') return handleDeleteWholesale(params.item_no || params.id);
         if (action === 'proxyGemini') return handleGeminiProxy(params.payload || params);
         if (action === 'uploadImage') return handleImageUpload(params);
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
@@ -538,6 +539,36 @@ function handleSaveWholesale(offer) {
     };
 
     updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Wholesale Item #${offer.item_no}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleDeleteWholesale(itemNo) {
+    const path = 'data/wholesale.csv';
+    const mutateFunc = (csvContent) => {
+        if (!csvContent) return csvContent;
+        const allRows = Utilities.parseCsv(csvContent);
+        const headers = allRows[0].map(h => h.trim());
+        const noIndex = headers.indexOf('item_no');
+        
+        if (noIndex === -1) return csvContent;
+
+        const outRows = [allRows[0]];
+        for (let i = 1; i < allRows.length; i++) {
+            if (String(allRows[i][noIndex]).trim() !== String(itemNo).trim()) {
+                outRows.push(allRows[i]);
+            }
+        }
+
+        return outRows.map(row => {
+            return row.map(cell => {
+                let strVal = String(cell).replace(/"/g, '""');
+                if (strVal.includes(',') || strVal.includes('\n') || strVal.includes('"')) return `"${strVal}"`;
+                return strVal;
+            }).join(',');
+        }).join('\n');
+    };
+
+    updateGitHubFile(path, null, mutateFunc, `Auto-Commit: Removed Wholesale Item #${itemNo}`);
     return jsonResponse({ status: 'success' });
 }
 
