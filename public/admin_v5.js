@@ -3605,24 +3605,7 @@ window.confirmWholesaleDelete = async function () {
     alert("Failed to remove item. Please check your backend connection.");
 };
 
-    try {
-        const response = await fetch('/api/special-offers', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item_no: itemNo })
-        });
 
-        if (response.ok) {
-            window.closeDeleteWholesaleModal();
-            loadWholesale();
-        } else {
-            alert("Failed to remove item.");
-        }
-    } catch (e) {
-        console.error("Error removing item:", e);
-        alert("Network error.");
-    }
-};
 
 window.removeWholesaleItem = function (itemNo) {
     window.showDeleteWholesaleModal(itemNo);
