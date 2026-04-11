@@ -1988,10 +1988,14 @@ function renderOrdersTable(orders) {
             <td>${new Date(o.date).toLocaleDateString()}</td>
             <td>
                 <div style="display:flex; align-items:center;">
-                    <label class="delivery-toggle-label" title="Calculate Delivery Fee" style="margin-right: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                        <input type="checkbox" onclick="event.stopPropagation(); window.toggleDeliveryCalc(event, '${idStr}')" ${String(o.calculate_delivery).toLowerCase() !== 'false' ? 'checked' : ''} style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer;">
-                        <span style="font-size: 0.7em; margin-left: 4px; color: var(--text-secondary)">Fee</span>
-                    </label>
+                    <div title="Delivery Fee Toggled">
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85rem; cursor: pointer; color: var(--text-muted);">
+                            <input type="checkbox" onclick="event.stopPropagation(); window.toggleDeliveryCalc(event, '${idStr}')" 
+                                ${String(o.calculate_delivery).toLowerCase() === 'true' ? 'checked' : ''} 
+                                style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer;">
+                            <span>Fee</span>
+                        </label>
+                    </div>
                     ${renderStatusSelect(o.id, o.status || 'Placed')}
                     <button class="btn-icon" onclick="event.stopPropagation(); window.deleteOrder('${idStr}')" title="Delete Order" style="color:var(--danger); padding:4px; margin-left:8px; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
                         <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
@@ -2416,7 +2420,7 @@ window.updateOrderStatus = async function (id, newStatus) {
         const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
         if (order) {
             order.status = newStatus;
-            renderOrdersTable(window.allOrders);
+            renderDashboardStats(window.allOrders, window.currentVisits); // Refresh everything including revenue
         }
     }
 
@@ -2464,8 +2468,8 @@ window.toggleDeliveryCalc = async function(event, id) {
         const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
         if (order) {
             order.calculate_delivery = String(isChecked);
-            // Updating delivery toggle changes the total displayed in the row, so re-render
-            renderOrdersTable(window.allOrders);
+            // Updating delivery toggle changes both the table row and the top overview revenue stat
+            renderDashboardStats(window.allOrders, window.currentVisits); 
         }
     }
 
