@@ -273,8 +273,8 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
 
                 // 1. Try Direct Gemini Call with rotation (Bypasses GAS CORS)
                 if (GEMINI_API_KEYS.length > 0) {
-                    // Final resilient rotation: 2.0 -> 1.5 -> 8b -> 1.0 Pro
-                    const models = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-1.5-flash-8b-latest', 'gemini-1.0-pro'];
+                    // Final resilient rotation: Verified Flash-Latest first -> 2.0 -> 1.5 -> 8b -> 1.0 Pro
+                    const models = ['gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b-latest', 'gemini-1.0-pro'];
                     const endpoint = 'v1beta';
 
                     console.log(`Admin: Definitive rotation through ${GEMINI_API_KEYS.length} keys...`);
@@ -1393,8 +1393,8 @@ Instructions for the AI:
 9. Use Arabic argot لهجة عامية اردنية in the generated text`;
 
             let success = false;
-            // Expanded rotation: 2.0 (High quality) -> 1.5 (Standard) -> 8b (Fast/Extra Quota) -> 1.0 Pro (Massive Quota)
-            const modelsToTry = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-1.5-flash-8b-latest', 'gemini-1.0-pro'];
+            // Expanded rotation: Verified Flash-Latest first -> 2.0 (High quality) -> 1.5 (Standard) -> 8b (Fast/Extra Quota) -> 1.0 Pro (Massive Quota)
+            const modelsToTry = ['gemini-flash-latest', 'gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash-8b-latest', 'gemini-1.0-pro'];
             const endpoint = 'v1beta';
             const allKeys = GEMINI_API_KEYS;
             const GAS_FALLBACK_URL = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbyboPJ2chc70YohVOA5Q94oQUp8uxwbk293KK56Ru7sKIKrfIkUktM1VyXfnTSBTpsDoA/exec';
