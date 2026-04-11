@@ -1156,7 +1156,7 @@ async function handleProductSubmit(e) {
                     // Keep the GAS URL pre-populated for next submission
                     const gasUrlInput = document.getElementById('google-script-url');
                     if (gasUrlInput && !gasUrlInput.value) {
-                        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
+                        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
                         gasUrlInput.value = knownGasUrl;
                     }
 
@@ -1606,7 +1606,7 @@ window.initUploadImages = async function () {
         let errors = [];
 
         try {
-            const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
+            const gasUrl = window.GAS_URL || document.getElementById('google-script-url')?.value.trim() || 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
 
             // Get existing image count from data if available
             const product = window.allProducts.find(p => String(p['No'] || p['item_no']) === productNo);
@@ -1708,7 +1708,7 @@ async function loadData() {
     console.log("Admin: loadData called");
 
     try {
-        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
+        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
 
         // 1. Fetch Orders from GAS or Fallback API
         let ordersData = await fetchOrders(gasUrl);
@@ -2945,7 +2945,7 @@ window.prepareAddProductForm = async function () {
     // Always pre-populate the GAS URL so the field is never left blank
     const gasUrlInput = document.getElementById('google-script-url');
     if (gasUrlInput) {
-        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
+        const knownGasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
         gasUrlInput.value = knownGasUrl;
     }
 

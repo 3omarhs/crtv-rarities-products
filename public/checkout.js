@@ -729,7 +729,7 @@ function submitOrder() {
                 // --- GITHUB PAGES PERSISTENCE VIA GAS ---
                 const saveOrderData = async () => {
                     try {
-                        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycbzngGEzqTHfo3iH-ZJILiPgintKFP1ZPOxNfIh8sCD6AzLSJ6dvdO7XbBNyX_auVkn99w/exec';
+                        const gasUrl = window.GAS_URL || 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
                         await fetch(gasUrl, {
                             method: 'POST',
                             mode: 'no-cors',
