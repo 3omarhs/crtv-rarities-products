@@ -2861,7 +2861,7 @@ window.getProductDetailsHtml = function (productRaw, closeJs) {
         image: productRaw['Image'] || productRaw['image'] || productRaw['Photo'] || '',
         link: productRaw['Document Link'] || productRaw['link'] || '',
         price: productRaw['Price'] || productRaw['Retail Price'] || productRaw['Price < 25 QTY'] || '0',
-        bulkPrice: productRaw['Wholesale Price'] || productRaw['Price > 25 QTY'] || '',
+        bulkPrice: productRaw['Wholesale Price'] || productRaw['Price >= 25 QTY'] || '',
         category: productRaw['Category'] || productRaw['category'],
         collection: productRaw['Collection'] || productRaw['collection'],
         dimensions: productRaw['Dimensions'] || productRaw['Dimensions(mm) x y z'],
