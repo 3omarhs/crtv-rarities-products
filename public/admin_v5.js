@@ -4290,9 +4290,9 @@ async function loadDeliveryDetails() {
                 "Regions": {
                     "Amman": 1.5, "Ajloon": 2, "Al Fanadik": 2, "Al Hashmyeh": 2, "Al Jafer": 2, "Al Omari Borders": 2, "Al Qaser": 2, "Al Qastal": 2, "Al Rosaifa": 2, "Al Sukhneh": 2, "AAy": 2, "Aqaba": 2, "Azraq": 2, "Balqa": 2, "Bereian": 2, "Der Allah": 2, "Dulail": 2, "Free Zone": 2, "Fuhais": 2, "Ghour": 2, "Ghour Al Safi": 2, "Ghweria": 2, "Irbid": 2, "Jerash": 2, "Karak": 2, "Khaldieh": 2, "MaAn / Maan": 2, "Madaba": 2, "Mahes": 2, "Moatah": 2, "Moghayam Hetein": 2, "Mwaqar": 2, "Naour": 2, "Petra": 2, "Qwaireh": 2, "Ramtha": 2, "Rashadyeh": 2, "Rwaished": 2, "Salt": 2, "Shoubak": 2, "Shouneh": 2, "Tafileh": 2, "Theban": 2, "Wadi Mousa": 2, "Yajoz": 2, "Zarqa": 2, "Zarqa Al Jadedeh": 2, "Zone 1": 2, "Zone 2": 2
                 }
-            }
+            },
             {
-                "Name": "Ordergy",
+                "Name": "Ordergy (Immediate delivery)",
                 "Regions": {
                     "Amman": 3, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 4": 4
                 }
