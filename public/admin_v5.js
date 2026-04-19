@@ -8,7 +8,7 @@ function updateDynamicVersion() {
     elements.forEach(el => {
         el.textContent = `v${APP_VERSION}`;
     });
-    
+
     const footerDisplay = document.getElementById('footer-version-display');
     if (footerDisplay) {
         footerDisplay.innerHTML = `v${APP_VERSION} (DYNAMIC) | <span style="color:var(--accent); cursor:pointer;" onclick="location.reload(true)">Force Hard Refresh</span>`;
@@ -24,17 +24,17 @@ let GEMINI_API_KEYS = []; // Array for rotation
 // --- CENTRAL CONFIG ---
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby-F1rqwiv6aneRtEL0ZV3lB8tOUQ64ckECuZDM7tXbzp85xxz6vyNvvvc718SNVjdVyQ/exec';
 function getGasUrl() {
-    return (document.getElementById('settings-google-script-url')?.value || 
-            document.getElementById('google-script-url')?.value || 
-            window.GAS_URL || 
-            DEFAULT_GAS_URL).trim();
+    return (document.getElementById('settings-google-script-url')?.value ||
+        document.getElementById('google-script-url')?.value ||
+        window.GAS_URL ||
+        DEFAULT_GAS_URL).trim();
 }
 
 // Decode Function for API Keys
 function decodeApiKey(encoded) {
     const cleaned = encoded ? String(encoded).trim() : '';
     if (!cleaned || cleaned.length < 20) return cleaned;
-    
+
     // IF THE KEY STARTS WITH 'AIza', IT IS A RAW KEY. DO NOT ATTEMPT TO DECODE.
     if (cleaned.startsWith('AIza')) {
         console.log("Admin: Key check - raw key detected, skipping decode.");
@@ -43,7 +43,7 @@ function decodeApiKey(encoded) {
 
     try {
         const pwd = 'crtv_secure_2026';
-        
+
         // Robustness: Strip CSV labels if present (e.g., "Main_Key,BASE64_STRING")
         let keyToDecode = cleaned;
         if (cleaned.includes(',')) {
@@ -124,20 +124,20 @@ async function loadGeminiCredentials() {
 
             // --- DEEP REDUNDANCY 1: Check 'keys.csv' if 'gemini_keys.csv' was empty ---
             if (GEMINI_API_KEYS.length === 0) {
-                 console.log("Admin: Key check fallback to keys.csv...");
-                 let altResponse = await fetch(gasUrl, {
-                     method: 'POST',
-                     mode: 'cors',
-                     headers: { 'Content-Type': 'text/plain' },
-                     body: JSON.stringify({ action: 'getGeminiKeys', file: 'data/keys.csv' })
-                 });
-                 if (altResponse.ok) {
-                     const altData = await altResponse.json();
-                     if (altData.keys && altData.keys.length > 0) {
-                         GEMINI_API_KEYS = altData.keys.filter(k => k && k.trim().length > 0);
-                         console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from alternate keys.csv.`);
-                     }
-                 }
+                console.log("Admin: Key check fallback to keys.csv...");
+                let altResponse = await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({ action: 'getGeminiKeys', file: 'data/keys.csv' })
+                });
+                if (altResponse.ok) {
+                    const altData = await altResponse.json();
+                    if (altData.keys && altData.keys.length > 0) {
+                        GEMINI_API_KEYS = altData.keys.filter(k => k && k.trim().length > 0);
+                        console.log(`Admin: Loaded ${GEMINI_API_KEYS.length} Gemini keys from alternate keys.csv.`);
+                    }
+                }
             }
 
             // --- THE ULTIMATE FALLBACK: DIRECT FETCH FROM GITHUB (BYPASS PROXY) ---
@@ -158,7 +158,7 @@ async function loadGeminiCredentials() {
                                 return parts.length >= 2 ? parts.slice(1).join(',').trim() : parts[0].trim();
                             })
                             .filter(k => k.length > 5); // Ignore very short/empty keys
-                        
+
                         if (extractedKeys.length > 0) {
                             GEMINI_API_KEYS = extractedKeys;
                             console.log(`Admin: ðŸš€ ULTIMATE SUCCESS! Loaded ${GEMINI_API_KEYS.length} keys directly from GitHub.`);
@@ -297,7 +297,7 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                                     const apiKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
                                     const directUrl = `https://generativelanguage.googleapis.com/${apiVer}/models/${modelName}:generateContent?key=${apiKey}`;
 
-                                    console.log(`Attempting Direct AI: ${modelName} (${apiVer}) with Key ${k+1}...`);
+                                    console.log(`Attempting Direct AI: ${modelName} (${apiVer}) with Key ${k + 1}...`);
 
                                     const directRes = await fetch(directUrl, {
                                         method: 'POST',
@@ -339,12 +339,12 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                     for (let k = 0; k < GEMINI_API_KEYS.length; k++) {
                         let rawKey = GEMINI_API_KEYS[k];
                         const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
-                        
+
                         // Try models in GAS too
                         for (const modelName of models) {
                             try {
                                 const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 50000); 
+                                const timeoutId = setTimeout(() => controller.abort(), 50000);
 
                                 const gasRes = await fetch(gasUrl, {
                                     method: 'POST',
@@ -373,12 +373,12 @@ CRITICAL: NO mention of the product being "3D printed" or "3D printing" in the d
                                 if (gasRes.ok) {
                                     const rawRes = await gasRes.text();
                                     let jsonRes;
-                                    try { jsonRes = JSON.parse(rawRes); } catch(e) {}
-                                    
+                                    try { jsonRes = JSON.parse(rawRes); } catch (e) { }
+
                                     if (jsonRes && jsonRes.candidates && jsonRes.candidates[0].content) {
                                         // Wrap jsonRes to match fetch response interface expected later
-                                        response = { 
-                                            ok: true, 
+                                        response = {
+                                            ok: true,
                                             json: async () => jsonRes,
                                             text: async () => JSON.stringify(jsonRes)
                                         };
@@ -1236,7 +1236,7 @@ async function loadSettings() {
 
     // Initial fallback URL (will be overwritten by CSV load)
     const fallbackGasUrl = 'https://script.google.com/macros/s/AKfycbxP6nQvYQK3RvS7fYRM3KNdQrqapdBPVX0IE4pG51XpkE1CxUgA7oyAJOocfwS1xsrtmA/exec';
-    
+
     // Update all URL inputs initially
     const urlInputs = ['google-script-url', 'settings-google-script-url'];
     urlInputs.forEach(id => {
@@ -1256,7 +1256,7 @@ async function loadSettings() {
         const data = {};
         Papa.parse(csvText, {
             header: true, skipEmptyLines: true,
-            complete: function(results) {
+            complete: function (results) {
                 results.data.forEach(row => {
                     if (row.key) data[row.key] = row.value;
                 });
@@ -1417,32 +1417,32 @@ Instructions for the AI:
                 logElement.scrollTop = logElement.scrollHeight;
             }
 
-                const quotaBlockedProjects = new Set();
+            const quotaBlockedProjects = new Set();
 
-                outerLoopSocial:
-                for (let i = 0; i < allKeys.length; i++) {
-                    const rawKey = allKeys[i];
-                    const keyLabel = `Key ${i + 1}`;
-                    const projectID = rawKey.substring(0, 12); // Identify unique projects by key prefix
-                    
-                    if (quotaBlockedProjects.has(projectID)) {
-                        addSocialLog(`Skipping ${keyLabel} (Project already at quota)...`);
-                        continue;
-                    }
+            outerLoopSocial:
+            for (let i = 0; i < allKeys.length; i++) {
+                const rawKey = allKeys[i];
+                const keyLabel = `Key ${i + 1}`;
+                const projectID = rawKey.substring(0, 12); // Identify unique projects by key prefix
 
-                    const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
-                    const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
-                    
-                    // Debug logging (Developer console only)
-                    console.log(`AI: ${keyLabel} length: ${decodedKey.length}, starts with: ${decodedKey.substring(0, 4)}`);
+                if (quotaBlockedProjects.has(projectID)) {
+                    addSocialLog(`Skipping ${keyLabel} (Project already at quota)...`);
+                    continue;
+                }
 
-                    for (const model of modelsToTry) {
+                const decodedKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
+                const keyType = rawKey.startsWith('AIza') ? 'Raw' : 'Decoded';
+
+                // Debug logging (Developer console only)
+                console.log(`AI: ${keyLabel} length: ${decodedKey.length}, starts with: ${decodedKey.substring(0, 4)}`);
+
+                for (const model of modelsToTry) {
                     for (const apiVer of ['v1beta', 'v1']) {
                         addSocialLog(`Attempting ${model} (${apiVer}) with ${keyLabel} (${keyType})...`);
-                        
+
                         try {
                             const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 45000); 
+                            const timeoutId = setTimeout(() => controller.abort(), 45000);
 
                             const response = await fetch(`https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${decodedKey}`, {
                                 method: 'POST',
@@ -1465,8 +1465,8 @@ Instructions for the AI:
                             } else {
                                 const errText = await response.text();
                                 let errData = {};
-                                try { errData = JSON.parse(errText); } catch(e) {}
-                                
+                                try { errData = JSON.parse(errText); } catch (e) { }
+
                                 const errMsg = errData.error?.message || errText.substring(0, 50) || 'Unknown';
                                 addSocialLog(`âŒ ${keyLabel}: ${response.status} - ${errMsg}`, 'error');
                             }
@@ -1479,7 +1479,7 @@ Instructions for the AI:
 
             if (!success) {
                 addSocialLog(`âš ï¸ Direct attempts failed. Trying GAS Fallback with ${allKeys.length} keys...`);
-                
+
                 for (let k = 0; k < allKeys.length; k++) {
                     const rawKey = allKeys[k];
                     const keyLabel = `Key ${k + 1}`;
@@ -1491,7 +1491,7 @@ Instructions for the AI:
                     }
 
                     const gasKey = typeof decodeApiKey === 'function' ? decodeApiKey(rawKey) : rawKey;
-                    
+
                     for (const model of modelsToTry) {
                         addSocialLog(`Attempting GAS Fallback with ${keyLabel} (${model})...`);
 
@@ -1518,7 +1518,7 @@ Instructions for the AI:
                             if (response.ok) {
                                 const rawText = await response.text();
                                 let data;
-                                try { data = JSON.parse(rawText); } catch(pe) {
+                                try { data = JSON.parse(rawText); } catch (pe) {
                                     addSocialLog(`âŒ GAS Fallback (${keyLabel}): Bad JSON.`, 'error');
                                     continue;
                                 }
@@ -1535,10 +1535,10 @@ Instructions for the AI:
                                 } else if (data && data.error) {
                                     const gasErrMsg = data.error.message || 'Unknown';
                                     const isQuota = gasErrMsg.toLowerCase().includes('quota') || data.error.code === 429;
-                                    
+
                                     if (isQuota) {
                                         addSocialLog(`âŒ GAS Fallback (${keyLabel}): Quota reached for this project.`, 'error');
-                                        quotaBlockedProjects.add(projectID); 
+                                        quotaBlockedProjects.add(projectID);
                                         await new Promise(r => setTimeout(r, 1000));
                                     } else {
                                         addSocialLog(`âŒ GAS Fallback (${keyLabel}): ${gasErrMsg}`, 'error');
@@ -1739,7 +1739,7 @@ async function loadData() {
                         o.items = o.items.split('|').map(s => s.trim()).filter(Boolean);
                     }
                 }
-                
+
                 // If it successfully parsed or didn't throw, but is still a string (e.g. didn't start with [ or {)
                 if (typeof o.items === 'string') {
                     o.items = o.items.split('|').map(s => s.trim()).filter(Boolean);
@@ -1782,17 +1782,17 @@ async function fetchOrders(GAS_URL) {
     try {
         console.log("Admin: Fetching orders from GitHub CSV...");
         const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/orders.csv?v=' + Date.now());
-        if(res.ok) {
+        if (res.ok) {
             const csvText = await res.text();
             Papa.parse(csvText, {
                 header: true,
                 skipEmptyLines: true,
-                complete: function(results) {
+                complete: function (results) {
                     allOrders = results.data;
                 }
             });
         }
-    } catch(e) {
+    } catch (e) {
         console.warn("Admin: CSV orders fetch failed", e);
     }
     allOrders.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -1812,11 +1812,11 @@ async function fetchVisits(GAS_URL) {
     const localDate = getLocalDateStr();
     try {
         const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/visits.csv?v=' + Date.now());
-        if(res.ok) {
+        if (res.ok) {
             const csvText = await res.text();
             Papa.parse(csvText, {
                 header: true, skipEmptyLines: true,
-                complete: function(results) {
+                complete: function (results) {
                     results.data.forEach(row => {
                         const count = parseInt(row.count, 10) || 0;
                         total += count; daily[row.date] = count;
@@ -1826,19 +1826,19 @@ async function fetchVisits(GAS_URL) {
             });
         }
         const logsRes = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/visit_logs.csv?v=' + Date.now());
-        if(logsRes.ok) {
+        if (logsRes.ok) {
             const logsText = await logsRes.text();
             Papa.parse(logsText, {
                 header: true, skipEmptyLines: true,
-                complete: function(results) {
+                complete: function (results) {
                     results.data.forEach(row => {
-                        if(!dailyLogs[row.date]) dailyLogs[row.date] = [];
+                        if (!dailyLogs[row.date]) dailyLogs[row.date] = [];
                         dailyLogs[row.date].push(row.deviceName);
                     });
                 }
             });
         }
-    } catch(e) { console.warn("Admin: Visits fetch failed", e); }
+    } catch (e) { console.warn("Admin: Visits fetch failed", e); }
     return { total, daily, today: todayCount, dailyLogs };
 }
 
@@ -2473,21 +2473,21 @@ window.updateOrderStatus = async function (id, newStatus) {
     }
 }
 
-window.toggleDeliveryCalc = async function(event, id) {
+window.toggleDeliveryCalc = async function (event, id) {
     const isChecked = event.target.checked;
-    
+
     // 1. Optimistic Update (Prevent UI revert)
     if (window.allOrders) {
         const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
         if (order) {
             order.calculate_delivery = String(isChecked);
             // Updating delivery toggle changes both the table row and the top overview revenue stat
-            renderDashboardStats(window.allOrders, window.currentVisits); 
+            renderDashboardStats(window.allOrders, window.currentVisits);
         }
     }
 
     let success = false;
-    
+
     // Try GAS
     const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
@@ -2496,7 +2496,7 @@ window.toggleDeliveryCalc = async function(event, id) {
             success = true;
         } catch (e) { }
     }
-    
+
     // Fallback Local API
     if (!success && !window.location.hostname.includes('github.io')) {
         try {
@@ -2521,14 +2521,14 @@ window.toggleDeliveryCalc = async function(event, id) {
     }
 }
 
-window.updateOrderDate = async function(id, newDate) {
+window.updateOrderDate = async function (id, newDate) {
     if (!newDate) return;
-    
+
     // 1. Optimistic Update
     if (window.allOrders) {
         const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
         if (order) {
-             // Convert '2026-04-12' back to ISO '2026-04-12T00:00:00.000Z' to maintain consistency
+            // Convert '2026-04-12' back to ISO '2026-04-12T00:00:00.000Z' to maintain consistency
             order.date = new Date(newDate).toISOString();
             renderDashboardStats(window.allOrders, window.currentVisits);
         }
@@ -3383,7 +3383,7 @@ window.submitWholesaleItem = async function () {
             });
             window.closeWholesaleModal();
             loadWholesale();
-            
+
             // Success in GAS usually means it's pushed to GitHub
             alert("Wholesale offer saved to GitHub successfully.");
             return;
@@ -3401,7 +3401,7 @@ window.submitWholesaleItem = async function () {
                 special_price: specialPrice,
                 category: category || null
             }, { onConflict: 'item_no' });
-            
+
             if (!error) {
                 console.log("Wholesale offer added to Supabase.");
                 window.closeWholesaleModal();
@@ -4289,6 +4289,12 @@ async function loadDeliveryDetails() {
                 "Name": "FLEET Go",
                 "Regions": {
                     "Amman": 1.5, "Ajloon": 2, "Al Fanadik": 2, "Al Hashmyeh": 2, "Al Jafer": 2, "Al Omari Borders": 2, "Al Qaser": 2, "Al Qastal": 2, "Al Rosaifa": 2, "Al Sukhneh": 2, "AAy": 2, "Aqaba": 2, "Azraq": 2, "Balqa": 2, "Bereian": 2, "Der Allah": 2, "Dulail": 2, "Free Zone": 2, "Fuhais": 2, "Ghour": 2, "Ghour Al Safi": 2, "Ghweria": 2, "Irbid": 2, "Jerash": 2, "Karak": 2, "Khaldieh": 2, "MaAn / Maan": 2, "Madaba": 2, "Mahes": 2, "Moatah": 2, "Moghayam Hetein": 2, "Mwaqar": 2, "Naour": 2, "Petra": 2, "Qwaireh": 2, "Ramtha": 2, "Rashadyeh": 2, "Rwaished": 2, "Salt": 2, "Shoubak": 2, "Shouneh": 2, "Tafileh": 2, "Theban": 2, "Wadi Mousa": 2, "Yajoz": 2, "Zarqa": 2, "Zarqa Al Jadedeh": 2, "Zone 1": 2, "Zone 2": 2
+                }
+            }
+            {
+                "Name": "Ordergy",
+                "Regions": {
+                    "Amman": 3, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 4": 4
                 }
             }
         ];
