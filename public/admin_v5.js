@@ -1783,19 +1783,28 @@ async function fetchOrders(GAS_URL) {
         console.log("Admin: Fetching orders from GitHub CSV...");
         const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/orders.csv?v=' + Date.now());
         if (res.ok) {
-            const csvText = await res.text();
-            Papa.parse(csvText, {
+            let csvText = await res.text();
+            // Strip UTF-8 BOM if present
+            if (csvText.startsWith('\ufeff')) {
+                csvText = csvText.substring(1);
+            }
+            
+            // Papa.parse is synchronous for strings
+            const results = Papa.parse(csvText, {
                 header: true,
-                skipEmptyLines: true,
-                complete: function (results) {
-                    allOrders = results.data;
-                }
+                skipEmptyLines: true
             });
+            allOrders = results.data || [];
         }
     } catch (e) {
         console.warn("Admin: CSV orders fetch failed", e);
     }
-    allOrders.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    // Standardize: Newest First
+    allOrders.sort((a, b) => {
+        const dateA = new Date(a.date || a.timestamp * 1000 || 0);
+        const dateB = new Date(b.date || b.timestamp * 1000 || 0);
+        return dateB - dateA;
+    });
     return allOrders;
 }
 
@@ -1955,15 +1964,17 @@ function renderActivityLog(orders) {
     const logBody = document.getElementById('activity-log');
     if (!logBody) return;
     logBody.innerHTML = '';
-    const recentOrders = [...orders].reverse().slice(0, 5);
+    // Orders are already newest-first, so just take the first 5
+    const recentOrders = orders.slice(0, 5);
     recentOrders.forEach(o => {
         const tr = document.createElement('tr');
         const customerName = o.customerName || o.customername || 'Anonymous';
         const total = o.total || '0';
+        const dateVal = o.date || (o.timestamp ? new Date(o.timestamp * 1000) : new Date());
         tr.innerHTML = `
             <td><span style="color:var(--success)">New Order</span></td>
             <td>${customerName} - ${total}</td>
-            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(o.date || o.timestamp).toLocaleTimeString()}</td>
+            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(dateVal).toLocaleTimeString()}</td>
         `;
         logBody.appendChild(tr);
     });
@@ -1973,7 +1984,8 @@ function renderOrdersTable(orders) {
     const ordersBody = document.getElementById('orders-table-body');
     if (!ordersBody) return;
     ordersBody.innerHTML = '';
-    [...orders].reverse().forEach(o => {
+    // orders is already sorted Newest First
+    orders.forEach(o => {
         const tr = document.createElement('tr');
         tr.className = 'order-row';
         const idStr = String(o.id);
@@ -2109,7 +2121,7 @@ function renderOrderInfo(o) {
             ` : ''}
             <div class="info-group">
                 <label>Address</label>
-                <span>${o.address || '-'}</span>
+                <span>${o.address || o.Address || o['"address"'] || o['address '] || '-'}</span>
             </div>
              <div class="info-group">
                 <label>Payment</label>

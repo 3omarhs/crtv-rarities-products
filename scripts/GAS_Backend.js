@@ -156,11 +156,17 @@ function handleGetGeminiKeys(filePath) {
 function handleNewOrder(order) {
     const mutateFunc = (csvContent) => {
         const rows = csvContent.split('\n');
-        const headers = rows[0].split(',').map(h => h.trim());
+        // Robust header cleaning: remove BOM, quotes, and whitespace
+        const cleanHeader = (h) => h.replace(/^\ufeff/, '').replace(/"/g, '').trim();
+        const headers = rows[0].split(',').map(cleanHeader);
         
         // Map the order object to the CSV's current header alignment
         const rowData = headers.map(header => {
-            let val = order[header];
+            // Find key in order object by normalized header name
+            const normalizedHeader = header.toLowerCase();
+            const orderKey = Object.keys(order).find(k => k.toLowerCase() === normalizedHeader) || header;
+            
+            let val = order[orderKey];
             if (header === 'items' && Array.isArray(val)) val = val.join(' | ');
             if (header === 'date' && !val) val = new Date().toISOString();
             if (header === 'timestamp' && !val) val = Date.now().toString();
@@ -184,48 +190,27 @@ function handleNewOrder(order) {
 
 function handleUpdateOrderStatus(orderId, newStatus) {
     const mutateFunc = (csvContent) => {
-        const rows = csvContent.split('\n');
-        if (rows.length < 2) return csvContent; // Empty or just headers
+        const allRowsData = Utilities.parseCsv(csvContent);
+        if (allRowsData.length < 2) return csvContent;
         
-        const headers = rows[0].split(',');
+        const headers = allRowsData[0].map(h => h.replace(/^\ufeff/, '').replace(/"/g, '').trim());
         const idIndex = headers.indexOf('id');
         const statusIndex = headers.indexOf('status');
         
         if (idIndex === -1 || statusIndex === -1) return csvContent;
         
-        for (let i = 1; i < rows.length; i++) {
-            if (!rows[i]) continue;
-            // Simple split (not aware of quotes, but IDs and Status shouldn't have quotes)
-            const cols = rows[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-            // Use split safely by mapping
-            let parts = rows[i].split(',');
-            // Realistically we can just replace the string. 
-            // Since id is first or explicitly defined, we can isolate the row.
-            if (rows[i].includes(orderId)) {
-                // To safely update status: Wait, we should use a proper CSV replacer but simple hack:
-                // Find index of status column and rebuild the row if safely split
+        for (let i = 1; i < allRowsData.length; i++) {
+            if (String(allRowsData[i][idIndex]) == String(orderId)) {
+                allRowsData[i][statusIndex] = newStatus;
             }
         }
         
-        // Safer mutate for simple CSV: Use regex to replace exact row based on ID matching start
-        const idEscaped = orderId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const rowRegex = new RegExp(`^([^,]*,)*?(${idEscaped})(,.*)$`, 'm');
-        // Actually this is brittle if ID appears elsewhere. We will use proper parsing.
-        
-        let out = [rows[0]];
-        for(let i=1; i<rows.length; i++) {
-            if(!rows[i].trim()) continue;
-            let p = parseCSVLine(rows[i]);
-            if (p[idIndex] == orderId) {
-                p[statusIndex] = newStatus;
-            }
-            // Ensure all elements are strings before calling includes/replace
-            out.push(p.map(x => {
+        return allRowsData.map(row => {
+            return row.map(x => {
                 let s = String(x || '');
-                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
-            }).join(','));
-        }
-        return out.join('\n');
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(',');
+        }).join('\n');
     };
     
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Status ${orderId}`);
@@ -233,61 +218,61 @@ function handleUpdateOrderStatus(orderId, newStatus) {
 }
 
 function handleDeleteOrder(orderId) {
-    const mutateFunc = (csvContent) => {
-        const rows = csvContent.split('\n');
-        const headers = rows[0].split(',');
+        const allRowsData = Utilities.parseCsv(csvContent);
+        if (allRowsData.length < 1) return csvContent;
+        const headers = allRowsData[0].map(h => h.replace(/^\ufeff/, '').replace(/"/g, '').trim());
         const idIndex = headers.indexOf('id');
-        let out = [rows[0]];
-        for(let i=1; i<rows.length; i++) {
-            if(!rows[i].trim()) continue;
-            let p = parseCSVLine(rows[i]);
-            if (p[idIndex] != orderId) {
-                out.push(rows[i]); // Keep original formatting
-            }
-        }
-        return out.join('\n');
-    };
+        if (idIndex === -1) return csvContent;
+
+        const filteredRows = allRowsData.filter((row, i) => {
+            if (i === 0) return true;
+            return String(row[idIndex]) != String(orderId);
+        });
+
+        return filteredRows.map(row => {
+            return row.map(cell => {
+                let s = String(cell || '');
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(',');
+        }).join('\n');
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Deleted Order ${orderId}`);
     return jsonResponse({ status: 'success' });
 }
 
 function handleUpdateOrderDeliveryToggle(orderId, calculateDeliveryValue) {
     const mutateFunc = (csvContent) => {
-        const rows = csvContent.split('\n');
-        if (rows.length < 2) return csvContent;
+        const allRowsData = Utilities.parseCsv(csvContent);
+        if (allRowsData.length < 1) return csvContent;
         
-        const headers = rows[0].split(',');
+        const headers = allRowsData[0].map(h => h.replace(/^\ufeff/, '').replace(/"/g, '').trim());
         const idIndex = headers.indexOf('id');
         let calcDelivIndex = headers.indexOf('calculate_delivery');
         
         // If the column doesn't exist yet, we add it to the header
         if (calcDelivIndex === -1) {
-            rows[0] = rows[0].trim() + ',calculate_delivery,delivery_fee';
-            calcDelivIndex = headers.length; 
             headers.push('calculate_delivery');
             headers.push('delivery_fee');
+            allRowsData[0] = headers;
+            calcDelivIndex = headers.length - 2; 
         }
         
-        let out = [rows[0]];
-        for(let i=1; i<rows.length; i++) {
-            if(!rows[i].trim()) continue;
-            let p = parseCSVLine(rows[i]);
-            
+        for (let i = 1; i < allRowsData.length; i++) {
             // Expand row if it doesn't have the new columns yet
-            while (p.length < headers.length) {
-                p.push('');
+            while (allRowsData[i].length < headers.length) {
+                allRowsData[i].push('');
             }
             
-            if (p[idIndex] == orderId) {
-                p[calcDelivIndex] = String(calculateDeliveryValue);
+            if (String(allRowsData[i][idIndex]) == String(orderId)) {
+                allRowsData[i][calcDelivIndex] = String(calculateDeliveryValue);
             }
-            // Safely reconstruct the row
-            out.push(p.map(x => {
-                let s = String(x || '');
-                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
-            }).join(','));
         }
-        return out.join('\n');
+
+        return allRowsData.map(row => {
+            return row.map(x => {
+                let s = String(x || '');
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(',');
+        }).join('\n');
     };
     
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Delivery Toggle ${orderId}`);
