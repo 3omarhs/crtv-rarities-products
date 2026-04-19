@@ -1783,28 +1783,19 @@ async function fetchOrders(GAS_URL) {
         console.log("Admin: Fetching orders from GitHub CSV...");
         const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/orders.csv?v=' + Date.now());
         if (res.ok) {
-            let csvText = await res.text();
-            // Strip UTF-8 BOM if present
-            if (csvText.startsWith('\ufeff')) {
-                csvText = csvText.substring(1);
-            }
-            
-            // Papa.parse is synchronous for strings
-            const results = Papa.parse(csvText, {
+            const csvText = await res.text();
+            Papa.parse(csvText, {
                 header: true,
-                skipEmptyLines: true
+                skipEmptyLines: true,
+                complete: function (results) {
+                    allOrders = results.data;
+                }
             });
-            allOrders = results.data || [];
         }
     } catch (e) {
         console.warn("Admin: CSV orders fetch failed", e);
     }
-    // Standardize: Newest First
-    allOrders.sort((a, b) => {
-        const dateA = new Date(a.date || a.timestamp * 1000 || 0);
-        const dateB = new Date(b.date || b.timestamp * 1000 || 0);
-        return dateB - dateA;
-    });
+    allOrders.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     return allOrders;
 }
 
@@ -1964,17 +1955,15 @@ function renderActivityLog(orders) {
     const logBody = document.getElementById('activity-log');
     if (!logBody) return;
     logBody.innerHTML = '';
-    // Orders are already newest-first, so just take the first 5
-    const recentOrders = orders.slice(0, 5);
+    const recentOrders = [...orders].reverse().slice(0, 5);
     recentOrders.forEach(o => {
         const tr = document.createElement('tr');
         const customerName = o.customerName || o.customername || 'Anonymous';
         const total = o.total || '0';
-        const dateVal = o.date || (o.timestamp ? new Date(o.timestamp * 1000) : new Date());
         tr.innerHTML = `
             <td><span style="color:var(--success)">New Order</span></td>
             <td>${customerName} - ${total}</td>
-            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(dateVal).toLocaleTimeString()}</td>
+            <td style="color:var(--text-secondary); font-size:0.85rem">${new Date(o.date || o.timestamp).toLocaleTimeString()}</td>
         `;
         logBody.appendChild(tr);
     });
@@ -1984,8 +1973,7 @@ function renderOrdersTable(orders) {
     const ordersBody = document.getElementById('orders-table-body');
     if (!ordersBody) return;
     ordersBody.innerHTML = '';
-    // orders is already sorted Newest First
-    orders.forEach(o => {
+    [...orders].reverse().forEach(o => {
         const tr = document.createElement('tr');
         tr.className = 'order-row';
         const idStr = String(o.id);
@@ -2121,7 +2109,7 @@ function renderOrderInfo(o) {
             ` : ''}
             <div class="info-group">
                 <label>Address</label>
-                <span>${o.address || o.Address || o['"address"'] || o['address '] || '-'}</span>
+                <span>${o.address || '-'}</span>
             </div>
              <div class="info-group">
                 <label>Payment</label>
@@ -4304,7 +4292,7 @@ async function loadDeliveryDetails() {
                 }
             },
             {
-                "Name": "Ordergy (Immediate delivery)",
+                "Name": "Ordergy",
                 "Regions": {
                     "Amman": 3, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 4": 4
                 }
