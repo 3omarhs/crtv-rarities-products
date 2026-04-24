@@ -4294,7 +4294,13 @@ async function loadDeliveryDetails() {
             {
                 "Name": "Ordergy",
                 "Regions": {
-                    "Amman": 3, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 4": 4
+                    "Amman": 3, "Ajloon": 4, "Al Fanadik": 4, "Al Hashmyeh": 4, "Al Jafer": 4, "Al Omari Borders": 4, "Al Qaser": 4, "Al Qastal": 4, "Al Rosaifa": 4, "Al Sukhneh": 4, "AAy": 4, "Aqaba": 4, "Azraq": 4, "Balqa": 4, "Bereian": 4, "Der Allah": 4, "Dulail": 4, "Free Zone": 4, "Fuhais": 4, "Ghour": 4, "Ghour Al Safi": 4, "Ghweria": 4, "Irbid": 4, "Jerash": 4, "Karak": 4, "Khaldieh": 4, "MaAn / Maan": 4, "Madaba": 4, "Mahes": 4, "Moatah": 4, "Moghayam Hetein": 4, "Mwaqar": 4, "Naour": 4, "Petra": 4, "Qwaireh": 4, "Ramtha": 4, "Rashadyeh": 4, "Rwaished": 4, "Salt": 4, "Shoubak": 4, "Shouneh": 4, "Tafileh": 4, "Theban": 4, "Wadi Mousa": 4, "Yajoz": 4, "Zarqa": 4, "Zarqa Al Jadedeh": 4, "Zone 1": 4, "Zone 2": 4
+                }
+            },
+            {
+                "Name": "Transporter",
+                "Regions": {
+                    "Amman": 1.5, "Ajloon": 2.5, "Al Fanadik": 2.5, "Al Hashmyeh": 2.5, "Al Jafer": 2.5, "Al Omari Borders": 2.5, "Al Qaser": 2.5, "Al Qastal": 2.5, "Al Rosaifa": 2.5, "Al Sukhneh": 2.5, "AAy": 2.5, "Aqaba": 2.5, "Azraq": 2.5, "Balqa": 2.5, "Bereian": 2.5, "Der Allah": 2.5, "Dulail": 2.5, "Free Zone": 2.5, "Fuhais": 2.5, "Ghour": 2.5, "Ghour Al Safi": 2.5, "Ghweria": 2.5, "Irbid": 2.5, "Jerash": 2.5, "Karak": 2.5, "Khaldieh": 2.5, "MaAn / Maan": 2.5, "Madaba": 2.5, "Mahes": 2.5, "Moatah": 2.5, "Moghayam Hetein": 2.5, "Mwaqar": 2.5, "Naour": 2.5, "Petra": 2.5, "Qwaireh": 2.5, "Ramtha": 2.5, "Rashadyeh": 2.5, "Rwaished": 2.5, "Salt": 2.5, "Shoubak": 2.5, "Shouneh": 2.5, "Tafileh": 2.5, "Theban": 2.5, "Wadi Mousa": 2.5, "Yajoz": 2.5, "Zarqa": 2.5, "Zarqa Al Jadedeh": 2.5, "Zone 1": 2.5, "Zone 2": 2.5
                 }
             }
         ];
