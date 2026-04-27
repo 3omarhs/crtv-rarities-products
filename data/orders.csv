@@ -12,4 +12,9 @@
 ,JOD,Tamer Qawaqneh,0775618105,2026-04-24T17:29:52.363Z,MAN-1777051792363,1. [TLS-0226-145] (Default) - 5.000 - Smoking dadada 1.2 Lighter Gun (Qty: 1),delivery,Cash on delivery,FLEET Go,Ajloon,Closed,1777051792.363,7.000 JOD,false,2
 ,JOD,JOJO,0780250916,2026-04-22T00:00:00.000Z,MAN-1777307262129,1. [TYS-0226-135] (Default) - 3.750 - Cigarette Box (Qty: 1),delivery,Cash on delivery,Transporter,Irbid,Closed,1777307262.129,6.250 JOD,false,2.5
 ,JOD,Rama,0776503943,2026-04-26T00:00:00.000Z,MAN-1777308012328,1. [TLS-0226-145] (Default) - 4.500 - Smoking dadada 1.2 Lighter Gun (Qty: 1),delivery,Cash on delivery,Transporter,Amman,Closed,1777308012.328,6.000 JOD,false,1.5
+<<<<<<< HEAD
 ,JOD,Mohammad Elyateem,0788852312,2026-04-27T16:42:34.180Z,MAN-1777308154180,1. [TLS-0226-145] (Default) - 4.500 - Smoking dadada 1.2 Lighter Gun (Qty: 1),pickup,Cash on delivery,Pickup,Amman,Pending,1777308154.18,4.500 JOD,true,0
+=======
+,JOD,Mohammad Elyateem,0788852312,2026-04-27T16:42:34.180Z,MAN-1777308154180,1. [TLS-0226-145] (Default) - 4.500 - Smoking dadada 1.2 Lighter Gun (Qty: 1),pickup,Cash on delivery,Pickup,Amman,Closed,1777308154.18,4.500 JOD,false,0
+,JOD,~,0781346515,2026-04-27T16:54:11.747Z,MAN-1777308851747,1. [TLS-0226-145] (Default) - 4.500 - Smoking dadada 1.2 Lighter Gun (Qty: 1),delivery,Cash on delivery,Transporter,Amman,Pending,1777308851.747,6.000 JOD,true,1.5
+>>>>>>> ab7d4f5fe74bdde87b662c6d256b487f9db6cf33
