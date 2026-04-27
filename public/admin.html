@@ -598,13 +598,6 @@
 
                     <button type="submit" class="btn btn-primary">Add Product To Sheet</button>
 
-                    <div id="loading-modal" class="modal-overlay hidden">
-                        <div class="modal-content">
-                            <div class="spinner"></div>
-                            <h3>Processing...</h3>
-                            <p>Please wait while we upload the image and update the Google Sheet.</p>
-                        </div>
-                    </div>
 
                     <p id="add-product-msg" class="success-msg hidden" style="margin-top:10px; color:green;"></p>
                     <p id="add-product-error" class="error-msg hidden" style="margin-top:10px; color:red;"></p>
@@ -1143,6 +1136,14 @@
                 }
             }
         </script>
+    <!-- Global Loading Modal -->
+    <div id="loading-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="spinner"></div>
+            <h3 id="loading-title">Processing...</h3>
+            <p id="loading-msg">Please wait while we sync changes to the database.</p>
+        </div>
+    </div>
 </body>
 
 </html>

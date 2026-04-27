@@ -31,6 +31,7 @@ function handleAllActions(action, params) {
         if (action === 'uploadImage') return handleImageUpload(params);
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
         if (action === 'updateOrderDeliveryToggle') return handleUpdateOrderDeliveryToggle(params.orderId || params.id, params.calculateDelivery);
+        if (action === 'updateOrderDate') return handleUpdateOrderDate(params.orderId || params.id, params.date);
         
         return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
@@ -370,6 +371,28 @@ function handleSaveSettings(settings) {
         return out.join('\n');
     };
     updateGitHubFile('data/settings.csv', null, mutateFunc, "Auto-Commit: Settings Update");
+    return jsonResponse({ status: 'success' });
+}
+
+function handleUpdateOrderDate(orderId, newDate) {
+    const mutateFunc = (csvContent) => {
+        const rows = csvContent.split('\n');
+        const headers = rows[0].split(',');
+        const idIndex = headers.indexOf('id');
+        const dateIndex = headers.indexOf('date');
+        
+        let out = [rows[0]];
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            if (p[idIndex] == orderId) {
+                p[dateIndex] = newDate;
+            }
+            out.push(p.map(x => (x.includes(',') || x.includes('"')) ? '"' + x.replace(/"/g,'""') + '"' : x).join(','));
+        }
+        return out.join('\n');
+    };
+    updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Date ${orderId}`);
     return jsonResponse({ status: 'success' });
 }
 

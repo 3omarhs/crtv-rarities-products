@@ -947,10 +947,11 @@ async function handleProductSubmit(e) {
     const originalBtnText = submitBtn.innerText;
 
     // Show loading
-    const loading = document.getElementById('loading-modal');
-    if (loading) loading.classList.remove('hidden');
+    showLoading("Saving Product", "Please wait while we sync product data to GitHub...");
     submitBtn.disabled = true;
     submitBtn.innerText = "Processing...";
+
+    try {
 
     // 2. Prepare Data for GAS
     // Defensive action check to prevent price corruption
@@ -1016,9 +1017,20 @@ async function handleProductSubmit(e) {
     } else {
         doSync(gasData);
     }
+    } catch (err) {
+        console.error("Add Product Error:", err);
+        const errorEl = document.getElementById('add-product-error');
+        if (errorEl) {
+            errorEl.innerText = "Error: " + err.message;
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        hideLoading();
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalBtnText;
+    }
 
     async function submitToSupabase(payload) {
-        if (!window.supabaseClient) return;
         try {
             console.log("Syncing to Supabase...");
 
@@ -1691,6 +1703,25 @@ window.initUploadImages = async function () {
 
 // --- End Init ---
 
+window.pendingChanges = {}; // Storage for optimistic updates that shouldn't be overwritten by refresh
+
+
+// --- Loading Helpers ---
+function showLoading(title = "Processing...", msg = "Please wait while we sync changes...") {
+    const modal = document.getElementById('loading-modal');
+    if (modal) {
+        document.getElementById('loading-title').innerText = title;
+        document.getElementById('loading-msg').innerText = msg;
+        modal.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    const modal = document.getElementById('loading-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// --- End Loading Helpers ---
 
 function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
@@ -1698,16 +1729,16 @@ function showDashboard() {
     loadData();
     initProductData();
 
-    // Auto-refresh stats every 30 seconds while on dashboard
+    // Auto-refresh stats every 60 seconds while on dashboard
     if (window.dashboardInterval) clearInterval(window.dashboardInterval);
     window.dashboardInterval = setInterval(() => {
         const stats = document.getElementById('dashboard-stats');
         // Check if the dashboard is still visible before refreshing
-        if (stats && stats.style.display !== 'none') {
+        if (stats && stats.style.display !== 'none' && !document.getElementById('loading-modal').classList.contains('open')) {
             console.log("Auto-refreshing dashboard stats...");
             loadData();
         }
-    }, 30000);
+    }, 60000);
 }
 
 
@@ -1788,7 +1819,20 @@ async function fetchOrders(GAS_URL) {
                 header: true,
                 skipEmptyLines: true,
                 complete: function (results) {
-                    allOrders = results.data;
+                    // Re-apply any pending changes that might not be in the CSV yet (GitHub Pages delay)
+                results.data.forEach(o => {
+                    const id = String(o.id || o.ID || o.No || "");
+                    if (window.pendingChanges[id]) {
+                        const pc = window.pendingChanges[id];
+                        if (Date.now() - pc.timestamp < 120000) { // 2 minute grace period for GH Pages
+                            Object.assign(o, pc.data);
+                        } else {
+                            delete window.pendingChanges[id];
+                        }
+                    }
+                });
+
+                allOrders = results.data;
                 }
             });
         }
@@ -2428,126 +2472,137 @@ function renderStatusSelect(id, currentStatus) {
 
 
 window.updateOrderStatus = async function (id, newStatus) {
-    // 1. Optimistic Update (Prevent UI revert)
-    if (window.allOrders) {
-        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
-        if (order) {
-            order.status = newStatus;
-            renderDashboardStats(window.allOrders, window.currentVisits); // Refresh everything including revenue
-        }
-    }
+    showLoading("Updating Status", `Changing order ${id} to ${newStatus}...`);
 
     let success = false;
 
-    // Try Supabase first
+    // 1. Try Supabase
     if (window.supabaseClient) {
         try {
             const { error } = await window.supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
             if (!error) success = true;
-        } catch (e) { }
+        } catch (e) { console.error("Supabase status update error:", e); }
     }
 
-    // Try GAS
+    // 2. Try GAS
     const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderStatus', orderId: id, status: newStatus });
             success = true;
-        } catch (e) { }
+        } catch (e) { console.error("GAS status update error:", e); }
     }
 
-    // Try Local API
+    // 3. Local API (Dev only)
     if (!window.location.hostname.includes('github.io')) {
         try {
             const res = await fetch('/api/update-order-status', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ orderId: id, status: newStatus })
             });
-
             if (res.ok) success = true;
         } catch (e) { }
     }
 
-    if (!success) {
+    if (success) {
+        // Update local state and re-apply on refresh
+        const changeData = { status: newStatus };
+        window.pendingChanges[String(id)] = { data: changeData, timestamp: Date.now() };
+
+        if (window.allOrders) {
+            const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+            if (order) order.status = newStatus;
+            renderOrdersTable(window.allOrders);
+            renderDashboardStats(window.allOrders, window.currentVisits);
+        }
+    } else {
         alert("Failed to update status in the database. Please try again.");
+        renderOrdersTable(window.allOrders); // Reset UI
     }
+
+    hideLoading();
 }
 
 window.toggleDeliveryCalc = async function (event, id) {
     const isChecked = event.target.checked;
-
-    // 1. Optimistic Update (Prevent UI revert)
-    if (window.allOrders) {
-        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
-        if (order) {
-            order.calculate_delivery = String(isChecked);
-            // Updating delivery toggle changes both the table row and the top overview revenue stat
-            renderDashboardStats(window.allOrders, window.currentVisits);
-        }
-    }
+    showLoading("Syncing Data", `Updating delivery fee setting for order ${id}...`);
 
     let success = false;
 
-    // Try GAS
+    // 1. Try Supabase
+    if (window.supabaseClient) {
+        try {
+            const { error } = await window.supabaseClient.from('orders').update({ calculate_delivery: String(isChecked) }).eq('id', id);
+            if (!error) success = true;
+        } catch (e) { console.error("Supabase delivery toggle error:", e); }
+    }
+
+    // 2. Try GAS
     const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderDeliveryToggle', orderId: id, calculateDelivery: isChecked });
             success = true;
-        } catch (e) { }
+        } catch (e) { console.error("GAS delivery toggle error:", e); }
     }
 
-    // Fallback Local API
-    if (!success && !window.location.hostname.includes('github.io')) {
-        try {
-            const res = await fetch('/api/update-order-delivery-toggle', {
-                method: 'POST',
-                body: JSON.stringify({ orderId: id, calculateDelivery: isChecked })
-            });
-            if (res.ok) success = true;
-        } catch (e) { }
-    }
-
-    if (!success) {
-        alert("Failed to update delivery toggle. Please try again.");
-        // Revert local state on failure
+    if (success) {
         if (window.allOrders) {
             const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
             if (order) {
-                order.calculate_delivery = String(!isChecked);
+                order.calculate_delivery = String(isChecked);
                 renderOrdersTable(window.allOrders);
+                renderDashboardStats(window.allOrders, window.currentVisits);
             }
         }
+    } else {
+        alert("Failed to update delivery toggle. Please try again.");
+        renderOrdersTable(window.allOrders); // Reset toggle UI
     }
+
+    hideLoading();
 }
 
 window.updateOrderDate = async function (id, newDate) {
     if (!newDate) return;
-
-    // 1. Optimistic Update
-    if (window.allOrders) {
-        const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
-        if (order) {
-            // Convert '2026-04-12' back to ISO '2026-04-12T00:00:00.000Z' to maintain consistency
-            order.date = new Date(newDate).toISOString();
-            renderDashboardStats(window.allOrders, window.currentVisits);
-        }
-    }
+    showLoading("Updating Date", `Saving new date for order ${id}...`);
 
     let success = false;
+
+    // 1. Try Supabase
+    if (window.supabaseClient) {
+        try {
+            const isoDate = new Date(newDate).toISOString();
+            const { error } = await window.supabaseClient.from('orders').update({ date: isoDate }).eq('id', id);
+            if (!error) success = true;
+        } catch (e) { console.error("Supabase date update error:", e); }
+    }
+
+    // 2. Try GAS
     const GAS_URL = getGasUrl();
     if (GAS_URL && window.submitToGas) {
         try {
             await window.submitToGas(GAS_URL, { action: 'updateOrderDate', orderId: id, date: new Date(newDate).toISOString() });
             success = true;
-        } catch (e) {
-            console.error("GAS Date update error", e);
-        }
+        } catch (e) { console.error("GAS date update error:", e); }
     }
 
-    if (!success) {
+    if (success) {
+        if (window.allOrders) {
+            const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
+            if (order) {
+                order.date = new Date(newDate).toISOString();
+                renderOrdersTable(window.allOrders);
+                renderDashboardStats(window.allOrders, window.currentVisits);
+            }
+        }
+    } else {
         alert("Failed to update date. Please try again.");
+        renderOrdersTable(window.allOrders);
     }
+
+    hideLoading();
 }
 
 window.deleteOrder = async function (id) {
