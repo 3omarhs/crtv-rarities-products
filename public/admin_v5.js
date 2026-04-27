@@ -1,4 +1,4 @@
-const APP_VERSION = '5.3.0';
+const APP_VERSION = '5.3.5';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1703,10 +1703,33 @@ window.initUploadImages = async function () {
 
 // --- End Init ---
 
-window.pendingChanges = {}; // Storage for optimistic updates that shouldn't be overwritten by refresh
-
-
 // --- Loading Helpers ---
+function loadPendingChanges() {
+    try {
+        const stored = localStorage.getItem('admin_pending_changes');
+        if (stored) {
+            window.pendingChanges = JSON.parse(stored);
+            // Cleanup expired (older than 10 mins)
+            const now = Date.now();
+            Object.keys(window.pendingChanges).forEach(id => {
+                if (now - window.pendingChanges[id].timestamp > 600000) {
+                    delete window.pendingChanges[id];
+                }
+            });
+        } else {
+            window.pendingChanges = {};
+        }
+    } catch (e) {
+        window.pendingChanges = {};
+    }
+}
+
+function savePendingChanges() {
+    localStorage.setItem('admin_pending_changes', JSON.stringify(window.pendingChanges));
+}
+
+loadPendingChanges();
+
 function showLoading(title = "Processing...", msg = "Please wait while we sync changes...") {
     let modal = document.getElementById('loading-modal');
     if (!modal) {
@@ -1842,17 +1865,20 @@ async function fetchOrders(GAS_URL) {
                 skipEmptyLines: true,
                 complete: function (results) {
                     // Re-apply any pending changes that might not be in the CSV yet (GitHub Pages delay)
+                loadPendingChanges(); // Refresh from storage
+                
                 results.data.forEach(o => {
                     const id = String(o.id || o.ID || o.No || "");
                     if (window.pendingChanges[id]) {
                         const pc = window.pendingChanges[id];
-                        if (Date.now() - pc.timestamp < 120000) { // 2 minute grace period for GH Pages
+                        if (Date.now() - pc.timestamp < 300000) { // 5 minute grace period for GH Pages
                             Object.assign(o, pc.data);
                         } else {
                             delete window.pendingChanges[id];
                         }
                     }
                 });
+                savePendingChanges();
 
                 allOrders = results.data;
                 }
@@ -2531,6 +2557,7 @@ window.updateOrderStatus = async function (id, newStatus) {
         // Update local state and re-apply on refresh
         const changeData = { status: newStatus };
         window.pendingChanges[String(id)] = { data: changeData, timestamp: Date.now() };
+        savePendingChanges();
 
         if (window.allOrders) {
             const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
@@ -2570,6 +2597,10 @@ window.toggleDeliveryCalc = async function (event, id) {
     }
 
     if (success) {
+        const changeData = { calculate_delivery: String(isChecked) };
+        window.pendingChanges[String(id)] = { data: changeData, timestamp: Date.now() };
+        savePendingChanges();
+
         if (window.allOrders) {
             const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
             if (order) {
@@ -2611,6 +2642,10 @@ window.updateOrderDate = async function (id, newDate) {
     }
 
     if (success) {
+        const changeData = { date: new Date(newDate).toISOString() };
+        window.pendingChanges[String(id)] = { data: changeData, timestamp: Date.now() };
+        savePendingChanges();
+
         if (window.allOrders) {
             const order = window.allOrders.find(o => String(o.id || o.ID) === String(id));
             if (order) {
@@ -4641,33 +4676,36 @@ async function submitManualOrder() {
 
 window.submitToGas = async function (url, data) {
     // GAS Web App submission
-    // Uses no-cors mode, so we can't read response. 
-    // We assume success if no network error.
-
-    // Most GAS scripts expect JSON in body if parsing e.postData.contents
     const payload = JSON.stringify(data);
 
     try {
-        await fetch(url, {
+        const res = await fetch(url, {
             method: 'POST',
-            mode: 'no-cors',
+            mode: 'cors', // Switch to cors to actually read success/failure
             headers: {
                 'Content-Type': 'text/plain;charset=utf-8',
             },
             body: payload
         });
 
-        // Since we can't read the response in no-cors, we return a mock success
-        // If the GAS script fails internally, we won't know here, but that's a limitation of no-cors GAS.
-        // If the GAS script setup allows CORS (e.g. correct headers), we could use 'cors'.
-        // But 'no-cors' is safest default for GAS.
-        return { result: "success" };
-
+        if (res.ok) {
+            const json = await res.json().catch(() => ({ status: 'success' }));
+            if (json.status === 'error' || json.error) {
+                console.error("GAS Internal Error:", json);
+                return { result: "error", error: json.error || json.message };
+            }
+            return { result: "success", data: json };
+        } else {
+            const text = await res.text().catch(() => "Unknown error");
+            console.error("GAS Fetch Error:", res.status, text);
+            return { result: "error", error: `HTTP ${res.status}: ${text}` };
+        }
     } catch (e) {
-        console.error("GAS Fetch Error:", e);
-        throw e;
+        console.error("submitToGas Network Error:", e);
+        // Fallback to no-cors if preflight fails? No, better to know it failed.
+        return { result: "error", error: e.message };
     }
-};
+}
 
 // --- ADMIN MANAGEMENT & THEME LOGIC ---
 

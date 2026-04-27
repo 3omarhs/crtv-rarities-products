@@ -205,7 +205,10 @@ function handleUpdateOrderStatus(orderId, newStatus) {
             if (p[idIndex] == orderId) {
                 p[statusIndex] = newStatus;
             }
-            out.push(p.map(x => (x.includes(',') || x.includes('"')) ? '"' + x.replace(/"/g,'""') + '"' : x).join(','));
+            out.push(p.map(x => {
+                const s = String(x || "");
+                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(','));
         }
         return out.join('\n');
     };
@@ -388,7 +391,10 @@ function handleUpdateOrderDate(orderId, newDate) {
             if (p[idIndex] == orderId) {
                 p[dateIndex] = newDate;
             }
-            out.push(p.map(x => (x.includes(',') || x.includes('"')) ? '"' + x.replace(/"/g,'""') + '"' : x).join(','));
+            out.push(p.map(x => {
+                const s = String(x || "");
+                return (s.includes(',') || s.includes('"')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(','));
         }
         return out.join('\n');
     };
