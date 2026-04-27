@@ -1,4 +1,4 @@
-const APP_VERSION = '5.2.0';
+const APP_VERSION = '5.3.0';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -1708,17 +1708,39 @@ window.pendingChanges = {}; // Storage for optimistic updates that shouldn't be 
 
 // --- Loading Helpers ---
 function showLoading(title = "Processing...", msg = "Please wait while we sync changes...") {
-    const modal = document.getElementById('loading-modal');
-    if (modal) {
-        document.getElementById('loading-title').innerText = title;
-        document.getElementById('loading-msg').innerText = msg;
-        modal.classList.remove('hidden');
+    let modal = document.getElementById('loading-modal');
+    if (!modal) {
+        console.log("Admin: Loading modal missing from HTML, creating dynamically...");
+        modal = document.createElement('div');
+        modal.id = 'loading-modal';
+        modal.className = 'modal-overlay hidden';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="spinner"></div>
+                <h3 id="loading-title" style="color:white; margin-bottom:0.5rem;"></h3>
+                <p id="loading-msg" style="color:var(--text-secondary); margin:0;"></p>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
+
+    const titleEl = document.getElementById('loading-title');
+    const msgEl = document.getElementById('loading-msg');
+    if (titleEl) titleEl.innerText = title;
+    if (msgEl) msgEl.innerText = msg;
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('open');
+    modal.style.display = 'flex'; // Force visibility
 }
 
 function hideLoading() {
     const modal = document.getElementById('loading-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
 }
 
 // --- End Loading Helpers ---
