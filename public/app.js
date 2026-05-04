@@ -984,10 +984,40 @@ function processData(data) {
 
     populateCategoryDropdown();
 
-    renderProducts(allProducts);
+    const urlParams = new URLSearchParams(window.location.search);
+    const singleItemId = urlParams.get('item');
+
+    if (singleItemId) {
+        const singleProduct = allProducts.find(p => String(p.no) === singleItemId);
+        if (singleProduct) {
+            renderProducts([singleProduct]);
+            setTimeout(() => {
+                const card = document.querySelector('.card');
+                if (card) {
+                    card.classList.add('expanded');
+                    const closeBtn = card.querySelector('.expanded-close');
+                    if (closeBtn) {
+                        closeBtn.removeAttribute('onclick');
+                        closeBtn.innerHTML = '<i data-lucide="arrow-left"></i>';
+                        closeBtn.title = "Back to Store";
+                        closeBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            window.location.href = window.location.pathname;
+                        });
+                    }
+                    if (window.lucide) lucide.createIcons();
+                }
+            }, 200);
+        } else {
+            renderProducts(allProducts);
+            controlsEl.classList.remove('hidden');
+        }
+    } else {
+        renderProducts(allProducts);
+        controlsEl.classList.remove('hidden');
+    }
 
     loadingEl.classList.add('hidden');
-    controlsEl.classList.remove('hidden');
     productGrid.classList.remove('hidden');
     setupFilter();
 }
@@ -1345,6 +1375,12 @@ function createCard(product, uiIndex) {
         const isCloseBtn = e.target.closest('.expanded-close');
         const isExpanded = article.classList.contains('expanded');
 
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('item') === String(product.no)) {
+            // On solo page, clicks on card body shouldn't collapse it
+            return;
+        }
+
         if (isCloseBtn || (isExpanded && !e.target.closest('.expanded-content'))) {
             article.classList.remove('expanded');
             article.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1352,18 +1388,7 @@ function createCard(product, uiIndex) {
         }
 
         if (!isExpanded) {
-            document.querySelectorAll('.card.expanded').forEach(c => c.classList.remove('expanded'));
-            article.classList.add('expanded');
-            if (window.lucide) lucide.createIcons();
-            setTimeout(() => {
-                const headerOffset = 100;
-                const elementPosition = article.getBoundingClientRect().top;
-                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                window.scrollTo({
-                    top: offsetPosition,
-                    behavior: "smooth"
-                });
-            }, 100);
+            window.location.href = `?item=${encodeURIComponent(product.no)}`;
         }
     });
 
