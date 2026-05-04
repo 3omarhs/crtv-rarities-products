@@ -45,6 +45,10 @@
                         <i data-lucide="coins"></i>
                         <span id="curr-text">USD</span>
                     </button>
+                    <a href="index.html" class="lang-switch-btn" style="margin-left: 0.5rem; text-decoration: none;">
+                        <i data-lucide="store"></i>
+                        <span id="shipping-nav-text">Store</span>
+                    </a>
                     <a href="https://wa.me/962795965910?text=Hi,%20I%20would%20Like%20to%20order.%20May%20I%20get%20your%20assestant."
                         target="_blank" class="whatsapp-btn" title="Order via WhatsApp" id="header-wa-btn">
                         <i data-lucide="message-circle"></i>
@@ -79,49 +83,39 @@
     </header>
 
     <main class="container">
-        <div id="loading" class="loading-state">
-            <div class="spinner"></div>
-            <p id="loading-text">Loading Catalog...</p>
-        </div>
-
-        <div id="controls" class="controls-container hidden">
-            <div class="search-wrapper">
-                <i data-lucide="search" class="search-icon"></i>
-                <input type="text" id="search-input" placeholder="Smart search: name, category, price, item number... ">
-                <button id="search-clear" class="search-clear"><i data-lucide="x"></i></button>
-            </div>
-            <div class="filter-wrapper">
-                <label for="category-select" id="category-label"
-                    style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Category:</label>
-                <select id="category-select" class="sort-select">
-                    <option value="all" id="all-categories-opt">All Categories</option>
+        <div class="calculator-container" style="max-width: 600px; margin: 3rem auto; padding: 2rem; background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid var(--card-border);">
+            <h2 style="text-align: center; margin-bottom: 1.5rem; color: var(--text-primary); font-size: 1.8rem;">
+                <i data-lucide="globe" style="width: 28px; height: 28px; color: var(--accent); vertical-align: text-bottom; margin-right: 8px;"></i>
+                International Shipping
+            </h2>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">Select your destination country to calculate the estimated shipping cost.</p>
+            
+            <div class="form-group" style="margin-bottom: 2rem;">
+                <label for="shipping-country" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary);">Destination Country:</label>
+                <select id="shipping-country" class="form-input" style="width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--border-color); border-radius: 12px; font-size: 1rem; background: var(--bg-primary); transition: all 0.3s ease;">
+                    <option value="">-- Loading Countries --</option>
                 </select>
             </div>
-            <div class="sort-wrapper">
-                <label for="sort-select" id="sort-label"
-                    style="margin-right: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Sort by:</label>
-                <select id="sort-select" class="sort-select">
-                    <option value="default" id="sort-default">Default</option>
-                    <option value="name-asc" id="sort-name-asc">Name (A-Z)</option>
-                    <option value="name-desc" id="sort-name-desc">Name (Z-A)</option>
-                    <option value="price-asc" id="sort-price-asc">Price (Low-High)</option>
-                    <option value="price-desc" id="sort-price-desc">Price (High-Low)</option>
-                    <option value="category-asc" id="sort-category-asc">Category (A-Z)</option>
-                    <option value="category-desc" id="sort-category-desc">Category (Z-A)</option>
-                    <option value="arabic-asc" id="sort-arabic-asc">Arabic Name (أ-ي)</option>
-                    <option value="arabic-desc" id="sort-arabic-desc">Arabic Name (ي-أ)</option>
-                </select>
+
+            <div id="shipping-result" class="hidden" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Estimated Shipping Fee</h3>
+                <div style="display: flex; justify-content: space-around; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div style="background: #fff; padding: 1rem; border-radius: 10px; width: 45%; min-width: 120px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">US Dollar</div>
+                        <div id="fee-usd" style="font-size: 1.5rem; font-weight: 700; color: var(--accent);">$0</div>
+                    </div>
+                    <div style="background: #fff; padding: 1rem; border-radius: 10px; width: 45%; min-width: 120px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Jordanian Dinar</div>
+                        <div id="fee-jod" style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">0 JOD</div>
+                    </div>
+                </div>
+                <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary);"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> These are estimated rates and might vary slightly.</p>
             </div>
-            <div class="stats" id="product-count"></div>
-        </div>
-
-        <div id="error-message" class="error-message hidden">
-            <i data-lucide="alert-circle"></i>
-            <p id="error-text">Failed to load data.</p>
-        </div>
-
-        <div id="product-grid" class="product-grid hidden">
-            <!-- Products will be injected here -->
+            
+            <div id="shipping-error" class="error-message hidden" style="margin-top: 1rem;">
+                <i data-lucide="alert-circle"></i>
+                <p id="shipping-error-text">Failed to load shipping data.</p>
+            </div>
         </div>
     </main>
 
@@ -357,10 +351,8 @@
         </div>
     </div>
 
-    <script src="drive-images.js"></script>
-    <script src="checkout.js?v=2.7"></script>
-    <script src="chatbot.js?v=2.6"></script>
     <script src="app.js?v=v4.1.7"></script>
+    <script src="shipping.js?v=1.0"></script>
     <script>
         lucide.createIcons();
     </script>

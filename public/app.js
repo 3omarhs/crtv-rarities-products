@@ -213,7 +213,8 @@ const translations = {
         methodSummaryDelivery: "Method: Delivery to {region} ({company})",
         nameSummary: "Name: {name}",
         phoneSummary: "Phone: +962 {phone}",
-        paymentLabel: "Payment Method:"
+        paymentLabel: "Payment Method:",
+        shippingNavText: "Shipping"
     },
     ar: {
         langText: "English",
@@ -322,7 +323,8 @@ const translations = {
         paymentEWallet: "محافظ إلكترونية",
         paymentCashDelivery: "الدفع عند الاستلام",
         paymentCliQDelivery: "دفع كليك عند الاستلام",
-        paymentEWalletDelivery: "محافظ إلكترونية عند الاستلام"
+        paymentEWalletDelivery: "محافظ إلكترونية عند الاستلام",
+        shippingNavText: "الشحن"
     }
 };
 
@@ -710,6 +712,7 @@ function applyLanguage() {
 
         setT('lang-text', t.langText);
         setT('header-wa-text', t.headerWa);
+        setT('shipping-nav-text', t.shippingNavText);
 
         const storeTitleEl = document.getElementById('store-title');
         if (storeTitleEl) {
