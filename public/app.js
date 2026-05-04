@@ -985,7 +985,17 @@ function processData(data) {
     populateCategoryDropdown();
 
     const urlParams = new URLSearchParams(window.location.search);
-    const singleItemId = urlParams.get('item');
+    let singleItemId = urlParams.get('item');
+    
+    if (!singleItemId) {
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        if (pathParts.length > 0) {
+            const lastPart = pathParts[pathParts.length - 1];
+            if (lastPart !== 'crtv-rarities-products' && lastPart !== 'index.html' && lastPart !== 'checkout.html' && lastPart !== 'admin.html') {
+                singleItemId = decodeURIComponent(lastPart);
+            }
+        }
+    }
 
     if (singleItemId) {
         const singleProduct = allProducts.find(p => String(p.no) === singleItemId);
@@ -1002,7 +1012,7 @@ function processData(data) {
                         closeBtn.title = "Back to Store";
                         closeBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            window.location.href = window.location.pathname;
+                            window.location.href = './';
                         });
                     }
                     if (window.lucide) lucide.createIcons();
@@ -1376,7 +1386,14 @@ function createCard(product, uiIndex) {
         const isExpanded = article.classList.contains('expanded');
 
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('item') === String(product.no)) {
+        
+        let currentSingleId = urlParams.get('item');
+        if (!currentSingleId) {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            if (pathParts.length > 0) currentSingleId = decodeURIComponent(pathParts[pathParts.length - 1]);
+        }
+
+        if (currentSingleId === String(product.no)) {
             // On solo page, clicks on card body shouldn't collapse it
             return;
         }
@@ -1388,7 +1405,7 @@ function createCard(product, uiIndex) {
         }
 
         if (!isExpanded) {
-            window.location.href = `?item=${encodeURIComponent(product.no)}`;
+            window.location.href = `${encodeURIComponent(product.no)}`;
         }
     });
 
