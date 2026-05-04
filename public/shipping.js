@@ -1,6 +1,10 @@
-// International Shipping Logic
+// International Shipping & Item Pricing Logic
 
 let shippingData = [];
+let productsData = [];
+let selectedCountryIndex = null;
+let selectedProduct = null;
+const EXCHANGE_RATE = 1.41;
 
 document.addEventListener('DOMContentLoaded', () => {
     initShipping();
@@ -18,6 +22,7 @@ async function initShipping() {
             complete: function(results) {
                 shippingData = results.data;
                 populateCountryDropdown();
+                calculateTotal();
             },
             error: function(error) {
                 console.error("Error parsing shipping CSV:", error);
@@ -29,11 +34,24 @@ async function initShipping() {
         document.getElementById('shipping-error').classList.remove('hidden');
     }
 
-    // Listen for language changes to update the dropdown labels
+    // Load products
+    try {
+        if (typeof window.fetchSheetData === 'function') {
+            productsData = await window.fetchSheetData();
+            renderProductTiles();
+        } else {
+            console.error("fetchSheetData is not available.");
+        }
+    } catch (error) {
+        console.error("Failed to load products:", error);
+    }
+
+    // Listen for language changes to update the dropdown labels and product names
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'lang') {
                 populateCountryDropdown(true);
+                renderProductTiles(); // Re-render to translate names
             }
         });
     });
@@ -41,18 +59,18 @@ async function initShipping() {
     observer.observe(document.documentElement, { attributes: true });
 
     document.getElementById('shipping-country').addEventListener('change', (e) => {
-        const countryIndex = e.target.value;
-        if (countryIndex === "") {
+        selectedCountryIndex = e.target.value;
+        if (selectedCountryIndex === "") {
             document.getElementById('shipping-result').classList.add('hidden');
-            return;
+        } else {
+            const countryData = shippingData[selectedCountryIndex];
+            if (countryData) {
+                document.getElementById('fee-usd').textContent = `$${countryData['Delivery Cost in Dollar']}`;
+                document.getElementById('fee-jod').textContent = `${countryData['Delivery Cost in JOD']} JOD`;
+                document.getElementById('shipping-result').classList.remove('hidden');
+            }
         }
-
-        const countryData = shippingData[countryIndex];
-        if (countryData) {
-            document.getElementById('fee-usd').textContent = `$${countryData['Delivery Cost in Dollar']}`;
-            document.getElementById('fee-jod').textContent = `${countryData['Delivery Cost in JOD']} JOD`;
-            document.getElementById('shipping-result').classList.remove('hidden');
-        }
+        calculateTotal();
     });
 }
 
@@ -82,4 +100,84 @@ function populateCountryDropdown(preserveSelection = false) {
     if (preserveSelection && currentValue !== "") {
         select.value = currentValue;
     }
+}
+
+function renderProductTiles() {
+    const grid = document.getElementById('item-selector-grid');
+    if (!grid) return;
+    
+    const currentLang = document.documentElement.lang || 'en';
+    let html = '';
+
+    productsData.forEach(product => {
+        // Skip hidden or invalid products
+        if (!product || !product.no || product.hide === 'TRUE') return;
+
+        const name = currentLang === 'ar' && product.arabicName ? product.arabicName : product.name;
+        
+        // Extract base image logic from app.js
+        let imgUrl = 'baseImage.png';
+        if (product.images) {
+            let urls = product.images.split('\n').filter(u => u.trim());
+            if (urls.length > 0) {
+                let firstUrl = urls[0].trim();
+                let driveId = typeof window.extractDriveId === 'function' ? window.extractDriveId(firstUrl) : null;
+                imgUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w200-h200` : firstUrl;
+            }
+        }
+
+        const isSelected = selectedProduct && selectedProduct.no === product.no ? 'selected' : '';
+
+        html += `
+            <div class="product-tile ${isSelected}" data-id="${product.no}" onclick="selectProduct('${product.no}')">
+                <img src="${imgUrl}" alt="${name}" class="product-tile-img" onerror="this.src='baseImage.png'">
+                <div class="product-tile-name">${name}</div>
+                <div class="product-tile-no">#${product.no}</div>
+            </div>
+        `;
+    });
+
+    grid.innerHTML = html;
+}
+
+window.selectProduct = function(productId) {
+    selectedProduct = productsData.find(p => p.no === productId);
+    
+    // Update active class
+    document.querySelectorAll('.product-tile').forEach(tile => {
+        if (tile.dataset.id === productId) {
+            tile.classList.add('selected');
+        } else {
+            tile.classList.remove('selected');
+        }
+    });
+
+    calculateTotal();
+};
+
+function calculateTotal() {
+    const resultContainer = document.getElementById('total-pricing-result');
+    if (!resultContainer) return;
+
+    if (selectedCountryIndex === null || selectedCountryIndex === "" || !selectedProduct) {
+        resultContainer.classList.add('hidden');
+        return;
+    }
+
+    const countryData = shippingData[selectedCountryIndex];
+    if (!countryData) return;
+
+    const itemPriceJod = parseFloat(String(selectedProduct.price).replace(/[^\d.]/g, ''));
+    if (isNaN(itemPriceJod)) return;
+
+    const shippingJod = parseFloat(countryData['Delivery Cost in JOD']) || 0;
+    const shippingUsd = parseFloat(countryData['Delivery Cost in Dollar']) || 0;
+
+    const totalJod = itemPriceJod + shippingJod;
+    const totalUsd = (itemPriceJod * EXCHANGE_RATE) + shippingUsd;
+
+    document.getElementById('total-fee-jod').textContent = `${totalJod.toFixed(2)} JOD`;
+    document.getElementById('total-fee-usd').textContent = `$${totalUsd.toFixed(2)}`;
+
+    resultContainer.classList.remove('hidden');
 }

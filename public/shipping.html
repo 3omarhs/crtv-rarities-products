@@ -117,6 +117,30 @@
                 <p id="shipping-error-text">Failed to load shipping data.</p>
             </div>
         </div>
+
+        <div class="calculator-container" id="item-pricing-section" style="max-width: 600px; margin: 0 auto 3rem auto; padding: 2rem; background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid var(--card-border);">
+            <h3 style="text-align: center; margin-bottom: 1rem; color: var(--text-primary); font-size: 1.4rem;">Select an Item to Calculate Total</h3>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Choose an item to see its international price including shipping.</p>
+
+            <div id="item-selector-grid" style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1.5rem; scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
+                <!-- Product tiles will be injected here -->
+            </div>
+
+            <div id="total-pricing-result" class="hidden" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #fca5a5; text-align: center;">
+                <h4 style="margin-bottom: 1rem; color: #991b1b; font-size: 1.2rem;">Total International Price</h4>
+                <div style="display: flex; justify-content: space-around; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div style="background: #fff; padding: 1rem; border-radius: 10px; width: 45%; min-width: 120px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size: 0.85rem; color: #7f1d1d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Total US Dollar</div>
+                        <div id="total-fee-usd" style="font-size: 1.5rem; font-weight: 700; color: #b91c1c;">$0</div>
+                    </div>
+                    <div style="background: #fff; padding: 1rem; border-radius: 10px; width: 45%; min-width: 120px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size: 0.85rem; color: #7f1d1d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Total JOD</div>
+                        <div id="total-fee-jod" style="font-size: 1.5rem; font-weight: 700; color: #991b1b;">0 JOD</div>
+                    </div>
+                </div>
+                <p style="margin-top: 1rem; font-size: 0.85rem; color: #7f1d1d;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Item Price + Shipping Fee.</p>
+            </div>
+        </div>
     </main>
 
     <footer>
