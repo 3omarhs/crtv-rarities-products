@@ -4,6 +4,7 @@ let shippingData = [];
 let productsData = [];
 let selectedCountryIndex = null;
 let selectedProduct = null;
+const EXCHANGE_RATE = 1.41;
 
 document.addEventListener('DOMContentLoaded', () => {
     initShipping();
