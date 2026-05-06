@@ -35,8 +35,8 @@ async function initShipping() {
 
     // Load products
     try {
-        if (typeof window.fetchSheetData === 'function') {
-            productsData = await window.fetchSheetData();
+        if (typeof fetchSheetData === 'function') {
+            productsData = await fetchSheetData();
             renderProductTiles();
         } else {
             console.error("fetchSheetData is not available.");
@@ -120,7 +120,7 @@ function renderProductTiles() {
             let urls = product.images.split('\n').filter(u => u.trim());
             if (urls.length > 0) {
                 let firstUrl = urls[0].trim();
-                let driveId = typeof window.extractDriveId === 'function' ? window.extractDriveId(firstUrl) : null;
+                let driveId = typeof extractDriveId === 'function' ? extractDriveId(firstUrl) : null;
                 imgUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w200-h200` : firstUrl;
             }
         }
