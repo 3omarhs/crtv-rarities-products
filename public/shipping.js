@@ -109,15 +109,21 @@ function renderProductTiles() {
     let html = '';
 
     productsData.forEach(product => {
+        const no = product['No'] || product['no'] || product['Item Number'];
+        const hidden = product['Hidden'] || product['hidden'];
+        
         // Skip hidden or invalid products
-        if (!product || !product.no || product.hide === 'TRUE') return;
+        if (!product || !no || String(hidden).toUpperCase() === 'TRUE' || String(hidden).toUpperCase() === 'YES') return;
 
-        const name = currentLang === 'ar' && product.arabicName ? product.arabicName : product.name;
+        const arabicName = product['Arabic Name'] || product['arabicName'];
+        const engName = product['Name on Store'] || product['Product Name'] || product['name'];
+        const name = currentLang === 'ar' && arabicName ? arabicName : engName;
         
         // Extract base image logic from app.js
         let imgUrl = 'baseImage.png';
-        if (product.images) {
-            let urls = product.images.split('\n').filter(u => u.trim());
+        const images = product['Image'] || product['image'] || product['Image Link'];
+        if (images) {
+            let urls = String(images).split('\n').filter(u => u.trim());
             if (urls.length > 0) {
                 let firstUrl = urls[0].trim();
                 let driveId = typeof extractDriveId === 'function' ? extractDriveId(firstUrl) : null;
@@ -125,13 +131,13 @@ function renderProductTiles() {
             }
         }
 
-        const isSelected = selectedProduct && selectedProduct.no === product.no ? 'selected' : '';
+        const isSelected = selectedProduct && (selectedProduct['No'] || selectedProduct['no']) === no ? 'selected' : '';
 
         html += `
-            <div class="product-tile ${isSelected}" data-id="${product.no}" onclick="selectProduct('${product.no}')">
+            <div class="product-tile ${isSelected}" data-id="${no}" onclick="selectProduct('${no}')">
                 <img src="${imgUrl}" alt="${name}" class="product-tile-img" onerror="this.src='baseImage.png'">
                 <div class="product-tile-name">${name}</div>
-                <div class="product-tile-no">#${product.no}</div>
+                <div class="product-tile-no">#${no}</div>
             </div>
         `;
     });
@@ -140,7 +146,7 @@ function renderProductTiles() {
 }
 
 window.selectProduct = function(productId) {
-    selectedProduct = productsData.find(p => p.no === productId);
+    selectedProduct = productsData.find(p => (p['No'] || p['no'] || p['Item Number']) === productId);
     
     // Update active class
     document.querySelectorAll('.product-tile').forEach(tile => {
@@ -166,7 +172,8 @@ function calculateTotal() {
     const countryData = shippingData[selectedCountryIndex];
     if (!countryData) return;
 
-    const itemPriceJod = parseFloat(String(selectedProduct.price).replace(/[^\d.]/g, ''));
+    const priceRaw = selectedProduct['Price < 25 QTY'] || selectedProduct['Price'] || selectedProduct['price'] || "0";
+    const itemPriceJod = parseFloat(String(priceRaw).replace(/[^\d.]/g, ''));
     if (isNaN(itemPriceJod)) return;
 
     const shippingJod = parseFloat(countryData['Delivery Cost in JOD']) || 0;
