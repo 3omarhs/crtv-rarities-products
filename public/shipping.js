@@ -121,9 +121,9 @@ function renderProductTiles() {
         
         // Extract base image logic from app.js
         let imgUrl = 'baseImage.png';
-        const images = product['Image'] || product['image'] || product['Image Link'];
+        const images = product['Image'] || product['image'] || product['Image Link'] || product['Gallery'];
         if (images) {
-            let urls = String(images).split('\n').filter(u => u.trim());
+            let urls = String(images).split(/[\n,]/).filter(u => u.trim());
             if (urls.length > 0) {
                 let firstUrl = urls[0].trim();
                 let driveId = typeof extractDriveId === 'function' ? extractDriveId(firstUrl) : null;
@@ -184,6 +184,14 @@ function calculateTotal() {
 
     document.getElementById('total-fee-jod').textContent = `${totalJod.toFixed(2)} JOD`;
     document.getElementById('total-fee-usd').textContent = `$${totalUsd.toFixed(2)}`;
+
+    const breakdownEl = document.getElementById('price-breakdown');
+    if (breakdownEl) {
+        document.getElementById('item-solo-jod').textContent = `${itemPriceJod.toFixed(2)} JOD`;
+        document.getElementById('item-solo-usd').textContent = `$${(itemPriceJod * EXCHANGE_RATE).toFixed(2)}`;
+        document.getElementById('shipping-solo-jod').textContent = `${shippingJod.toFixed(2)} JOD`;
+        document.getElementById('shipping-solo-usd').textContent = `$${shippingUsd.toFixed(2)}`;
+    }
 
     resultContainer.classList.remove('hidden');
 }

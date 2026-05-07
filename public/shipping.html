@@ -137,8 +137,10 @@
                         <div style="font-size: 0.85rem; color: #7f1d1d; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Total JOD</div>
                         <div id="total-fee-jod" style="font-size: 1.5rem; font-weight: 700; color: #991b1b;">0 JOD</div>
                     </div>
-                </div>
-                <p style="margin-top: 1rem; font-size: 0.85rem; color: #7f1d1d;"><i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> Item Price + Shipping Fee.</p>
+                <p id="price-breakdown" style="margin-top: 1.5rem; font-size: 0.95rem; color: #7f1d1d; background: rgba(255,255,255,0.6); padding: 0.75rem; border-radius: 8px; border: 1px dashed #fca5a5; display: inline-block;">
+                    <strong>Item Solo Price:</strong> <span id="item-solo-usd" style="color: var(--accent); font-weight: 700;">$0</span> (<span id="item-solo-jod">0 JOD</span>) <br>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">+ Shipping: <span id="shipping-solo-usd">$0</span> (<span id="shipping-solo-jod">0 JOD</span>)</span>
+                </p>
             </div>
         </div>
     </main>
