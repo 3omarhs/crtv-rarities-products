@@ -1439,16 +1439,20 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
     if (!img.dataset.retries) img.dataset.retries = 0;
     let retryCount = parseInt(img.dataset.retries);
 
+    // Add cache buster for local development to prevent 404 caching issues
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const cb = isLocal ? `?v=${Date.now()}` : '';
+
     // 1. Try alternate local extensions
     if (retryCount === 0) {
         img.dataset.retries = 1;
-        img.src = `${ASSETS_BASE_URL}${itemNo}.png`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}.png${cb}`;
         img.onerror = () => {
             img.dataset.retries = 2;
-            img.src = `${ASSETS_BASE_URL}${itemNo}.webp`;
+            img.src = `${ASSETS_BASE_URL}${itemNo}.webp${cb}`;
             img.onerror = () => {
                 img.dataset.retries = 3;
-                img.src = `${ASSETS_BASE_URL}${itemNo}.gif`;
+                img.src = `${ASSETS_BASE_URL}${itemNo}.gif${cb}`;
                 img.onerror = () => {
                     handleImageError(img, fallback, productName, itemNo, driveId);
                 };
@@ -1476,7 +1480,7 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
         
         if (!videoExtensions.includes(currentExt)) {
             // Try swapping to video
-            const videoUrl = `${ASSETS_BASE_URL}${itemNo}.mp4`;
+            const videoUrl = `${ASSETS_BASE_URL}${itemNo}.mp4${cb}`;
             
             const video = document.createElement('video');
             video.src = videoUrl;
@@ -1522,7 +1526,7 @@ window.handleImageError = function (img, fallback, productName, itemNo, driveId)
         if (!basePath.includes('_1.jpg') && !basePath.includes('_2.jpg')) {
             const sku = img.getAttribute('alt') || '';
             if (sku) {
-                const galleryFallback = `${ASSETS_BASE_URL}${sku}_1.jpg`;
+                const galleryFallback = `${ASSETS_BASE_URL}${sku}_1.jpg${cb}`;
                 img.src = galleryFallback;
                 return;
             }
@@ -1602,25 +1606,29 @@ window.handleGalleryImageError = function (img, itemNo, suffix) {
     if (!img.dataset.retries) img.dataset.retries = '0';
     let retries = parseInt(img.dataset.retries);
 
+    // Add cache buster for local development to prevent 404 caching issues
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const cb = isLocal ? `?v=${Date.now()}` : '';
+
     // 1. Try alternate formats
     if (retries === 0) {
         img.dataset.retries = '1';
-        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.png`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.png${cb}`;
         return;
     } 
     if (retries === 1) {
         img.dataset.retries = '2';
-        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.webp${cb}`;
         return;
     }
     if (retries === 2) {
         img.dataset.retries = '3';
-        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.gif`;
+        img.src = `${ASSETS_BASE_URL}${itemNo}${suffix}.gif${cb}`;
         return;
     }
     if (retries === 3) {
         img.dataset.retries = '4';
-        const videoUrl = `${ASSETS_BASE_URL}${itemNo}${suffix}.mp4`;
+        const videoUrl = `${ASSETS_BASE_URL}${itemNo}${suffix}.mp4${cb}`;
         
         // Swap IMG for VIDEO in thumbnail
         const video = document.createElement('video');
