@@ -122,22 +122,31 @@ function renderProductTiles() {
         const name = currentLang === 'ar' && arabicName ? arabicName : engName;
         
         // Extract base image logic from app.js
-        let imgUrl = 'baseImage.png';
+        const ASSETS_BASE_URL = './assets/products/';
+        let imgUrl = `${ASSETS_BASE_URL}${no}.jpg`;
+        let driveId = null;
+
         const images = product['Image'] || product['image'] || product['Image Link'] || product['Gallery'];
         if (images) {
             let urls = String(images).split(/[\n,]/).filter(u => u.trim());
             if (urls.length > 0) {
                 let firstUrl = urls[0].trim();
-                let driveId = typeof extractDriveId === 'function' ? extractDriveId(firstUrl) : null;
-                imgUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w200-h200` : firstUrl;
+                driveId = typeof extractDriveId === 'function' ? extractDriveId(firstUrl) : null;
+                if (driveId) {
+                    imgUrl = `https://drive.google.com/thumbnail?id=${driveId}&sz=w200-h200`;
+                } else if (firstUrl.length > 200 && !firstUrl.startsWith('http')) {
+                    let cleanBase64 = firstUrl.replace(/\s+/g, '');
+                    imgUrl = cleanBase64.startsWith('data:') ? cleanBase64 : `data:image/jpeg;base64,${cleanBase64}`;
+                }
             }
         }
 
         const isSelected = selectedProduct && (selectedProduct['No'] || selectedProduct['no']) === no ? 'selected' : '';
+        const safeName = name ? name.replace(/'/g, "\\'") : '';
 
         html += `
             <div class="product-tile ${isSelected}" data-id="${no}" onclick="selectProduct('${no}')">
-                <img src="${imgUrl}" alt="${name}" class="product-tile-img" onerror="this.src='baseImage.png'">
+                <img src="${imgUrl}" alt="${name}" class="product-tile-img" onerror="if(typeof handleImageError === 'function') { handleImageError(this, 'baseImage.png', '${safeName}', '${no}', '${driveId || ''}') } else { this.src='baseImage.png' }">
                 <div class="product-tile-name">${name}</div>
                 <div class="product-tile-no">#${no}</div>
             </div>
