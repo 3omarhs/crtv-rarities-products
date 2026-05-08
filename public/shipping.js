@@ -108,7 +108,9 @@ function renderProductTiles() {
     const currentLang = document.documentElement.lang || 'en';
     let html = '';
 
-    productsData.forEach(product => {
+    const reversedProducts = [...productsData].reverse();
+
+    reversedProducts.forEach(product => {
         const no = product['No'] || product['no'] || product['Item Number'];
         const hidden = product['Hidden'] || product['hidden'];
         
@@ -116,7 +118,7 @@ function renderProductTiles() {
         if (!product || !no || String(hidden).toUpperCase() === 'TRUE' || String(hidden).toUpperCase() === 'YES') return;
 
         const arabicName = product['Arabic Name'] || product['arabicName'];
-        const engName = product['Name on Store'] || product['Product Name'] || product['name'];
+        const engName = product['Product Name'] || product['Name on Store'] || product['name'];
         const name = currentLang === 'ar' && arabicName ? arabicName : engName;
         
         // Extract base image logic from app.js
