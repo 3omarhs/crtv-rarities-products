@@ -839,42 +839,31 @@ async function initAdmin() {
                 }
             }
 
-                // Save GitHub Token to LocalStorage
-                const ghTokenInput = document.getElementById('github-token');
-                if (ghTokenInput) {
-                    const token = ghTokenInput.value.trim();
-                    if (token) {
-                        localStorage.setItem('github_token', token);
-                    } else {
-                        localStorage.removeItem('github_token');
-                    }
-                }
+            const gasUrlInput = document.getElementById('settings-google-script-url');
+            const gasUrl = gasUrlInput ? gasUrlInput.value.trim() : '';
 
-                const gasUrlInput = document.getElementById('settings-google-script-url');
-                const gasUrl = gasUrlInput ? gasUrlInput.value.trim() : '';
+            if (!gasUrl) {
+                alert("Error: No Google Script URL defined. Cannot save settings to CSV.");
+                return;
+            }
 
-                if (!gasUrl) {
-                    alert("Error: No Google Script URL defined. Cannot save settings to CSV.");
-                    return;
-                }
-
-                try {
-                    console.log("Saving settings to GitHub CSV via GAS...");
-                    const res = await fetch(gasUrl, {
-                        method: 'POST',
-                        mode: 'cors',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: JSON.stringify({
-                            action: 'saveSettings',
-                            settings: {
-                                email_enabled: enabled,
-                                receiver_email: receiver,
-                                sender_email: sender,
-                                sender_pass: pass,
-                                google_script_url: gasUrl
-                            }
-                        })
-                    });
+            try {
+                console.log("Saving settings to GitHub CSV via GAS...");
+                const res = await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'saveSettings',
+                        settings: {
+                            email_enabled: enabled,
+                            receiver_email: receiver,
+                            sender_email: sender,
+                            sender_pass: pass,
+                            google_script_url: gasUrl
+                        }
+                    })
+                });
 
                 if (res.ok) {
                     msg.textContent = "Settings saved to GitHub CSV!";
@@ -1270,11 +1259,6 @@ async function loadSettings() {
     const keyInput = document.getElementById('gemini-api-key-input');
     if (keyInput) {
         keyInput.value = localStorage.getItem('gemini_api_key') || '';
-    }
-
-    const ghTokenInput = document.getElementById('github-token');
-    if (ghTokenInput) {
-        ghTokenInput.value = localStorage.getItem('github_token') || '';
     }
 
     try {
@@ -1746,57 +1730,6 @@ function savePendingChanges() {
 
 loadPendingChanges();
 
-window.commitOrderToGithub = async function(order) {
-    const token = localStorage.getItem('github_token');
-    if (!token) return { success: false, error: "No GitHub token found in settings." };
-
-    const repo = "3omarhs/crtv-rarities-products";
-    const path = "data/orders.csv";
-    const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
-
-    try {
-        console.log("Direct GitHub Commit: Fetching current orders.csv...");
-        const res = await fetch(apiUrl, {
-            headers: { 'Authorization': `token ${token}` }
-        });
-        if (!res.ok) throw new Error("Could not fetch file metadata from GitHub.");
-        const fileData = await res.json();
-        const content = atob(fileData.content);
-        const sha = fileData.sha;
-
-        // Append order to content
-        const itemsStr = JSON.stringify(order.items).replace(/"/g, '""');
-        const newRow = `"${order.address || ''}","${order.currency || ''}","${order.customerName || ''}","${order.customerPhone || ''}","${order.date || ''}","${order.id || ''}","${itemsStr}","${order.method || ''}","${order.paymentMethod || ''}","${order.selectedCompany || ''}","${order.selectedRegion || ''}","${order.status || ''}","${Math.floor(order.timestamp)}","${order.total || ''}","${order.calculate_delivery}","${order.delivery_fee || 0}"\n`;
-        
-        const updatedContent = content.endsWith('\n') ? content + newRow : content + '\n' + newRow;
-
-        console.log("Direct GitHub Commit: Pushing update...");
-        const putRes = await fetch(apiUrl, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: `Add order ${order.id} [Direct Admin Commit]`,
-                content: btoa(unescape(encodeURIComponent(updatedContent))),
-                sha: sha
-            })
-        });
-
-        if (putRes.ok) {
-            console.log("Direct GitHub Commit: SUCCESS.");
-            return { success: true };
-        } else {
-            const errJson = await putRes.json();
-            throw new Error(errJson.message || "GitHub API error");
-        }
-    } catch (e) {
-        console.error("Direct GitHub Commit FAILED:", e);
-        return { success: false, error: e.message };
-    }
-};
-
 function showLoading(title = "Processing...", msg = "Please wait while we sync changes...") {
     let modal = document.getElementById('loading-modal');
     if (!modal) {
@@ -1945,41 +1878,6 @@ async function fetchOrders(GAS_URL) {
                         }
                     }
                 });
-
-                // Add completely new orders that haven't synced to CSV yet
-                Object.values(window.pendingChanges).forEach(pc => {
-                    if (pc.isNew && (Date.now() - pc.timestamp < 300000)) {
-                        // Only add if not already in the CSV
-                        if (!results.data.find(o => String(o.id) === String(pc.data.id))) {
-                            results.data.push(pc.data);
-                        }
-                    }
-                });
-
-                // Merge Supabase orders to ensure newly created orders are never lost on refresh
-                if (window.supabaseClient) {
-                    try {
-                        const { data: supabaseOrders, error } = await window.supabaseClient
-                            .from('orders')
-                            .select('*')
-                            .order('timestamp', { ascending: false })
-                            .limit(100);
-                            
-                        if (supabaseOrders && !error) {
-                            supabaseOrders.forEach(so => {
-                                const exists = results.data.find(o => String(o.id) === String(so.id));
-                                if (!exists) {
-                                    // Make sure items is a string if it's an array, to match CSV format
-                                    if (Array.isArray(so.items)) so.items = JSON.stringify(so.items);
-                                    results.data.push(so);
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        console.warn("Admin: Supabase merge failed", e);
-                    }
-                }
-
                 savePendingChanges();
 
                 allOrders = results.data;
@@ -4689,21 +4587,6 @@ async function submitManualOrder() {
     };
 
     try {
-        // Try Direct GitHub Commit first if token is present
-        const ghToken = localStorage.getItem('github_token');
-        if (ghToken) {
-            try {
-                const commitRes = await window.commitOrderToGithub(order);
-                if (commitRes.success) {
-                    console.log("Admin: Order committed directly to GitHub CSV.");
-                } else {
-                    console.warn("Admin: Direct GitHub commit failed, falling back to GAS/Supabase.", commitRes.error);
-                }
-            } catch (e) {
-                console.warn("Admin: Direct GitHub commit exception:", e);
-            }
-        }
-
         // Try GAS if configured
         const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
 
@@ -4738,9 +4621,7 @@ async function submitManualOrder() {
                     selectedRegion: order.selectedRegion,
                     status: order.status,
                     timestamp: Math.floor(order.timestamp).toString(),
-                    total: order.total,
-                    calculate_delivery: order.calculate_delivery,
-                    delivery_fee: order.delivery_fee
+                    total: order.total
                 }]);
                 if (error) throw error;
                 savedToDb = true;
@@ -4769,16 +4650,6 @@ async function submitManualOrder() {
 
         msgEl.textContent = "Order created successfully!";
         msgEl.classList.remove('hidden');
-        
-        // --- ADD TO PENDING CHANGES FOR INSTANT UI FEEDBACK ---
-        if (!window.pendingChanges) window.pendingChanges = {};
-        window.pendingChanges[order.id] = {
-            timestamp: Date.now(),
-            isNew: true, // Flag as new order
-            data: order
-        };
-        savePendingChanges();
-
         // Clear Form
         manualCart = [];
         document.getElementById('mo-name').value = '';
