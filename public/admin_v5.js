@@ -4688,6 +4688,7 @@ async function submitManualOrder() {
         })() : 0
     };
 
+    try {
         // Try Direct GitHub Commit first if token is present
         const ghToken = localStorage.getItem('github_token');
         if (ghToken) {
@@ -4747,7 +4748,6 @@ async function submitManualOrder() {
             } catch (err) {
                 console.error("Admin: Supabase manual order insert error:", err);
             }
-        }
         }
 
         // Fallback to local API if Supabase failed/unavailable and we are NOT on static hosting
