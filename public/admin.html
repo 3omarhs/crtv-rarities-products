@@ -383,6 +383,11 @@
                             <small style="color:var(--text-secondary)">Use a Google App Password, not your login
                                 password.</small>
                         </div>
+                        <div class="form-group">
+                            <label>GitHub Token (Optional - for direct CSV updates)</label>
+                            <input type="password" id="github-token" placeholder="ghp_xxxxxxxxxxxx">
+                            <small style="color:var(--text-secondary)">Allows the browser to write directly to data/orders.csv bypassing GAS/Sheets.</small>
+                        </div>
                     </div>
 
                     <!-- Version Display -->
@@ -1121,7 +1126,8 @@
             </div>
         </div>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
     <script src="drive-images.js"></script>
     <script src="admin_v5.js?v=5.3.5"></script>
         <div id="footer-version-display"
