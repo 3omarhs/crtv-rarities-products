@@ -4587,66 +4587,16 @@ async function submitManualOrder() {
     };
 
     try {
-        // Try GAS if configured
-        const GAS_URL = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
-
-        if (GAS_URL && window.submitToGas) {
-            try {
-                // Synchronously await GAS or don't block? Let's await to ensure success
-                await window.submitToGas(GAS_URL, {
-                    action: 'placeOrder',
-                    order: order
-                });
-            } catch (e) {
-                console.warn("GAS submission failed, order will only be saved locally.", e);
-            }
-        }
-
-        // Try Supabase first (primary for static hosts like GitHub Pages)
-        let savedToDb = false;
-        if (window.supabaseClient) {
-            try {
-                console.log("Admin: Saving manual order to Supabase...");
-                const { error } = await window.supabaseClient.from('orders').insert([{
-                    id: order.id,
-                    address: order.address,
-                    currency: order.currency,
-                    customerName: order.customerName,
-                    customerPhone: order.customerPhone,
-                    date: order.date,
-                    items: JSON.stringify(order.items), // stringify array of items
-                    method: order.method,
-                    paymentMethod: order.paymentMethod,
-                    selectedCompany: order.selectedCompany,
-                    selectedRegion: order.selectedRegion,
-                    status: order.status,
-                    timestamp: Math.floor(order.timestamp).toString(),
-                    total: order.total
-                }]);
-                if (error) throw error;
-                savedToDb = true;
-                console.log("Admin: Order saved to Supabase successfully.");
-            } catch (err) {
-                console.error("Admin: Supabase manual order insert error:", err);
-            }
-        }
-
-        // Fallback to local API if Supabase failed/unavailable and we are NOT on static hosting
-        if (!savedToDb) {
-            if (window.location.hostname.includes('github.io')) {
-                console.warn("Admin: Local API disabled on GitHub Pages. Order relies solely on GAS endpoint above.");
-                // We won't throw because the GAS call might have succeeded
-            } else {
-                const res = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(order)
-                });
-                if (!res.ok) throw new Error("Server error, status: " + res.status);
-                const json = await res.json();
-                if (json.status !== 'success') throw new Error(json.error || "Unknown error");
-            }
-        }
+        // Unconditionally save to local CSV via local API, bypassing GAS and Supabase
+        const res = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(order)
+        });
+        
+        if (!res.ok) throw new Error("Server error, status: " + res.status);
+        const json = await res.json();
+        if (json.status !== 'success') throw new Error(json.error || "Unknown error");
 
         msgEl.textContent = "Order created successfully!";
         msgEl.classList.remove('hidden');

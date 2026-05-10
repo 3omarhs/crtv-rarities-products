@@ -56,7 +56,41 @@ while ($listener.IsListening) {
             $json = "{}"
             
             if ($path -eq "/api/orders") {
-                $json = Convert-CsvToJson (Join-Path $dataDir "orders.csv")
+                if ($request.HttpMethod -eq "POST") {
+                    try {
+                        $reader = New-Object System.IO.StreamReader($request.InputStream)
+                        $postData = $reader.ReadToEnd() | ConvertFrom-Json
+                        $csvPath = Join-Path $dataDir "orders.csv"
+                        
+                        if ($postData.items -is [array]) {
+                            $postData.items = $postData.items | ConvertTo-Json -Compress
+                        }
+
+                        $headers = @('address', 'currency', 'customerName', 'customerPhone', 'date', 'id', 'items', 'method', 'paymentMethod', 'selectedCompany', 'selectedRegion', 'status', 'timestamp', 'total', 'calculate_delivery', 'delivery_fee')
+                        
+                        $row = New-Object PSObject
+                        foreach ($h in $headers) {
+                            $val = $postData.$h
+                            if ($null -ne $val -and $val -is [string]) {
+                                $val = $val -replace "`n", " " -replace "`r", ""
+                            }
+                            $row | Add-Member -MemberType NoteProperty -Name $h -Value $val
+                        }
+                        
+                        if (-not (Test-Path $csvPath) -or (Get-Item $csvPath).Length -eq 0) {
+                            $row | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+                        } else {
+                            $row | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8 -Append
+                        }
+                        
+                        $json = @{ status = "success"; message = "Order appended locally" } | ConvertTo-Json
+                    } catch {
+                        $response.StatusCode = 500
+                        $json = @{ error = $_.Exception.Message } | ConvertTo-Json
+                    }
+                } else {
+                    $json = Convert-CsvToJson (Join-Path $dataDir "orders.csv")
+                }
             } elseif ($path -eq "/api/visits") {
                 $visits = Import-Csv (Join-Path $dataDir "visits.csv")
                 $total = 0
