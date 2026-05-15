@@ -504,32 +504,40 @@ async function loadCredentials() {
         let currentUser = {};
         for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed) {
-                if (currentUser.email && currentUser.pass) {
-                    ADMIN_USERS.push(currentUser);
-                    currentUser = {};
-                }
+            if (!trimmed || trimmed.startsWith('#')) continue;
+
+            const firstColon = trimmed.indexOf(':');
+            if (firstColon === -1) {
+                // If it's just a string, maybe it's a standalone value or we're in a multi-line format
+                // But typically we expect key: value
                 continue;
             }
 
-            const firstColon = line.indexOf(':');
-            if (firstColon === -1) continue;
+            const key = trimmed.substring(0, firstColon).trim().toLowerCase();
+            const value = trimmed.substring(firstColon + 1).trim();
 
-            const key = line.substring(0, firstColon).trim().toLowerCase();
-            const value = line.substring(firstColon + 1).trim();
-
-            if (key === 'username') {
+            if (key === 'username' || key === 'user') {
                 if (currentUser.email && currentUser.pass) {
                     ADMIN_USERS.push(currentUser);
                     currentUser = {};
                 }
                 currentUser.email = value.toLowerCase();
-            } else if (key === 'password') {
+            } else if (key === 'password' || key === 'pass') {
                 currentUser.pass = value;
+            } else {
+                // Support direct user:pass format if no labels found
+                // If we haven't seen 'username' or 'password' keys yet on this line
+                // it might be 'omar:702'
+                if (!currentUser.email && key.length > 0 && value.length > 0) {
+                    ADMIN_USERS.push({ email: key.toLowerCase(), pass: value });
+                }
             }
         }
         if (currentUser.email && currentUser.pass) {
-            ADMIN_USERS.push(currentUser);
+            // Check if already added by the 'else' block above to avoid duplicates
+            if (!ADMIN_USERS.some(u => u.email === currentUser.email && u.pass === currentUser.pass)) {
+                ADMIN_USERS.push(currentUser);
+            }
         }
         console.log(`Admin: Loaded ${ADMIN_USERS.length} users from file.`);
         fileSuccess = true;
@@ -906,8 +914,16 @@ async function initAdmin() {
     } else {
         // Only show login if NOT logged in
         const loginScreen = document.getElementById('login-screen');
-        if (loginScreen) loginScreen.classList.remove('hidden');
-        showLogin();
+        if (loginScreen) {
+            loginScreen.classList.remove('hidden');
+            loginScreen.style.display = 'flex'; // Force visibility
+        }
+        if (typeof showLogin === 'function') {
+            showLogin();
+        } else {
+            console.warn("showLogin not defined, showing login screen manually.");
+            if (loginScreen) loginScreen.classList.remove('hidden');
+        }
     }
 }
 
@@ -1769,10 +1785,21 @@ function hideLoading() {
 // --- End Loading Helpers ---
 
 function showDashboard() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('admin-dashboard').classList.remove('hidden');
-    loadData();
-    initProductData();
+    const loginScreen = document.getElementById('login-screen');
+    const dashboard = document.getElementById('admin-dashboard');
+    
+    if (loginScreen) {
+        loginScreen.classList.add('hidden');
+        loginScreen.style.display = 'none';
+    }
+    
+    if (dashboard) {
+        dashboard.classList.remove('hidden');
+        dashboard.style.display = 'flex'; // Match dashboard-container flex
+    }
+
+    if (typeof loadData === 'function') loadData();
+    if (typeof initProductData === 'function') initProductData();
 
     // Auto-refresh stats every 60 seconds while on dashboard
     if (window.dashboardInterval) clearInterval(window.dashboardInterval);
@@ -1781,9 +1808,26 @@ function showDashboard() {
         // Check if the dashboard is still visible before refreshing
         if (stats && stats.style.display !== 'none' && !document.getElementById('loading-modal').classList.contains('open')) {
             console.log("Auto-refreshing dashboard stats...");
-            loadData();
+            if (typeof loadData === 'function') loadData();
         }
     }, 60000);
+}
+
+function showLogin() {
+    const loginScreen = document.getElementById('login-screen');
+    const dashboard = document.getElementById('admin-dashboard');
+    
+    if (dashboard) {
+        dashboard.classList.add('hidden');
+        dashboard.style.display = 'none';
+    }
+    
+    if (loginScreen) {
+        loginScreen.classList.remove('hidden');
+        loginScreen.style.display = 'flex';
+    }
+    
+    console.log("Admin: Login screen shown.");
 }
 
 
