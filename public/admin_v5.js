@@ -1,4 +1,4 @@
-const APP_VERSION = '5.3.5';
+const APP_VERSION = '5.3.6';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -3191,7 +3191,12 @@ window.prepareAddProductForm = async function () {
         const data = await window.fetchProductsData();
         const nextNo = getNextItemNumber(data);
         if (nextNo && form.elements['No']) {
-            form.elements['No'].value = nextNo;
+            // ONLY set the value if the action is still 'addProduct'
+            // This prevents a race condition where editProduct changes the form state
+            // while fetchProductsData is still awaiting.
+            if (document.getElementById('product-action').value === 'addProduct') {
+                form.elements['No'].value = nextNo;
+            }
         }
     } catch (e) {
         console.error("Error auto-incrementing", e);
