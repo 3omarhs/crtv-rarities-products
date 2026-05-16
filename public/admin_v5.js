@@ -3250,10 +3250,37 @@ window.renderProductsTable = function (data) {
         return;
     }
 
-    data.forEach(row => {
+    // Sort: Pinned first, then by the current sort column (if any) or default
+    const sortedData = [...data].sort((a, b) => {
+        const aPinned = a['Pinned'] === 'TRUE';
+        const bPinned = b['Pinned'] === 'TRUE';
+        
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        
+        // If both same pinned status, use current sort or default
+        if (window.currentSortColumn) {
+            let valA = a[window.currentSortColumn] || '';
+            let valB = b[window.currentSortColumn] || '';
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+            
+            if (!isNaN(numA) && !isNaN(numB) && window.currentSortColumn.includes('Price')) {
+                return window.currentSortDirection === 'asc' ? numA - numB : numB - numA;
+            }
+            valA = String(valA).toLowerCase();
+            valB = String(valB).toLowerCase();
+            if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+
+    sortedData.forEach(row => {
         if (!row['No']) return;
 
         const tr = document.createElement('tr');
+        const isPinned = row['Pinned'] === 'TRUE';
 
         // Image Logic: Prioritize Drive ID from 'Image' column for instant preview
         const driveId = extractDriveId(row['Image'] || row['image'] || '');
@@ -3282,6 +3309,9 @@ window.renderProductsTable = function (data) {
             <td>${statusHtml}</td>
             <td onclick="event.stopPropagation()">
                 <div class="action-buttons">
+                    <button class="btn-icon btn-pin" onclick="window.togglePin('${row['No']}')" title="${isPinned ? 'Unpin' : 'Pin'} Product">
+                        <i data-lucide="pin" style="width:16px; height:16px; ${isPinned ? 'fill: #f59e0b; stroke: #f59e0b;' : ''}"></i>
+                    </button>
                     <button class="btn-icon btn-edit" onclick="window.editProduct('${row['No']}')" title="Edit">
                         <i data-lucide="edit-2" style="width:16px; height:16px;"></i>
                     </button>
@@ -3296,6 +3326,43 @@ window.renderProductsTable = function (data) {
 
     // Initialize new icons
     if (window.lucide) lucide.createIcons();
+};
+
+window.togglePin = async function (no) {
+    const product = window.allProducts.find(p => p['No'] === no);
+    if (!product) return;
+
+    const currentlyPinned = product['Pinned'] === 'TRUE';
+    const newStatus = currentlyPinned ? 'FALSE' : 'TRUE';
+    
+    showLoading(newStatus === 'TRUE' ? "Pinning Product" : "Unpinning Product", `Updating status for ${no}...`);
+
+    const gasUrl = (document.getElementById('settings-google-script-url')?.value || document.getElementById('google-script-url')?.value)?.trim();
+    if (!gasUrl) {
+        alert("Error: No Google Apps Script URL defined.");
+        hideLoading();
+        return;
+    }
+
+    try {
+        const res = await window.submitToGas(gasUrl, {
+            action: 'updateProductField',
+            no: no,
+            field: 'Pinned',
+            value: newStatus
+        });
+
+        if (res) {
+            // Update local state
+            product['Pinned'] = newStatus;
+            window.filterAndRenderProducts();
+        }
+    } catch (e) {
+        console.error("Pin toggle error", e);
+        alert("Failed to update pin status: " + e.message);
+    } finally {
+        hideLoading();
+    }
 };
 
 window.toggleProductRowExpansion = function (tr, sku) {
@@ -3963,8 +4030,14 @@ window.filterAndRenderProducts = function () {
     }
 
     // 2. Sort
-    if (window.currentSortColumn) {
-        products.sort((a, b) => {
+    products.sort((a, b) => {
+        // PRIORITY: Pinned products always on top
+        const aPinned = a['Pinned'] === 'TRUE';
+        const bPinned = b['Pinned'] === 'TRUE';
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+
+        if (window.currentSortColumn) {
             let valA = a[window.currentSortColumn] || '';
             let valB = b[window.currentSortColumn] || '';
 
@@ -3989,9 +4062,9 @@ window.filterAndRenderProducts = function () {
 
             if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
             if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }
+        }
+        return 0;
+    });
 
     // 3. Render
     window.renderProductsTable(products);

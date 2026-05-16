@@ -600,6 +600,18 @@
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
 }
 
+.btn-pin {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-pin:hover {
+    background: #f59e0b;
+    color: white;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
 /* Status Badge */
 .status-badge {
     padding: 0.25rem 0.75rem;

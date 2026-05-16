@@ -884,6 +884,7 @@ function processData(data) {
     const hiddenKey = keys.find(k => normalizeKey(k) === 'hidden');
     const colorsKey = keys.find(k => normalizeKey(k).includes('color'));
     const galleryKey = keys.find(k => normalizeKey(k) === 'gallery');
+    const pinnedKey = keys.find(k => normalizeKey(k) === 'pinned');
 
     if (!productKey) {
         showError("Could not find a 'Product Name' column.");
@@ -931,6 +932,7 @@ function processData(data) {
                     return raw.startsWith('{') ? JSON.parse(raw) : {};
                 } catch(e) { return {}; }
             })(),
+            pinned: pinnedKey ? (String(item[pinnedKey]).toLowerCase() === 'true' || item[pinnedKey] === 'TRUE' || item[pinnedKey] === '1') : false,
             index: index
         };
 
@@ -958,7 +960,11 @@ function processData(data) {
         if (['no', 'false', '0', 'inactive', 'hidden'].includes(avail)) return false;
 
         return true;
-    }).reverse();
+    }).reverse().sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0;
+    });
 
     window.allProducts = allProducts;
     if (window.setChatbotProducts) {
