@@ -356,18 +356,76 @@ function handleProductSubmit(product) {
 }
 
 function handleProductUpdate(product) {
-    const headers = ['no', 'category', 'status', 'name', 'arabicName', 'description', 'price', 'wholesalePrice', 'bulkPrice', 'buyPrice', 'cost', 'profit', 'stock', 'qty', 'weight', 'size', 'length', 'color', 'barcode', 'qrCode', 'link'];
-    
-    const rowData = headers.map(header => {
-        let val = product[header];
-        if (typeof val === 'undefined' || val === null) val = '';
-        let strVal = String(val).replace(/"/g, '""');
-        if (strVal.includes(',') || strVal.includes('\n')) strVal = `"${strVal}"`;
-        return strVal;
-    }).join(',');
+    const no = product['No'] || product['no'];
+    if (!no) return jsonResponse({ status: 'error', message: 'Product number (No) is required.' });
 
-    updateGitHubFile('data/products.csv', rowData, null, `Auto-Commit: Added Product ${product.no}`);
-    return jsonResponse({ status: 'success', message: 'Product successfully added' });
+    const mutateFunc = (csvContent) => {
+        let rows = csvContent.split('\n');
+        if (rows.length < 1) return csvContent;
+        
+        let headers = rows[0].split(',').map(h => h.trim());
+        const idIndex = headers.indexOf('No') > -1 ? headers.indexOf('No') : headers.indexOf('no');
+        
+        // Ensure standard headers exist if missing
+        const standardHeaders = ['Product Name','No','category','collection','','target market','Calculate on Weight','Dimensions(mm) x y z','description (80 word)','Price < 25 QTY','Price >=25 QTY','discount cal','Document Link','Discount %','calc','Name on Store','Arabic Name','Available','Hidden','Colors','Image','Gallery','Pinned'];
+        
+        if (headers.length < 5) {
+            headers = standardHeaders;
+            rows[0] = headers.join(',');
+        } else {
+            // Add any missing standard headers to the right
+            standardHeaders.forEach(sh => {
+                if (!headers.includes(sh)) {
+                    headers.push(sh);
+                    rows[0] = rows[0].trim() + ',' + sh;
+                }
+            });
+        }
+
+        let rowIndex = -1;
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            if (p[idIndex] == no) {
+                rowIndex = i;
+                break;
+            }
+        }
+
+        let targetP;
+        if (rowIndex > -1) {
+            targetP = parseCSVLine(rows[rowIndex]);
+            while(targetP.length < headers.length) targetP.push('');
+        } else {
+            targetP = new Array(headers.length).fill('');
+            targetP[idIndex] = no;
+        }
+
+        // Map incoming product data to headers
+        headers.forEach((h, idx) => {
+            if (product[h] !== undefined) {
+                targetP[idx] = String(product[h]);
+            } else if (h === 'Product Name' && product['product name'] !== undefined) {
+                targetP[idx] = String(product['product name']);
+            }
+        });
+
+        const newRowStr = targetP.map(x => {
+            const s = String(x || "");
+            return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+        }).join(',');
+
+        if (rowIndex > -1) {
+            rows[rowIndex] = newRowStr;
+        } else {
+            rows.push(newRowStr);
+        }
+
+        return rows.join('\n');
+    };
+
+    updateGitHubFile('data/products.csv', null, mutateFunc, `Auto-Commit: Saved Product ${no}`);
+    return jsonResponse({ status: 'success', message: 'Product successfully saved' });
 }
 
 function handleImageUpload(params) {
