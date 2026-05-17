@@ -5194,13 +5194,58 @@ window.loadRepresentatives = async function () {
                 header: true,
                 skipEmptyLines: true,
                 complete: function (results) {
-                    window.representatives = results.data;
+                    let parsedReps = results.data;
+                    
+                    // Re-apply pending rep changes
+                    loadPendingChanges();
+                    parsedReps.forEach(r => {
+                        const id = "REP_" + r.id;
+                        if (window.pendingChanges[id]) {
+                            const pc = window.pendingChanges[id];
+                            if (Date.now() - pc.timestamp < 300000) {
+                                Object.assign(r, pc.data);
+                            } else {
+                                delete window.pendingChanges[id];
+                            }
+                        }
+                    });
+                    
+                    // Inject newly created reps
+                    Object.keys(window.pendingChanges).forEach(id => {
+                        const pc = window.pendingChanges[id];
+                        if (id.startsWith("REP_") && pc.isNew && (Date.now() - pc.timestamp < 300000)) {
+                            if (!parsedReps.some(r => r.id === pc.data.id)) {
+                                parsedReps.push(pc.data);
+                            }
+                        }
+                    });
+                    
+                    // Remove newly deleted reps
+                    parsedReps = parsedReps.filter(r => {
+                        const id = "REP_" + r.id;
+                        const pc = window.pendingChanges[id];
+                        if (pc && pc.isDeleted && (Date.now() - pc.timestamp < 300000)) {
+                            return false;
+                        }
+                        return true;
+                    });
+                    
+                    savePendingChanges();
+                    window.representatives = parsedReps;
                     window.renderRepresentativesTable();
                 }
             });
         } else {
             // New or empty
-            window.representatives = [];
+            let parsedReps = [];
+            loadPendingChanges();
+            Object.keys(window.pendingChanges).forEach(id => {
+                const pc = window.pendingChanges[id];
+                if (id.startsWith("REP_") && pc.isNew && (Date.now() - pc.timestamp < 300000)) {
+                    parsedReps.push(pc.data);
+                }
+            });
+            window.representatives = parsedReps;
             window.renderRepresentativesTable();
         }
     } catch (e) {
@@ -5280,6 +5325,13 @@ window.submitAddRep = async function () {
             rep: rep
         });
         
+        window.pendingChanges["REP_" + rep.id] = {
+            timestamp: Date.now(),
+            data: rep,
+            isNew: true
+        };
+        savePendingChanges();
+
         window.representatives.push(rep);
         window.renderRepresentativesTable();
         window.closeAddRepModal();
@@ -5304,6 +5356,12 @@ window.deleteRepresentative = async function (id) {
             repId: id
         });
         
+        window.pendingChanges["REP_" + id] = {
+            timestamp: Date.now(),
+            isDeleted: true
+        };
+        savePendingChanges();
+
         window.representatives = window.representatives.filter(r => r.id !== id);
         window.renderRepresentativesTable();
     } catch (e) {
@@ -5419,6 +5477,13 @@ window.submitRepPrices = async function () {
             rep: rep
         });
         
+        window.pendingChanges["REP_" + rep.id] = {
+            timestamp: Date.now(),
+            data: rep,
+            isNew: false
+        };
+        savePendingChanges();
+
         alert("Price list saved successfully!");
         window.closeRepPricesModal();
     } catch (e) {
