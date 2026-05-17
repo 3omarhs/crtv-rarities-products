@@ -932,7 +932,7 @@ function processData(data) {
                     return raw.startsWith('{') ? JSON.parse(raw) : {};
                 } catch(e) { return {}; }
             })(),
-            pinned: pinnedKey ? (String(item[pinnedKey]).toLowerCase() === 'true' || item[pinnedKey] === 'TRUE' || item[pinnedKey] === '1') : false,
+            pinned: pinnedKey ? (String(item[pinnedKey]).toLowerCase() === 'yes' || String(item[pinnedKey]).toLowerCase() === 'true' || item[pinnedKey] === '1') : false,
             index: index
         };
 

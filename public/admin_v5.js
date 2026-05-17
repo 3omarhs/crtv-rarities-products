@@ -2904,6 +2904,14 @@ async function initProductData() {
                         savePendingChanges();
 
                         window.allProducts = parsedProducts.reverse();
+                        
+                        // Sort pinned items to the top while maintaining reversed order
+                        window.allProducts.sort((a, b) => {
+                            const aPinned = (String(a['Pinned'] || '').toLowerCase() === 'yes' || String(a['Pinned'] || '').toLowerCase() === 'true') ? 1 : 0;
+                            const bPinned = (String(b['Pinned'] || '').toLowerCase() === 'yes' || String(b['Pinned'] || '').toLowerCase() === 'true') ? 1 : 0;
+                            return bPinned - aPinned;
+                        });
+
                         window.manualProducts = window.allProducts.map(p => ({
                             id: p['No'],
                             name: p['Product Name'] || p['product name'] || p['Name on Store'] || 'Unknown Name',
