@@ -33,6 +33,8 @@ function handleAllActions(action, params) {
         if (action === 'updateOrderDeliveryToggle') return handleUpdateOrderDeliveryToggle(params.orderId || params.id, params.calculateDelivery);
         if (action === 'updateOrderDate') return handleUpdateOrderDate(params.orderId || params.id, params.date);
         if (action === 'updateProductField') return handleUpdateProductField(params.no, params.field, params.value);
+        if (action === 'saveRepresentative') return handleSaveRepresentative(params.rep);
+        if (action === 'deleteRepresentative') return handleDeleteRepresentative(params.repId);
         
         return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
@@ -441,6 +443,91 @@ function handleUpdateOrderDate(orderId, newDate) {
         return out.join('\n');
     };
     updateGitHubFile('data/orders.csv', null, mutateFunc, `Auto-Commit: Updated Order Date ${orderId}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleSaveRepresentative(rep) {
+    const mutateFunc = (csvContent) => {
+        let rows = csvContent ? csvContent.split('\n') : [];
+        let headers = [];
+        if (rows.length < 2 && !rows[0]) {
+             headers = ['id', 'name', 'page_name', 'price_list'];
+             rows[0] = headers.join(',');
+        } else {
+             headers = rows[0].split(',').map(h => h.trim());
+        }
+        
+        // Ensure price_list column exists
+        if (!headers.includes('price_list')) {
+             headers.push('price_list');
+             rows[0] = headers.join(',');
+             for(let i=1; i<rows.length; i++) {
+                 if(rows[i].trim()) rows[i] += ',{}';
+             }
+        }
+        
+        const idIndex = headers.indexOf('id');
+        let found = false;
+        
+        let out = [rows[0]];
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            
+            if (p[idIndex] == rep.id) {
+                p = headers.map((h, idx) => {
+                    let v = rep[h] !== undefined ? rep[h] : (p[idx] || '');
+                    if (typeof v === 'object') v = JSON.stringify(v);
+                    let s = String(v);
+                    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+                });
+                found = true;
+            } else {
+                p = p.map(x => {
+                    let s = String(x || "");
+                    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+                });
+            }
+            out.push(p.join(','));
+        }
+        
+        if (!found) {
+            let p = headers.map(h => {
+                let v = rep[h] || '';
+                if (h === 'price_list' && !v) v = '{}';
+                if (typeof v === 'object') v = JSON.stringify(v);
+                let s = String(v);
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            });
+            out.push(p.join(','));
+        }
+        
+        return out.join('\n');
+    };
+    
+    updateGitHubFile('data/representatives.csv', null, mutateFunc, `Auto-Commit: Saved Representative ${rep.id}`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleDeleteRepresentative(repId) {
+    const mutateFunc = (csvContent) => {
+        if (!csvContent) return '';
+        const rows = csvContent.split('\n');
+        if (rows.length < 2) return csvContent;
+        const headers = rows[0].split(',').map(h => h.trim());
+        const idIndex = headers.indexOf('id');
+        
+        let out = [rows[0]];
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            if (p[idIndex] != repId) {
+                out.push(rows[i]);
+            }
+        }
+        return out.join('\n');
+    };
+    updateGitHubFile('data/representatives.csv', null, mutateFunc, `Auto-Commit: Deleted Representative ${repId}`);
     return jsonResponse({ status: 'success' });
 }
 

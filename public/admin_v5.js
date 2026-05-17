@@ -671,6 +671,8 @@ async function initAdmin() {
                     if (window.initSocialGenerator) window.initSocialGenerator();
                 } else if (viewName === 'wholesale') {
                     if (window.loadWholesale) window.loadWholesale();
+                } else if (viewName === 'representatives') {
+                    if (window.loadRepresentatives) window.loadRepresentatives();
                 } else if (viewName === 'upload-images') {
                     if (window.initUploadImages) window.initUploadImages();
                 }
@@ -5162,3 +5164,260 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==========================================
+// REPRESENTATIVES LOGIC
+// ==========================================
+
+window.representatives = [];
+window.currentRepPricesId = null;
+
+window.loadRepresentatives = async function () {
+    console.log("Loading representatives...");
+    const tbody = document.getElementById('reps-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
+    
+    try {
+        const res = await fetch('https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/representatives.csv?v=' + Date.now());
+        if (res.ok) {
+            const csvText = await res.text();
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    window.representatives = results.data;
+                    window.renderRepresentativesTable();
+                }
+            });
+        } else {
+            // New or empty
+            window.representatives = [];
+            window.renderRepresentativesTable();
+        }
+    } catch (e) {
+        console.error("Error loading reps", e);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Failed to load.</td></tr>';
+    }
+};
+
+window.renderRepresentativesTable = function () {
+    const tbody = document.getElementById('reps-table-body');
+    if (!tbody) return;
+    
+    if (window.representatives.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No representatives found. Add one below.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = window.representatives.map(rep => `
+        <tr>
+            <td>${rep.id || ''}</td>
+            <td style="font-weight:bold;">${rep.name || ''}</td>
+            <td><a href="/?rep=${rep.page_name || ''}" target="_blank">${rep.page_name || ''}</a></td>
+            <td>
+                <button class="btn btn-secondary" onclick="window.openRepPricesModal('${rep.id}')" style="margin-right:0.5rem; padding: 0.3rem 0.6rem;">
+                    <i data-lucide="dollar-sign"></i> Prices
+                </button>
+                <button class="btn btn-secondary" style="color:var(--danger); border-color:var(--danger); padding: 0.3rem 0.6rem;" onclick="window.deleteRepresentative('${rep.id}')">
+                    <i data-lucide="trash-2"></i> Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    if (window.lucide) lucide.createIcons();
+};
+
+window.showAddRepModal = function () {
+    document.getElementById('rep-name-input').value = '';
+    document.getElementById('rep-pagename-input').value = '';
+    const m = document.getElementById('add-rep-modal');
+    m.classList.remove('hidden');
+    requestAnimationFrame(() => m.classList.add('open'));
+};
+
+window.closeAddRepModal = function () {
+    const m = document.getElementById('add-rep-modal');
+    m.classList.remove('open');
+    setTimeout(() => m.classList.add('hidden'), 300);
+};
+
+window.submitAddRep = async function () {
+    const name = document.getElementById('rep-name-input').value.trim();
+    let pagename = document.getElementById('rep-pagename-input').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    if (!name || !pagename) {
+        alert("Please enter both Name and Page Name.");
+        return;
+    }
+    
+    const rep = {
+        id: 'REP-' + Date.now(),
+        name: name,
+        page_name: pagename,
+        price_list: '{}'
+    };
+    
+    const gasUrl = window.GAS_URL || document.getElementById('settings-google-script-url')?.value?.trim();
+    if (!gasUrl) { alert("GAS URL is not set in Settings."); return; }
+    
+    const btn = document.querySelector('#add-rep-modal .btn-primary');
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    
+    try {
+        await window.submitToGas(gasUrl, {
+            action: 'saveRepresentative',
+            rep: rep
+        });
+        
+        window.representatives.push(rep);
+        window.renderRepresentativesTable();
+        window.closeAddRepModal();
+    } catch (e) {
+        console.error("Save rep error", e);
+        alert("Failed to save: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save";
+    }
+};
+
+window.deleteRepresentative = async function (id) {
+    if (!confirm("Are you sure you want to delete this representative?")) return;
+    
+    const gasUrl = window.GAS_URL || document.getElementById('settings-google-script-url')?.value?.trim();
+    if (!gasUrl) { alert("GAS URL is not set in Settings."); return; }
+    
+    try {
+        await window.submitToGas(gasUrl, {
+            action: 'deleteRepresentative',
+            repId: id
+        });
+        
+        window.representatives = window.representatives.filter(r => r.id !== id);
+        window.renderRepresentativesTable();
+    } catch (e) {
+        console.error("Delete rep error", e);
+        alert("Failed to delete: " + e.message);
+    }
+};
+
+window.openRepPricesModal = async function (id) {
+    const rep = window.representatives.find(r => r.id === id);
+    if (!rep) return;
+    
+    window.currentRepPricesId = id;
+    document.getElementById('rep-prices-title').textContent = `Manage Prices: ${rep.name}`;
+    document.getElementById('rep-price-search').value = '';
+    
+    // Ensure products are loaded
+    if (!window.allProducts || window.allProducts.length === 0) {
+        document.getElementById('rep-prices-table-body').innerHTML = '<tr><td colspan="3" style="text-align:center;">Loading products...</td></tr>';
+        await initProductData();
+    }
+    
+    window.renderRepPricesTable();
+    
+    const m = document.getElementById('manage-rep-prices-modal');
+    m.classList.remove('hidden');
+    requestAnimationFrame(() => m.classList.add('open'));
+};
+
+window.closeRepPricesModal = function () {
+    const m = document.getElementById('manage-rep-prices-modal');
+    m.classList.remove('open');
+    setTimeout(() => m.classList.add('hidden'), 300);
+    window.currentRepPricesId = null;
+};
+
+window.renderRepPricesTable = function (searchTerm = '') {
+    const rep = window.representatives.find(r => r.id === window.currentRepPricesId);
+    if (!rep) return;
+    
+    let prices = {};
+    try { prices = JSON.parse(rep.price_list || '{}'); } catch(e) {}
+    
+    const tbody = document.getElementById('rep-prices-table-body');
+    
+    const term = searchTerm.toLowerCase().trim();
+    const filteredProducts = window.allProducts.filter(p => {
+        if (!term) return true;
+        const n = String(p['Product Name'] || '').toLowerCase();
+        const no = String(p['No'] || '').toLowerCase();
+        return n.includes(term) || no.includes(term);
+    });
+    
+    if (filteredProducts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No products found.</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = filteredProducts.map(p => {
+        const no = p['No'];
+        const defaultPrice = parseFloat(String(p['Price < 25 QTY'] || 0).replace(/[^0-9.]/g, '')).toFixed(3);
+        const repPrice = prices[no] !== undefined ? parseFloat(prices[no]).toFixed(3) : defaultPrice;
+        
+        return `
+            <tr>
+                <td style="font-size:0.9rem;">
+                    <div style="font-weight:bold; color:var(--accent);">${no}</div>
+                    <div style="white-space:normal;">${p['Product Name'] || 'Unknown'}</div>
+                </td>
+                <td style="color:var(--text-secondary);">${defaultPrice} JOD</td>
+                <td>
+                    <input type="number" step="0.001" class="rep-price-input" data-no="${no}" value="${repPrice}"
+                        style="width:80px; padding:0.4rem; background:var(--bg); border:1px solid var(--border); color:white; border-radius:4px;">
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+window.filterRepPrices = function () {
+    const term = document.getElementById('rep-price-search').value;
+    window.renderRepPricesTable(term);
+};
+
+window.submitRepPrices = async function () {
+    const rep = window.representatives.find(r => r.id === window.currentRepPricesId);
+    if (!rep) return;
+    
+    let prices = {};
+    try { prices = JSON.parse(rep.price_list || '{}'); } catch(e) {}
+    
+    // Scrape current visible inputs and update prices object
+    document.querySelectorAll('.rep-price-input').forEach(input => {
+        const no = input.dataset.no;
+        const val = parseFloat(input.value);
+        if (!isNaN(val)) {
+            prices[no] = val;
+        }
+    });
+    
+    rep.price_list = JSON.stringify(prices);
+    
+    const gasUrl = window.GAS_URL || document.getElementById('settings-google-script-url')?.value?.trim();
+    if (!gasUrl) { alert("GAS URL is not set in Settings."); return; }
+    
+    const btn = document.querySelector('#manage-rep-prices-modal .btn-primary');
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    
+    try {
+        await window.submitToGas(gasUrl, {
+            action: 'saveRepresentative',
+            rep: rep
+        });
+        
+        alert("Price list saved successfully!");
+        window.closeRepPricesModal();
+    } catch (e) {
+        console.error("Save prices error", e);
+        alert("Failed to save prices: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Price List";
+    }
+};

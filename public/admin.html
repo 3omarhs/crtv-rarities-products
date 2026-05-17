@@ -109,6 +109,10 @@
                     <i data-lucide="package"></i>
                     <span>Wholesale</span>
                 </li>
+                <li class="nav-item" data-view="representatives">
+                    <i data-lucide="users"></i>
+                    <span>Representatives</span>
+                </li>
                 <li class="nav-item" data-view="settings">
                     <i data-lucide="settings"></i>
                     <span>Settings</span>
@@ -967,6 +971,31 @@
 
 
 
+            <!-- Representatives View -->
+            <div id="view-representatives" class="view-section hidden">
+                <div class="section-header">
+                    <h2 class="section-title">Representatives Management</h2>
+                    <button class="btn btn-primary" onclick="window.showAddRepModal()">
+                        <i data-lucide="user-plus"></i> Add Representative
+                    </button>
+                </div>
+                <div class="card table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Rep ID</th>
+                                <th>Name</th>
+                                <th>Page Name (URL)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reps-table-body">
+                            <tr><td colspan="4" style="text-align:center;">Loading representatives...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Wholesale View -->
             <div id="view-wholesale" class="view-section hidden">
                 <div class="section-header">
@@ -1064,6 +1093,57 @@
                         <button class="btn btn-secondary" onclick="window.closeDeleteWholesaleModal()">Cancel</button>
                         <button class="btn" style="background:#ef4444; color:white;"
                             onclick="window.confirmWholesaleDelete()">Delete Item</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Rep Modal -->
+            <div id="add-rep-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 400px;">
+                    <h3>Add Representative</h3>
+                    <div class="form-group">
+                        <label>Representative Name</label>
+                        <input type="text" id="rep-name-input" placeholder="e.g. John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label>Page Name (URL Slug)</label>
+                        <input type="text" id="rep-pagename-input" placeholder="e.g. john-store">
+                        <small style="color:var(--text-secondary);">This will be used for their specific link.</small>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="window.closeAddRepModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="window.submitAddRep()">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manage Rep Prices Modal -->
+            <div id="manage-rep-prices-modal" class="modal-overlay hidden">
+                <div class="modal-content" style="max-width: 800px; max-height: 90vh; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 id="rep-prices-title">Manage Prices</h3>
+                        <button type="button" class="btn btn-secondary" onclick="window.closeRepPricesModal()">Close</button>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <input type="text" id="rep-price-search" placeholder="Search products..." onkeyup="window.filterRepPrices()"
+                            style="width: 100%; padding: 0.75rem; background: var(--bg-darker); border: 1px solid var(--border); border-radius: 0.5rem; color: white;">
+                    </div>
+                    <div style="flex-grow: 1; overflow-y: auto; background: var(--bg-darker); border-radius: 0.5rem; padding: 1rem;">
+                        <table class="data-table" style="margin: 0;">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Website Price</th>
+                                    <th>Rep Price (JOD)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rep-prices-table-body">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 1rem;">
+                        <button type="button" class="btn btn-primary" style="width:100%" onclick="window.submitRepPrices()">Save Price List</button>
                     </div>
                 </div>
             </div>
