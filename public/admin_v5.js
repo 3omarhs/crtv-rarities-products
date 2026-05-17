@@ -901,7 +901,7 @@ async function initAdmin() {
 
     // 6. Load Data (Blocking stuff LAST)
     await loadCredentials();
-    await loadGeminiCredentials();
+    loadGeminiCredentials(); // Background fetch, don't block UI
 
     // Check Session
     const session = sessionStorage.getItem('admin_logged_in');
@@ -1909,22 +1909,32 @@ async function fetchOrders(GAS_URL) {
                 skipEmptyLines: true,
                 complete: function (results) {
                     // Re-apply any pending changes that might not be in the CSV yet (GitHub Pages delay)
-                loadPendingChanges(); // Refresh from storage
-                
-                results.data.forEach(o => {
-                    const id = String(o.id || o.ID || o.No || "");
-                    if (window.pendingChanges[id]) {
-                        const pc = window.pendingChanges[id];
-                        if (Date.now() - pc.timestamp < 300000) { // 5 minute grace period for GH Pages
-                            Object.assign(o, pc.data);
-                        } else {
-                            delete window.pendingChanges[id];
+                    loadPendingChanges(); // Refresh from storage
+                    
+                    results.data.forEach(o => {
+                        const id = String(o.id || o.ID || o.No || "");
+                        if (window.pendingChanges[id]) {
+                            const pc = window.pendingChanges[id];
+                            if (Date.now() - pc.timestamp < 300000) { // 5 minute grace period for GH Pages
+                                Object.assign(o, pc.data);
+                            } else {
+                                delete window.pendingChanges[id];
+                            }
                         }
-                    }
-                });
-                savePendingChanges();
-
-                allOrders = results.data;
+                    });
+                    
+                    // Inject newly created orders that aren't in the CSV yet
+                    Object.keys(window.pendingChanges).forEach(id => {
+                        const pc = window.pendingChanges[id];
+                        if (pc.isNew && (Date.now() - pc.timestamp < 300000)) {
+                            if (!results.data.some(o => o.id == id)) {
+                                results.data.push(pc.data);
+                            }
+                        }
+                    });
+                    
+                    savePendingChanges();
+                    allOrders = results.data;
                 }
             });
         }
@@ -2874,7 +2884,24 @@ async function initProductData() {
                 complete: (results) => {
                     if (results.data) {
                         // Reverse results data so latest products (last in CSV) appear first in UI
-                        window.allProducts = results.data.reverse();
+                        let parsedProducts = results.data;
+                        
+                        // Apply pending changes
+                        loadPendingChanges();
+                        parsedProducts.forEach(p => {
+                            const id = "PROD_" + p['No'];
+                            if (window.pendingChanges[id]) {
+                                const pc = window.pendingChanges[id];
+                                if (Date.now() - pc.timestamp < 300000) { // 5 min grace period
+                                    Object.assign(p, pc.data);
+                                } else {
+                                    delete window.pendingChanges[id];
+                                }
+                            }
+                        });
+                        savePendingChanges();
+
+                        window.allProducts = parsedProducts.reverse();
                         window.manualProducts = window.allProducts.map(p => ({
                             id: p['No'],
                             name: p['Product Name'] || p['product name'] || p['Name on Store'] || 'Unknown Name',
@@ -3355,6 +3382,14 @@ window.togglePin = async function (no) {
         if (res) {
             // Update local state
             product['Pinned'] = newStatus;
+            
+            // Save to pending changes to survive page reloads until GH Actions deploys
+            window.pendingChanges["PROD_" + no] = {
+                timestamp: Date.now(),
+                data: { 'Pinned': newStatus }
+            };
+            savePendingChanges();
+
             window.filterAndRenderProducts();
         }
     } catch (e) {
@@ -4769,6 +4804,17 @@ async function submitManualOrder() {
                 if (json.status !== 'success') throw new Error(json.error || "Unknown error");
             }
         }
+
+        // Save to pending changes so it appears immediately despite GH Pages cache
+        window.pendingChanges[order.id] = {
+            timestamp: Date.now(),
+            data: order,
+            isNew: true
+        };
+        savePendingChanges();
+
+        // Refresh orders table in background
+        if (typeof loadData === 'function') loadData();
 
         msgEl.textContent = "Order created successfully!";
         msgEl.classList.remove('hidden');

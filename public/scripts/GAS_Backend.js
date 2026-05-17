@@ -32,6 +32,7 @@ function handleAllActions(action, params) {
         if (action === 'saveSettings') return handleSaveSettings(params.settings || params);
         if (action === 'updateOrderDeliveryToggle') return handleUpdateOrderDeliveryToggle(params.orderId || params.id, params.calculateDelivery);
         if (action === 'updateOrderDate') return handleUpdateOrderDate(params.orderId || params.id, params.date);
+        if (action === 'updateProductField') return handleUpdateProductField(params.no, params.field, params.value);
         
         return jsonResponse({ error: 'Invalid action: ' + action });
     } catch (err) {
@@ -303,6 +304,47 @@ function handleVisit(params) {
     };
     
     updateGitHubFile('data/visits.csv', null, mutateVisits, `Tracking: Increment Visit Metric`);
+    return jsonResponse({ status: 'success' });
+}
+
+function handleUpdateProductField(no, field, value) {
+    const mutateFunc = (csvContent) => {
+        const rows = csvContent.split('\n');
+        if (rows.length < 2) return csvContent;
+        
+        const headers = rows[0].split(',');
+        const idIndex = headers.indexOf('No') > -1 ? headers.indexOf('No') : headers.indexOf('no');
+        let fieldIndex = headers.indexOf(field);
+        
+        // If the column doesn't exist yet, we add it to the header
+        if (fieldIndex === -1) {
+            rows[0] = rows[0].trim() + ',' + field;
+            fieldIndex = headers.length; 
+            headers.push(field);
+        }
+        
+        let out = [rows[0]];
+        for(let i=1; i<rows.length; i++) {
+            if(!rows[i].trim()) continue;
+            let p = parseCSVLine(rows[i]);
+            
+            // Expand row if it doesn't have the new columns yet
+            while (p.length < headers.length) {
+                p.push('');
+            }
+            
+            if (p[idIndex] == no) {
+                p[fieldIndex] = String(value);
+            }
+            out.push(p.map(x => {
+                const s = String(x || "");
+                return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(','));
+        }
+        return out.join('\n');
+    };
+    
+    updateGitHubFile('data/products.csv', null, mutateFunc, `Auto-Commit: Updated Product ${no} Field ${field}`);
     return jsonResponse({ status: 'success' });
 }
 
