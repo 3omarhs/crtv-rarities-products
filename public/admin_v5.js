@@ -5292,25 +5292,36 @@ window.renderRepresentativesTable = function () {
     if (!tbody) return;
     
     if (window.representatives.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No representatives found. Add one below.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No representatives found. Add one below.</td></tr>';
         return;
     }
     
-    tbody.innerHTML = window.representatives.map(rep => `
-        <tr>
-            <td>${rep.id || ''}</td>
-            <td style="font-weight:bold;">${rep.name || ''}</td>
-            <td><a href="/?rep=${rep.page_name || ''}" target="_blank">${rep.page_name || ''}</a></td>
-            <td>
-                <button class="btn btn-secondary" onclick="window.openRepPricesModal('${rep.id}')" style="margin-right:0.5rem; padding: 0.3rem 0.6rem;">
-                    <i data-lucide="dollar-sign"></i> Prices
-                </button>
-                <button class="btn btn-secondary" style="color:var(--danger); border-color:var(--danger); padding: 0.3rem 0.6rem;" onclick="window.deleteRepresentative('${rep.id}')">
-                    <i data-lucide="trash-2"></i> Delete
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = window.representatives.map(rep => {
+        let storeLinkHtml = '<span style="color:var(--text-secondary);">—</span>';
+        if (rep.store_link) {
+            const url = rep.store_link.startsWith('http') ? rep.store_link : 'https://' + rep.store_link;
+            storeLinkHtml = `<a href="${url}" target="_blank" style="color:var(--accent); text-decoration:underline; font-weight:500;">Link ↗</a>`;
+        }
+        return `
+            <tr>
+                <td>${rep.id || ''}</td>
+                <td style="font-weight:bold;">${rep.name || ''}</td>
+                <td><a href="/?rep=${rep.page_name || ''}" target="_blank" style="color:var(--accent);">${rep.page_name || ''}</a></td>
+                <td>${storeLinkHtml}</td>
+                <td>
+                    <button class="btn btn-secondary" onclick="window.showEditRepModal('${rep.id}')" style="margin-right:0.5rem; padding: 0.3rem 0.6rem;">
+                        <i data-lucide="edit-3"></i> Edit
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.openRepPricesModal('${rep.id}')" style="margin-right:0.5rem; padding: 0.3rem 0.6rem;">
+                        <i data-lucide="dollar-sign"></i> Prices
+                    </button>
+                    <button class="btn btn-secondary" style="color:var(--danger); border-color:var(--danger); padding: 0.3rem 0.6rem;" onclick="window.deleteRepresentative('${rep.id}')">
+                        <i data-lucide="trash-2"></i> Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
     
     if (window.lucide) lucide.createIcons();
 };
@@ -5318,6 +5329,7 @@ window.renderRepresentativesTable = function () {
 window.showAddRepModal = function () {
     document.getElementById('rep-name-input').value = '';
     document.getElementById('rep-pagename-input').value = '';
+    document.getElementById('rep-storelink-input').value = '';
     const m = document.getElementById('add-rep-modal');
     m.classList.remove('hidden');
     requestAnimationFrame(() => m.classList.add('open'));
@@ -5332,6 +5344,7 @@ window.closeAddRepModal = function () {
 window.submitAddRep = async function () {
     const name = document.getElementById('rep-name-input').value.trim();
     let pagename = document.getElementById('rep-pagename-input').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const storelink = document.getElementById('rep-storelink-input').value.trim();
     
     if (!name || !pagename) {
         alert("Please enter both Name and Page Name.");
@@ -5342,6 +5355,7 @@ window.submitAddRep = async function () {
         id: 'REP-' + Date.now(),
         name: name,
         page_name: pagename,
+        store_link: storelink,
         price_list: '{}'
     };
     
@@ -5370,6 +5384,84 @@ window.submitAddRep = async function () {
         window.closeAddRepModal();
     } catch (e) {
         console.error("Save rep error", e);
+        alert("Failed to save: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save";
+    }
+};
+
+window.showEditRepModal = function (id) {
+    const rep = window.representatives.find(r => r.id === id);
+    if (!rep) return;
+    
+    document.getElementById('rep-edit-id-input').value = rep.id;
+    document.getElementById('rep-edit-name-input').value = rep.name || '';
+    document.getElementById('rep-edit-pagename-input').value = rep.page_name || '';
+    document.getElementById('rep-edit-storelink-input').value = rep.store_link || '';
+    
+    const m = document.getElementById('edit-rep-modal');
+    m.classList.remove('hidden');
+    requestAnimationFrame(() => m.classList.add('open'));
+};
+
+window.closeEditRepModal = function () {
+    const m = document.getElementById('edit-rep-modal');
+    m.classList.remove('open');
+    setTimeout(() => m.classList.add('hidden'), 300);
+};
+
+window.submitEditRep = async function () {
+    const id = document.getElementById('rep-edit-id-input').value;
+    const name = document.getElementById('rep-edit-name-input').value.trim();
+    let pagename = document.getElementById('rep-edit-pagename-input').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const storelink = document.getElementById('rep-edit-storelink-input').value.trim();
+    
+    if (!name || !pagename) {
+        alert("Please enter both Name and Page Name.");
+        return;
+    }
+    
+    const existingRep = window.representatives.find(r => r.id === id);
+    if (!existingRep) return;
+    
+    const rep = {
+        id: id,
+        name: name,
+        page_name: pagename,
+        store_link: storelink,
+        price_list: existingRep.price_list || '{}'
+    };
+    
+    const gasUrl = window.GAS_URL || document.getElementById('settings-google-script-url')?.value?.trim();
+    if (!gasUrl) { alert("GAS URL is not set in Settings."); return; }
+    
+    const btn = document.querySelector('#edit-rep-modal .btn-primary');
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    
+    try {
+        await window.submitToGas(gasUrl, {
+            action: 'saveRepresentative',
+            rep: rep
+        });
+        
+        window.pendingChanges["REP_" + rep.id] = {
+            timestamp: Date.now(),
+            data: rep,
+            isNew: false
+        };
+        savePendingChanges();
+
+        const idx = window.representatives.findIndex(r => r.id === id);
+        if (idx !== -1) {
+            window.representatives[idx] = rep;
+        }
+        
+        window.renderRepresentativesTable();
+        window.closeEditRepModal();
+    } catch (e) {
+        console.error("Edit rep error", e);
         alert("Failed to save: " + e.message);
     } finally {
         btn.disabled = false;

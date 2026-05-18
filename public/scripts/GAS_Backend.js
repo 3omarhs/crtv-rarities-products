@@ -509,10 +509,34 @@ function handleSaveRepresentative(rep) {
         let rows = csvContent ? csvContent.split('\n') : [];
         let headers = [];
         if (rows.length < 2 && !rows[0]) {
-             headers = ['id', 'name', 'page_name', 'price_list'];
+             headers = ['id', 'name', 'page_name', 'store_link', 'price_list'];
              rows[0] = headers.join(',');
         } else {
              headers = rows[0].split(',').map(h => h.trim());
+        }
+        
+        // Ensure store_link column exists (inserted before price_list if present, else at the end)
+        if (!headers.includes('store_link')) {
+             const priceListIndex = headers.indexOf('price_list');
+             if (priceListIndex !== -1) {
+                 headers.splice(priceListIndex, 0, 'store_link');
+                 rows[0] = headers.join(',');
+                 for (let i = 1; i < rows.length; i++) {
+                     if (!rows[i].trim()) continue;
+                     let p = parseCSVLine(rows[i]);
+                     p.splice(priceListIndex, 0, '');
+                     rows[i] = p.map(x => {
+                         let s = String(x || "");
+                         return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+                     }).join(',');
+                 }
+             } else {
+                 headers.push('store_link');
+                 rows[0] = headers.join(',');
+                 for (let i = 1; i < rows.length; i++) {
+                     if (rows[i].trim()) rows[i] += ',';
+                 }
+             }
         }
         
         // Ensure price_list column exists
