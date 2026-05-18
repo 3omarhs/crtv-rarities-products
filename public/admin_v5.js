@@ -2103,7 +2103,7 @@ function renderActivityLog(orders) {
     const logBody = document.getElementById('activity-log');
     if (!logBody) return;
     logBody.innerHTML = '';
-    const recentOrders = [...orders].reverse().slice(0, 5);
+    const recentOrders = [...orders].slice(0, 5);
     recentOrders.forEach(o => {
         const tr = document.createElement('tr');
         const customerName = o.customerName || o.customername || 'Anonymous';
@@ -2121,7 +2121,7 @@ function renderOrdersTable(orders) {
     const ordersBody = document.getElementById('orders-table-body');
     if (!ordersBody) return;
     ordersBody.innerHTML = '';
-    [...orders].reverse().forEach(o => {
+    [...orders].forEach(o => {
         const tr = document.createElement('tr');
         tr.className = 'order-row';
         const idStr = String(o.id);
@@ -2903,13 +2903,21 @@ async function initProductData() {
                         });
                         savePendingChanges();
 
-                        window.allProducts = parsedProducts.reverse();
+                        // Add original CSV index to maintain stable, guaranteed order
+                        parsedProducts.forEach((p, idx) => {
+                            p._csvIndex = idx;
+                        });
                         
-                        // Sort pinned items to the top while maintaining reversed order
+                        window.allProducts = parsedProducts;
+                        
+                        // Sort pinned items to the top and latest products (higher CSV index) first
                         window.allProducts.sort((a, b) => {
                             const aPinned = (String(a['Pinned'] || '').toLowerCase() === 'yes' || String(a['Pinned'] || '').toLowerCase() === 'true') ? 1 : 0;
                             const bPinned = (String(b['Pinned'] || '').toLowerCase() === 'yes' || String(b['Pinned'] || '').toLowerCase() === 'true') ? 1 : 0;
-                            return bPinned - aPinned;
+                            if (aPinned !== bPinned) {
+                                return bPinned - aPinned; // Pinned items first
+                            }
+                            return b._csvIndex - a._csvIndex; // Latest products (higher CSV index) first
                         });
 
                         window.manualProducts = window.allProducts.map(p => ({
@@ -3287,15 +3295,16 @@ window.renderProductsTable = function (data) {
         return;
     }
 
-    // Sort: Pinned first, then by the current sort column (if any) or default
+    // Sort: Pinned first, then by the current sort column (if any) or default (latest first)
     const sortedData = [...data].sort((a, b) => {
-        const aPinned = a['Pinned'] === 'TRUE';
-        const bPinned = b['Pinned'] === 'TRUE';
+        const aPinned = (String(a['Pinned'] || '').toLowerCase() === 'yes' || String(a['Pinned'] || '').toLowerCase() === 'true' || a['Pinned'] === '1');
+        const bPinned = (String(b['Pinned'] || '').toLowerCase() === 'yes' || String(b['Pinned'] || '').toLowerCase() === 'true' || b['Pinned'] === '1');
         
-        if (aPinned && !bPinned) return -1;
-        if (!aPinned && bPinned) return 1;
+        if (aPinned !== bPinned) {
+            return bPinned ? 1 : -1; // Pinned items first
+        }
         
-        // If both same pinned status, use current sort or default
+        // If both same pinned status, use current sort or default (latest first)
         if (window.currentSortColumn) {
             let valA = a[window.currentSortColumn] || '';
             let valB = b[window.currentSortColumn] || '';
@@ -3303,14 +3312,23 @@ window.renderProductsTable = function (data) {
             const numB = parseFloat(valB);
             
             if (!isNaN(numA) && !isNaN(numB) && window.currentSortColumn.includes('Price')) {
-                return window.currentSortDirection === 'asc' ? numA - numB : numB - numA;
+                if (numA !== numB) {
+                    return window.currentSortDirection === 'asc' ? numA - numB : numB - numA;
+                }
+            } else {
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+                if (valA !== valB) {
+                    if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
+                    if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
+                }
             }
-            valA = String(valA).toLowerCase();
-            valB = String(valB).toLowerCase();
-            if (valA < valB) return window.currentSortDirection === 'asc' ? -1 : 1;
-            if (valA > valB) return window.currentSortDirection === 'asc' ? 1 : -1;
         }
-        return 0;
+        
+        // Default fallback: Latest products (higher CSV index) first
+        const idxA = a._csvIndex !== undefined ? a._csvIndex : -1;
+        const idxB = b._csvIndex !== undefined ? b._csvIndex : -1;
+        return idxB - idxA;
     });
 
     sortedData.forEach(row => {
@@ -4472,10 +4490,23 @@ window.initCreateOrder = async function () {
         console.log(`Create Order: Populated ${manualProducts.length} manual products.`);
     }
 
-    // 3. Reset UI
+    // 3. Reset UI and set default metadata fields
     manualCart = [];
     renderManualCart();
     updateManualTotal();
+    
+    // Set default date to today in local time
+    const dateInput = document.getElementById('mo-date');
+    if (dateInput) {
+        const today = new Date();
+        const offset = today.getTimezoneOffset() * 60000;
+        dateInput.value = new Date(today.getTime() - offset).toISOString().split('T')[0];
+    }
+    // Set default status to Closed
+    const statusSelect = document.getElementById('mo-status');
+    if (statusSelect) {
+        statusSelect.value = 'Closed';
+    }
 
     // 4. Attach Listeners
     window.setupCustomProductDropdown({
@@ -4703,6 +4734,8 @@ async function submitManualOrder() {
     const address = document.getElementById('mo-address').value;
     const payment = document.getElementById('mo-payment').value;
     const currency = document.getElementById('mo-currency').value || 'JOD';
+    const status = document.getElementById('mo-status').value || 'Closed';
+    const rawDate = document.getElementById('mo-date').value;
 
     // Check method
     const isDelivery = document.querySelector('input[name="mo-method"]:checked').value === 'delivery';
@@ -4742,9 +4775,9 @@ async function submitManualOrder() {
         total: totalText,
         method: isDelivery ? 'delivery' : 'pickup',
         paymentMethod: payment,
-        status: 'Pending',
-        timestamp: Date.now() / 1000,
-        date: new Date().toISOString(),
+        status: status,
+        timestamp: rawDate ? Math.floor(new Date(rawDate).getTime() / 1000) : Math.floor(Date.now() / 1000),
+        date: rawDate ? new Date(rawDate + 'T12:00:00').toISOString() : new Date().toISOString(),
         currency: currency,
         calculate_delivery: true,
         delivery_fee: isDelivery ? (() => {

@@ -637,6 +637,29 @@
                                         placeholder="City, Street, Building..."></textarea>
                                 </div>
                             </div>
+                            
+                            <!-- Order Metadata Card -->
+                            <div class="card" style="padding:1.5rem; margin-top: 1rem;">
+                                <h4 style="margin-top:0; margin-bottom:1rem; color:var(--text-secondary);">Order Status & Date</h4>
+                                <div class="form-row" style="display:flex; gap:1rem;">
+                                    <div class="form-group" style="flex:1;">
+                                        <label for="mo-status">Status</label>
+                                        <select id="mo-status" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem; height: 38px;">
+                                            <option value="Closed" selected>Closed</option>
+                                            <option value="Placed">Placed</option>
+                                            <option value="Preparing">Preparing</option>
+                                            <option value="Delivery">Delivery</option>
+                                            <option value="Not Paid">Not Paid</option>
+                                            <option value="Canceled">Canceled</option>
+                                            <option value="Ignored">Ignored</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="flex:1;">
+                                        <label for="mo-date">Date</label>
+                                        <input type="date" id="mo-date" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem; height: 38px; box-sizing: border-box;">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Col 2: Cart Items (Middle) -->
@@ -1205,7 +1228,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="drive-images.js"></script>
     <script src="supabase-client.js"></script>
-    <script src="admin_v5.js?v=5.3.7"></script>
+    <script src="admin_v5.js?v=5.3.9"></script>
         <div id="footer-version-display"
              style="position: fixed; bottom: 5px; right: 5px; color: #888; font-size: 10px; z-index: 9999;">
              Loading... | <span style="color:var(--accent); cursor:pointer;" onclick="location.reload(true)">Force Hard Refresh</span>

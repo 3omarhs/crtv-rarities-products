@@ -960,10 +960,13 @@ function processData(data) {
         if (['no', 'false', '0', 'inactive', 'hidden'].includes(avail)) return false;
 
         return true;
-    }).reverse().sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return 0;
+    }).sort((a, b) => {
+        const aPinned = a.pinned ? 1 : 0;
+        const bPinned = b.pinned ? 1 : 0;
+        if (aPinned !== bPinned) {
+            return bPinned - aPinned;
+        }
+        return b.index - a.index;
     });
 
     window.allProducts = allProducts;
