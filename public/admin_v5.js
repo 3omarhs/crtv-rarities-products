@@ -2194,14 +2194,8 @@ function renderOrderItems(items) {
     if (!items || !Array.isArray(items)) return '';
     return items.map(itemStr => {
         const i = parseItemString(itemStr);
-        // Image Logic
-        let imgHtml = '';
-        if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[i.sku]) {
-            const driveId = window.DRIVE_MAPPING[i.sku];
-            imgHtml = `<img src="https://lh3.googleusercontent.com/d/${driveId}" class="item-image" loading="lazy">`;
-        } else {
-            imgHtml = `<img src="${ASSETS_BASE_URL}${i.sku}.png" class="item-image" loading="lazy" onerror="handleAdminImageError(this, '${i.sku}')">`;
-        }
+        const initialImgSrc = window.resolveProductImageSrc ? window.resolveProductImageSrc(i.sku) : `${ASSETS_BASE_URL}${i.sku}.png`;
+        const imgHtml = `<img src="${initialImgSrc}" class="item-image" loading="lazy" onerror="if(window.handleAdminImageError) window.handleAdminImageError(this, '${i.sku}')">`;
         const safeSku = i.sku.replace(/"/g, '&quot;');
         return `
             <div class="item-tile" data-sku="${safeSku}" title="Click for Details" onclick="window.handleItemClick(this, event)">
@@ -2295,7 +2289,8 @@ function renderAnalytics(orders) {
     analyticsBody.innerHTML = '';
     Object.values(itemMap).sort((a, b) => b.qty - a.qty).forEach(i => {
         const tr = document.createElement('tr');
-        let imgHtml = `<img src="${ASSETS_BASE_URL}${i.id}.jpg" onerror="this.style.display='none'" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
+        const initialImgSrc = window.resolveProductImageSrc ? window.resolveProductImageSrc(i.id) : `${ASSETS_BASE_URL}${i.id}.png`;
+        let imgHtml = `<img src="${initialImgSrc}" onerror="if(window.handleAdminImageError) window.handleAdminImageError(this, '${i.id}')" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
         tr.innerHTML = `
             <td>${imgHtml}</td>
             <td style="font-family:monospace">${i.id}</td>
@@ -2790,6 +2785,16 @@ function parseItemString(str) {
             };
         }
 
+        str = String(str).trim();
+        // Remove outer square brackets if it's a bracketed order item string (e.g. "[1. [SKU] (Color) - Price - Name]")
+        if (str.startsWith('[') && str.endsWith(']')) {
+            try {
+                JSON.parse(str); // If it is valid JSON (e.g. array of objects), don't strip
+            } catch (e) {
+                str = str.slice(1, -1).trim();
+            }
+        }
+
         // 1. Extract and remove Quantity: "(Qty: 5)"
         const qtyMatch = str.match(/\(Qty:\s*(\d+)\)/);
         if (qtyMatch) {
@@ -2831,37 +2836,93 @@ function parseItemString(str) {
     return { sku, color, price, name, qty };
 }
 
+window.resolveProductImageSrc = function (sku) {
+    if (!sku) return `${ASSETS_BASE_URL}default.png`;
+    sku = String(sku).trim();
+
+    // 1. Try to find the product in window.allProducts (the parsed products catalog)
+    if (window.allProducts && window.allProducts.length > 0) {
+        const product = window.allProducts.find(p => {
+            const pNo = String(p['No'] || p['no'] || p['Item Number'] || '').trim();
+            return pNo === sku;
+        });
+        if (product) {
+            const imgCol = product['Image'] || product['image'] || product['Photo'] || '';
+            const driveId = extractDriveId(imgCol);
+            if (driveId) {
+                return `https://lh3.googleusercontent.com/d/${driveId}`;
+            }
+        }
+    }
+
+    // 2. Try window.DRIVE_MAPPING
+    if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[sku]) {
+        return `https://lh3.googleusercontent.com/d/${window.DRIVE_MAPPING[sku]}`;
+    }
+
+    // 3. Fallback to local .png asset first (handleAdminImageError handles extension fallback)
+    return `${ASSETS_BASE_URL}${sku}.png`;
+};
+
 function handleAdminImageError(img, sku) {
-    const currentSrc = img.src;
+    if (!img) return;
+    const currentSrc = img.src || '';
     const retries = parseInt(img.dataset.retries || '0');
 
-    // 1. Try alternate extensions first
+    // 1. Try alternate extensions first (png -> jpg -> webp -> Drive ID lookup -> Placeholder)
     if (retries === 0) {
         img.dataset.retries = '1';
-        img.src = `${ASSETS_BASE_URL}${sku}.png`;
-    } else if (retries === 1) {
+        if (!currentSrc.endsWith('.png')) {
+            img.src = `${ASSETS_BASE_URL}${sku}.png`;
+            return;
+        }
+    }
+
+    if (retries === 0 || retries === 1) {
         img.dataset.retries = '2';
-        img.src = `${ASSETS_BASE_URL}${sku}.jpg`;
-    } else if (retries === 2) {
+        if (!currentSrc.endsWith('.jpg')) {
+            img.src = `${ASSETS_BASE_URL}${sku}.jpg`;
+            return;
+        }
+    }
+
+    if (retries === 0 || retries === 1 || retries === 2) {
         img.dataset.retries = '3';
-        img.src = `${ASSETS_BASE_URL}${sku}.webp`;
+        if (!currentSrc.endsWith('.webp')) {
+            img.src = `${ASSETS_BASE_URL}${sku}.webp`;
+            return;
+        }
     }
-    // 2. Drive Fallback (if SKU looks like a Drive ID or we can extract one)
-    else if (retries === 3) {
+
+    if (retries === 0 || retries === 1 || retries === 2 || retries === 3) {
         img.dataset.retries = '4';
-        const driveId = extractDriveId(currentSrc) || sku; // Sometimes SKU is the drive ID for unsynced items
-        if (driveId && driveId.length > 20) {
+        
+        // Try looking up the Google Drive ID
+        let driveId = null;
+        if (window.DRIVE_MAPPING && window.DRIVE_MAPPING[sku]) {
+            driveId = window.DRIVE_MAPPING[sku];
+        } else if (window.allProducts) {
+            const product = window.allProducts.find(p => String(p['No'] || p['no'] || '').trim() === String(sku).trim());
+            if (product) {
+                driveId = extractDriveId(product['Image'] || product['image'] || '');
+            }
+        }
+        if (!driveId && sku && sku.length > 20 && /^[a-zA-Z0-9_-]+$/.test(sku)) {
+            driveId = sku;
+        }
+
+        if (driveId) {
             img.src = `https://lh3.googleusercontent.com/d/${driveId}`;
-        } else {
-            handleAdminImageError(img, sku); // Skip to placeholder
+            return;
         }
     }
-    else {
-        // Final fallback: Placeholder
-        img.onerror = null;
-        if (img.parentNode) {
-            img.parentNode.innerHTML = '<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);width:50px;height:50px;border-radius:8px;">No Img</div>';
-        }
+
+    // Final fallback: Placeholder
+    img.onerror = null;
+    if (img.parentNode) {
+        const width = img.style.width || img.width || '50px';
+        const height = img.style.height || img.height || '50px';
+        img.parentNode.innerHTML = `<div class="item-image" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-size:0.8rem;background:rgba(0,0,0,0.2);width:${width};height:${height};border-radius:8px;">No Img</div>`;
     }
 }
 
@@ -3761,14 +3822,17 @@ function renderWholesaleItems(offers) {
         }
 
         const images = offer.images || [];
-        const imageSrc = images.length > 0 ? images[0] : `${ASSETS_BASE_URL}${offer.item_no}.jpg`;
+        let imageSrc = images.length > 0 ? images[0] : '';
+        if (!imageSrc) {
+            imageSrc = window.resolveProductImageSrc ? window.resolveProductImageSrc(offer.item_no) : `${ASSETS_BASE_URL}${offer.item_no}.png`;
+        }
         const fallback = "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232d2d35%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E";
 
         card.innerHTML = `
             <div class="card-image-container" style="height:250px; background:#000; position:relative;">
                 <img src="${imageSrc}" alt="${name}" 
                      style="width:100%; height:100%; object-fit:cover;"
-                     onerror="this.src='${fallback}'">
+                     onerror="if(window.handleAdminImageError) { window.handleAdminImageError(this, '${offer.item_no}') } else { this.src='${fallback}' }">
                 <div style="position:absolute; top:10px; right:10px; display:flex; gap:8px;">
                      <button class="icon-btn" style="background:rgba(0,0,0,0.6); color:white; border-radius:4px; padding:6px;" 
                              onclick="window.showEditWholesaleModal('${offer.item_no}')" title="Edit Item">
@@ -4220,16 +4284,19 @@ window.setupCustomProductDropdown = function (config) {
             return;
         }
 
-        dropdown.innerHTML = matches.map(p => `
-            <div class="dropdown-item" onclick="window._handleCustomSelect('${inputId}', '${dropdownId}', '${p.id}')">
-                <img src="${ASSETS_BASE_URL}${p.id}.jpg" onerror="this.src='${ASSETS_BASE_URL}${p.id}.png'; this.onerror=null;">
-                <div class="item-content">
-                    <div class="item-name">${p.name}</div>
-                    <div class="item-id">${p.id}</div>
+        dropdown.innerHTML = matches.map(p => {
+            const initialImgSrc = window.resolveProductImageSrc ? window.resolveProductImageSrc(p.id) : `${ASSETS_BASE_URL}${p.id}.png`;
+            return `
+                <div class="dropdown-item" onclick="window._handleCustomSelect('${inputId}', '${dropdownId}', '${p.id}')">
+                    <img src="${initialImgSrc}" onerror="if(window.handleAdminImageError) window.handleAdminImageError(this, '${p.id}')">
+                    <div class="item-content">
+                        <div class="item-name">${p.name}</div>
+                        <div class="item-id">${p.id}</div>
+                    </div>
+                    <div class="item-price">${p.price.toFixed(3)}</div>
                 </div>
-                <div class="item-price">${p.price.toFixed(3)}</div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         dropdown.classList.remove('hidden');
         reposition();
@@ -4421,12 +4488,14 @@ window.renderManualCart = function () {
         return;
     }
 
-    list.innerHTML = manualCart.map((item, idx) => `
-        <div style="background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
-            <div style="display:flex; gap:10px; align-items:center;">
-                <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000; flex-shrink:0;">
-                    <img src="${ASSETS_BASE_URL}${item.id}.jpg" onerror="this.src='${ASSETS_BASE_URL}${item.id}.png'; this.onerror=null;" style="width:100%; height:100%; object-fit:cover;">
-                </div>
+    list.innerHTML = manualCart.map((item, idx) => {
+        const initialImgSrc = window.resolveProductImageSrc ? window.resolveProductImageSrc(item.id) : `${ASSETS_BASE_URL}${item.id}.png`;
+        return `
+            <div style="background:var(--bg-darker); padding:10px; border-radius:8px; margin-bottom:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="width:40px; height:40px; border-radius:4px; overflow:hidden; background:#000; flex-shrink:0;">
+                        <img src="${initialImgSrc}" onerror="if(window.handleAdminImageError) window.handleAdminImageError(this, '${item.id}')" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
                 <div style="flex:1;">
                     <div style="font-weight:600; font-size:0.9rem;">${item.name}</div>
                     <div style="font-size:0.8rem; color:var(--text-secondary);">#${item.id}</div>
@@ -4453,7 +4522,8 @@ window.renderManualCart = function () {
                 <input type="text" placeholder="Add custom description for this item..." value="${item.desc || ''}" onchange="window.updateManualCartItem(${idx}, 'desc', this.value)" style="width:100%; padding:0.5rem; background:var(--bg-card); border:1px solid var(--border); border-radius:4px; color:white; font-size:0.85rem;">
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     if (window.lucide) lucide.createIcons();
 };
