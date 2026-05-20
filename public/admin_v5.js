@@ -2847,10 +2847,30 @@ window.resolveProductImageSrc = function (sku) {
             return pNo === sku;
         });
         if (product) {
-            const imgCol = product['Image'] || product['image'] || product['Photo'] || '';
-            const driveId = extractDriveId(imgCol);
-            if (driveId) {
-                return `https://lh3.googleusercontent.com/d/${driveId}`;
+            const imgCol = String(product['Image'] || product['image'] || product['Photo'] || '').trim();
+            if (imgCol) {
+                // If it is a full HTTP URL or already has the assets prefix
+                if (imgCol.startsWith('http://') || imgCol.startsWith('https://') || imgCol.startsWith('data:')) {
+                    return imgCol;
+                }
+                // Try to see if it is a local asset filename (e.g. "foo.webp")
+                const hasExt = /\.(png|jpg|jpeg|gif|webp|svg|mp4|webm)$/i.test(imgCol);
+                if (hasExt) {
+                    if (imgCol.startsWith('./') || imgCol.startsWith('assets/')) {
+                        return imgCol;
+                    }
+                    return `${ASSETS_BASE_URL}${imgCol}`;
+                }
+                // Google Drive Lookup
+                const driveId = extractDriveId(imgCol);
+                if (driveId) {
+                    return `https://lh3.googleusercontent.com/d/${driveId}`;
+                }
+                // Base64 check
+                if (imgCol.length > 200) {
+                    let cleanBase64 = imgCol.replace(/\s+/g, '');
+                    return cleanBase64.startsWith('data:') ? cleanBase64 : `data:image/jpeg;base64,${cleanBase64}`;
+                }
             }
         }
     }
@@ -2860,7 +2880,7 @@ window.resolveProductImageSrc = function (sku) {
         return `https://lh3.googleusercontent.com/d/${window.DRIVE_MAPPING[sku]}`;
     }
 
-    // 3. Fallback to local .png asset first (handleAdminImageError handles extension fallback)
+    // 3. Fallback to local asset
     return `${ASSETS_BASE_URL}${sku}.png`;
 };
 
@@ -2869,11 +2889,14 @@ function handleAdminImageError(img, sku) {
     const currentSrc = img.src || '';
     const retries = parseInt(img.dataset.retries || '0');
 
-    // 1. Try alternate extensions first (png -> jpg -> webp -> Drive ID lookup -> Placeholder)
+    // Add cache buster for local development to prevent 404 caching issues
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const cb = isLocal ? `?v=${Date.now()}` : '';
+
     if (retries === 0) {
         img.dataset.retries = '1';
         if (!currentSrc.endsWith('.png')) {
-            img.src = `${ASSETS_BASE_URL}${sku}.png`;
+            img.src = `${ASSETS_BASE_URL}${sku}.png${cb}`;
             return;
         }
     }
@@ -2881,7 +2904,7 @@ function handleAdminImageError(img, sku) {
     if (retries === 0 || retries === 1) {
         img.dataset.retries = '2';
         if (!currentSrc.endsWith('.jpg')) {
-            img.src = `${ASSETS_BASE_URL}${sku}.jpg`;
+            img.src = `${ASSETS_BASE_URL}${sku}.jpg${cb}`;
             return;
         }
     }
@@ -2889,13 +2912,21 @@ function handleAdminImageError(img, sku) {
     if (retries === 0 || retries === 1 || retries === 2) {
         img.dataset.retries = '3';
         if (!currentSrc.endsWith('.webp')) {
-            img.src = `${ASSETS_BASE_URL}${sku}.webp`;
+            img.src = `${ASSETS_BASE_URL}${sku}.webp${cb}`;
             return;
         }
     }
 
     if (retries === 0 || retries === 1 || retries === 2 || retries === 3) {
         img.dataset.retries = '4';
+        if (!currentSrc.endsWith('.gif')) {
+            img.src = `${ASSETS_BASE_URL}${sku}.gif${cb}`;
+            return;
+        }
+    }
+
+    if (retries === 0 || retries === 1 || retries === 2 || retries === 3 || retries === 4) {
+        img.dataset.retries = '5';
         
         // Try looking up the Google Drive ID
         let driveId = null;
@@ -2904,11 +2935,8 @@ function handleAdminImageError(img, sku) {
         } else if (window.allProducts) {
             const product = window.allProducts.find(p => String(p['No'] || p['no'] || '').trim() === String(sku).trim());
             if (product) {
-                driveId = extractDriveId(product['Image'] || product['image'] || '');
+                driveId = extractDriveId(product['Image'] || product['image'] || product['Photo'] || '');
             }
-        }
-        if (!driveId && sku && sku.length > 20 && /^[a-zA-Z0-9_-]+$/.test(sku)) {
-            driveId = sku;
         }
 
         if (driveId) {
@@ -3775,6 +3803,15 @@ window.loadWholesale = async function () {
 
     grid.innerHTML = '<p style="color:var(--text-secondary);">Loading items...</p>';
 
+    // Ensure products catalog is loaded first for proper data enrichment
+    if (!window.allProducts || window.allProducts.length === 0) {
+        try {
+            await initProductData();
+        } catch (e) {
+            console.error("Wholesale: Failed to load products catalog", e);
+        }
+    }
+
     // 1. Try fetching from GitHub directly (Read-only view)
     try {
         const CSV_URL = 'https://raw.githubusercontent.com/3omarhs/crtv-rarities-products/main/data/wholesale.csv';
@@ -3785,8 +3822,23 @@ window.loadWholesale = async function () {
                 header: true,
                 skipEmptyLines: true,
                 complete: (results) => {
-                    window.wholesaleOffers = results.data;
-                    renderWholesaleItems(results.data);
+                    const enriched = results.data.map(offer => {
+                        if (window.allProducts) {
+                            const product = window.allProducts.find(p => String(p['No'] || '').trim() === String(offer.item_no || '').trim());
+                            if (product) {
+                                return {
+                                    ...offer,
+                                    name: product['Product Name'] || product['Name on Store'] || offer.name || 'Unknown Product',
+                                    price: parseFloat(String(product['Price < 25 QTY'] || 0).replace(/[^\d.]/g, '')),
+                                    category: offer.category || product.category || '',
+                                    images: product.image ? [product.image] : []
+                                };
+                            }
+                        }
+                        return offer;
+                    });
+                    window.wholesaleOffers = enriched;
+                    renderWholesaleItems(enriched);
                 }
             });
             return;
@@ -4224,7 +4276,8 @@ window.updateSortIcons = function () {
 // --- MANUAL ORDER LOGIC ---
 
 let manualCart = [];
-let manualProducts = [];
+if (!window.manualProducts) window.manualProducts = [];
+let manualProducts = window.manualProducts;
 let deliveryRegionsCache = {}; // { RegionName: { CompanyName: Price, ... } }
 
 // --- REUSABLE CUSTOM DROPDOWN LOGIC ---
@@ -4625,12 +4678,15 @@ async function loadManualProducts() {
                 const idKey = keys.find(k => k.toLowerCase().includes('no'));
                 const imgKey = keys.find(k => k.toLowerCase().includes('image'));
 
-                manualProducts = data.map(item => ({
+                const mapped = data.map(item => ({
                     name: item[productKey] || 'Unknown',
                     price: parseFloat((item[priceKey] || '0').replace(/[^\d.]/g, '')),
                     id: item[idKey] || 'N/A',
                     image: item[imgKey]
                 })).filter(p => !isNaN(p.price));
+
+                manualProducts.length = 0;
+                manualProducts.push(...mapped);
 
                 console.log(`Manual Order: Loaded ${manualProducts.length} products.`);
                 // populateProductDatalist(); // Removed
