@@ -1,4 +1,4 @@
-const APP_VERSION = '5.3.6';
+const APP_VERSION = '5.3.7';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -3259,26 +3259,15 @@ window.getProductDetailsHtml = function (productRaw, closeJs) {
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSTejg41yuaKcYa0CbOodUP9osmE5DIv8ZNQyMXlHJLLh2pQUZ5EoMT93UgV3LZfhAJcPEL8uEfK9Y4/pub?gid=897526080&single=true&output=csv';
 
 window.fetchProductsData = async function () {
-    if (window.currentProducts && window.currentProducts.length > 0) {
-        return window.currentProducts;
+    if (window.allProducts && window.allProducts.length > 0) {
+        return window.allProducts;
     }
 
     try {
-        const res = await fetch(CSV_URL);
-        const text = await res.text();
-        return new Promise((resolve, reject) => {
-            Papa.parse(text, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function (results) {
-                    window.currentProducts = results.data;
-                    resolve(results.data);
-                },
-                error: (err) => reject(err)
-            });
-        });
+        await initProductData();
+        return window.allProducts;
     } catch (e) {
-        console.error("Error fetching CSV", e);
+        console.error("Error fetching products data via initProductData", e);
         return [];
     }
 };
