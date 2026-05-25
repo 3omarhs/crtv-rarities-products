@@ -3340,20 +3340,26 @@ window.prepareAddProductForm = async function () {
 window.getNextItemNumber = function (products) {
     if (!products || products.length === 0) return '';
 
-    // Filter for valid IDs and find the last one (assuming order in CSV matters, or sort?)
-    // Usually usage is sequential, so the last valid row with an ID is the latest.
-    // Let's look at the last few entries.
+    // Filter for valid IDs and find the one that has the highest original index.
+    // This handles both cases:
+    // 1. Array is reversed & pinned-sorted (window.allProducts has _csvIndex)
+    // 2. Array is in raw spreadsheet sequence (oldest first, latest last)
+    let lastProduct = null;
+    let maxOriginalIndex = -1;
 
-    let lastId = '';
-    // Since products might be reversed (latest first), search from start to find the most recent valid ID
     for (let i = 0; i < products.length; i++) {
-        if (products[i]['No'] && products[i]['No'].trim() !== '') {
-            lastId = products[i]['No'];
-            break;
+        const p = products[i];
+        if (p['No'] && p['No'].trim() !== '') {
+            const originalIndex = p._csvIndex !== undefined ? p._csvIndex : i;
+            if (originalIndex > maxOriginalIndex) {
+                maxOriginalIndex = originalIndex;
+                lastProduct = p;
+            }
         }
     }
 
-    if (!lastId) return '';
+    if (!lastProduct) return '';
+    const lastId = lastProduct['No'];
 
     // Regex to separate prefix and number
     // Supports: "ABC-123", "Item10", "A-B-C-005"
