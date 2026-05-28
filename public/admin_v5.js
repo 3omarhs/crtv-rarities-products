@@ -1,4 +1,4 @@
-const APP_VERSION = '5.3.7';
+const APP_VERSION = '5.3.8';
 console.log(`!!! ADMIN JS V${APP_VERSION} LOADED (DYNAMIC) !!!`);
 document.title = `Admin Portal (v${APP_VERSION})`;
 
@@ -3430,10 +3430,17 @@ window.renderProductsTable = function (data) {
 
         let imgHtml = `<img src="${initialImgSrc}" onerror="window.handleAdminImageError(this, '${row['No']}')" style="width:50px; height:50px; object-fit:cover; border-radius:8px;">`;
 
-        const isActive = row['Available'] === 'TRUE';
-        const statusHtml = isActive
-            ? '<span class="status-badge status-active">Active</span>'
-            : '<span class="status-badge status-inactive">Hidden</span>';
+        const isHidden = String(row['Hidden'] || '').toUpperCase() === 'TRUE';
+        const isOutOfStock = String(row['Available'] || '').toUpperCase() === 'FALSE';
+
+        let statusHtml = '';
+        if (isHidden) {
+            statusHtml = '<span class="status-badge status-inactive">Hidden</span>';
+        } else if (isOutOfStock) {
+            statusHtml = '<span class="status-badge status-inactive" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);">Out of Stock</span>';
+        } else {
+            statusHtml = '<span class="status-badge status-active">Active</span>';
+        }
 
         tr.onclick = function () { window.toggleProductRowExpansion(this, row['No']); };
         tr.style.cursor = 'pointer';
@@ -3569,6 +3576,17 @@ window.editProduct = function (no) {
     if (form.elements['description (80 word)']) form.elements['description (80 word)'].value = product['description (80 word)'];
     if (form.elements['Colors']) form.elements['Colors'].value = product['Colors'];
     if (form.elements['Dimensions(mm) x y z']) form.elements['Dimensions(mm) x y z'].value = product['Dimensions(mm) x y z'];
+
+    // Populate checkboxes
+    if (form.elements['Available']) {
+        form.elements['Available'].checked = String(product['Available'] || '').toUpperCase() !== 'FALSE';
+    }
+    if (form.elements['Hidden']) {
+        form.elements['Hidden'].checked = String(product['Hidden'] || '').toUpperCase() === 'TRUE';
+    }
+    if (form.elements['Active']) {
+        form.elements['Active'].checked = String(product['Active'] || '').toUpperCase() !== 'FALSE';
+    }
 
     const btn = form.querySelector('button[type="submit"]');
     btn.innerText = "Update Product";
