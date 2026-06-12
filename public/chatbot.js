@@ -272,7 +272,7 @@ async function sendMessage() {
             2. PRODUCT CATALOG: ${window.productListInfo || "Catalog loading..."}
             3. Respond in the user's language (English or Arabic/Jordanian).
             4. Be helpful, artistic, and premium.
-            5. MANDATORY: You must end EVERY single response by offering the WhatsApp number for orders/support: +962795965910. This is required for every message.
+            5. MANDATORY: You must end EVERY single response by offering the WhatsApp number for orders/support: +962795976071. This is required for every message.
             6. CRITICAL: Use the "PRODUCT CATALOG" to answer about availability and prices. 
             7. If asked about the "last item", refer to the item with the highest number or the one at the start of the catalog list.
             8. Formatting: You can use **bold**, *italic*, and - bullet points.
@@ -385,10 +385,10 @@ function appendMessage(text, side) {
     formattedText = formattedText.replace(urlRegex, '<a href="$1" target="_blank" class="chatbot-link">$1</a>');
 
     // 2. Make WhatsApp Number Clickable
-    const waRegex = /(\+?962795965910)/g;
+    const waRegex = /(\+?962795976071)/g;
     formattedText = formattedText.replace(waRegex, (match) => {
         const message = encodeURIComponent("Hi, I would Like to order. May I get your assestant.");
-        return `<a href="https://wa.me/962795965910?text=${message}" target="_blank" class="chatbot-link" style="color:#25d366; font-weight:bold; text-decoration:none;">${match} <i data-lucide="message-circle" style="width:14px; vertical-align:middle;"></i></a>`;
+        return `<a href="https://wa.me/962795976071?text=${message}" target="_blank" class="chatbot-link" style="color:#25d366; font-weight:bold; text-decoration:none;">${match} <i data-lucide="message-circle" style="width:14px; vertical-align:middle;"></i></a>`;
     });
 
     // 3. Make Item Numbers Copyable and add "View Product" buttons
