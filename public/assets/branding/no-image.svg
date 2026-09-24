@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#bgGrad)"/>
+
+  <!-- Subtle Blueprint Grid Lines -->
+  <path d="M0 75 H400 M0 150 H400 M0 225 H400 M100 0 V300 M200 0 V300 M300 0 V300" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4" opacity="0.6"/>
+
+  <!-- Isometric 3D Model Wireframe Cube -->
+  <g transform="translate(200, 130)">
+    <!-- Top Face -->
+    <polygon points="0,-45 45,-20 0,5 -45,-20" fill="url(#cubeTop)" stroke="#ffffff" stroke-width="1.5"/>
+    <!-- Left Face -->
+    <polygon points="-45,-20 0,5 0,55 -45,30" fill="url(#cubeLeft)" stroke="#ffffff" stroke-width="1.5"/>
+    <!-- Right Face -->
+    <polygon points="0,5 45,-20 45,30 0,55" fill="url(#cubeRight)" stroke="#ffffff" stroke-width="1.5"/>
+
+    <!-- Subtle Caliper / STL Compass Accent -->
+    <circle cx="0" cy="5" r="4" fill="#ffffff" opacity="0.8"/>
+  </g>
+
+  <!-- Label -->
+  <text x="200" y="215" text-anchor="middle" font-family="'Inter', -apple-system, sans-serif" font-size="14" font-weight="700" fill="#64748b" letter-spacing="0.05em">3D MODEL PREVIEW</text>
+  <text x="200" y="235" text-anchor="middle" font-family="'Inter', -apple-system, sans-serif" font-size="11" font-weight="500" fill="#94a3b8">Interactive design available on platform</text>
+</svg>
